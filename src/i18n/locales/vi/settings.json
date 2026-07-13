@@ -207,6 +207,7 @@
 		"smoothing": "Làm mượt",
 		"motionBlur": "Làm mờ chuyển động",
 		"clickBounce": "Nảy khi nhấp",
+		"clickRipple": "Gợn sóng khi nhấp",
 		"clipToBounds": "Cắt theo khung"
 	},
 	"language": {

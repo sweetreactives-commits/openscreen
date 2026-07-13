@@ -208,6 +208,7 @@
 		"smoothing": "平滑",
 		"motionBlur": "動態模糊",
 		"clickBounce": "點擊彈跳",
+		"clickRipple": "點擊波紋",
 		"clipToBounds": "裁切至畫布"
 	},
 	"language": {

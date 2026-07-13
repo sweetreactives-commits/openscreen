@@ -216,6 +216,7 @@
 		"smoothing": "スムージング",
 		"motionBlur": "モーションブラー",
 		"clickBounce": "クリックバウンス",
+		"clickRipple": "クリックリップル",
 		"clipToBounds": "キャンバスにクリップ"
 	},
 	"language": {

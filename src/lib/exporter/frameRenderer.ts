@@ -49,11 +49,13 @@ import {
 	type Size,
 	type StyledRenderRect,
 } from "@/lib/compositeLayout";
+import { drawClickRippleOnCanvas, getClickRippleVisual } from "@/lib/cursor/clickRipple";
 import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
+	getNativeCursorClickRippleProgress,
 	getNativeCursorMotionBlurPx,
 	projectNativeCursorToLocal,
 	resetNativeCursorMotionBlurState,
@@ -90,6 +92,7 @@ interface FrameRenderConfig {
 	cursorSmoothing?: number;
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
+	cursorClickRipple?: number;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
 	videoWidth: number;
@@ -615,6 +618,32 @@ export class FrameRenderer {
 			state: this.nativeCursorMotionBlurState,
 			timeMs,
 		});
+		const rippleVisual = getClickRippleVisual(
+			getNativeCursorClickRippleProgress(this.config.cursorRecordingData, timeMs),
+			this.config.cursorClickRipple ?? 0,
+		);
+		if (rippleVisual) {
+			// Matches the preview, where the ripple lives inside the masked video
+			// container: always clip the ring to the camera-aware video boundary.
+			const rippleClip = this.cameraAwareMaskRect();
+			this.foregroundCtx.save();
+			if (rippleClip) {
+				this.foregroundCtx.beginPath();
+				this.foregroundCtx.roundRect(
+					rippleClip.x,
+					rippleClip.y,
+					rippleClip.width,
+					rippleClip.height,
+					rippleClip.br,
+				);
+				this.foregroundCtx.clip();
+			}
+			// Canvas-space cursor height without the bounce scale, so the ring doesn't pulse.
+			const cursorCanvasHeight =
+				renderAsset.height * Math.max(0, this.config.cursorScale ?? 1) * appliedScale * sizeNorm;
+			drawClickRippleOnCanvas(this.foregroundCtx, canvasX, canvasY, cursorCanvasHeight, rippleVisual);
+			this.foregroundCtx.restore();
+		}
 		// Clip only when explicitly enabled; by default the cursor may overflow the canvas
 		const cursorClip = this.config.cursorClipToBounds === true ? this.cameraAwareMaskRect() : null;
 		this.foregroundCtx.save();

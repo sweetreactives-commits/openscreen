@@ -50,6 +50,7 @@ Electron two-process split:
   - `i18n/` — 13 languages (Arabic, English, Spanish, French, Italian, Japanese, Korean, Portuguese-BR, Russian, Turkish, Vietnamese, zh-Hans, zh-Hant)
 - **`dist-electron/`** — build output (`main.js` is the packaged entry); do not edit by hand
 - **`docs/`** — `architecture/`, `engineering/`, `testing/` notes worth checking before deep changes
+  - `docs/UPGRADES.md` — prioritized roadmap (top-10) of planned editor features for viewer retention, with per-feature status of existing infrastructure and UX mechanics. Check it before starting new editor-feature work.
 
 ### Platform note on capture
 The editor/export is identical across OSes. Differences are only in **capture**: macOS/Windows use a native high-quality pipeline with real cursor capture; Linux falls back to the browser pipeline (cursor position only, no cursor themes/click effects). Keep this in mind when touching recording code.

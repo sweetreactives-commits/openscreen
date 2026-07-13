@@ -216,6 +216,7 @@
 		"smoothing": "부드러움",
 		"motionBlur": "모션 블러",
 		"clickBounce": "클릭 바운스",
+		"clickRipple": "클릭 리플",
 		"clipToBounds": "캔버스에 맞춰 자르기"
 	},
 	"language": {

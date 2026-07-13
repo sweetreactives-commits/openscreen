@@ -26,11 +26,13 @@ import {
 	type WebcamLayoutPreset,
 	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
+import { drawClickRippleOnGraphics, getClickRippleVisual } from "@/lib/cursor/clickRipple";
 import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
+	getNativeCursorClickRippleProgress,
 	getNativeCursorMotionBlurPx,
 	hasNativeCursorRecordingData,
 	projectNativeCursorToLocal,
@@ -143,6 +145,7 @@ interface VideoPlaybackProps {
 	cursorSmoothing?: number;
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
+	cursorClickRipple?: number;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
 	// Render the selected zoom at the playhead even while paused, so the editor can
@@ -270,6 +273,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorSmoothing = DEFAULT_CURSOR_SETTINGS.smoothing,
 			cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
 			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
+			cursorClickRipple = DEFAULT_CURSOR_SETTINGS.clickRipple,
 			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
 			isPreviewingZoom = false,
@@ -350,6 +354,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorSmoothingRef = useRef(cursorSmoothing);
 		const cursorMotionBlurRef = useRef(cursorMotionBlur);
 		const cursorClickBounceRef = useRef(cursorClickBounce);
+		const cursorClickRippleRef = useRef(cursorClickRipple);
 		const cursorClipToBoundsRef = useRef(cursorClipToBounds);
 		const cursorThemeRef = useRef(cursorTheme);
 		const isPreviewingZoomRef = useRef(isPreviewingZoom);
@@ -366,6 +371,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorRecordingDataRef = useRef(cursorRecordingData);
 		const cropRegionRef = useRef(cropRegion);
 		const nativeCursorSpriteRef = useRef<Sprite | null>(null);
+		const nativeClickRippleGraphicsRef = useRef<Graphics | null>(null);
 		const nativeCursorTextureIdRef = useRef<string | null>(null);
 		const nativeCursorImageRef = useRef<HTMLImageElement | null>(null);
 		const nativeCursorImageIdRef = useRef<string | null>(null);
@@ -840,6 +846,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorClickBounce]);
 
 		useEffect(() => {
+			cursorClickRippleRef.current = cursorClickRipple;
+		}, [cursorClickRipple]);
+
+		useEffect(() => {
 			cursorClipToBoundsRef.current = cursorClipToBounds;
 		}, [cursorClipToBounds]);
 
@@ -873,8 +883,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			overlay.setSmoothingFactor(cursorSmoothing);
 			overlay.setMotionBlur(cursorMotionBlur);
 			overlay.setClickBounce(cursorClickBounce);
+			overlay.setClickRipple(cursorClickRipple);
 			overlay.reset();
-		}, [cursorSize, cursorSmoothing, cursorMotionBlur, cursorClickBounce]);
+		}, [cursorSize, cursorSmoothing, cursorMotionBlur, cursorClickBounce, cursorClickRipple]);
 
 		useEffect(() => {
 			onTimeUpdateRef.current = onTimeUpdate;
@@ -1043,6 +1054,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						smoothingFactor: cursorSmoothingRef.current,
 						motionBlur: cursorMotionBlurRef.current,
 						clickBounce: cursorClickBounceRef.current,
+						clickRipple: cursorClickRippleRef.current,
 					});
 					cursorOverlayRef.current = cursorOverlay;
 				}
@@ -1060,6 +1072,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				nativeCursorSpriteRef.current = null;
 				nativeCursorTextureIdRef.current = null;
 				nativeCursorImageIdRef.current = null;
+				nativeClickRippleGraphicsRef.current = null;
 				if (app && app.renderer) {
 					app.destroy(true, {
 						children: true,
@@ -1186,6 +1199,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			nativeCursorSprite.visible = false;
 			nativeCursorSprite.eventMode = "none";
 			nativeCursorSpriteRef.current = nativeCursorSprite;
+			// Click ripple for the native cursor path. Lives inside the masked video
+			// container so it inherits the camera transform and the video mask; the DOM
+			// cursor image renders above the canvas, keeping the ring behind the cursor.
+			const nativeClickRippleGraphics = new Graphics();
+			nativeClickRippleGraphics.eventMode = "none";
+			nativeClickRippleGraphicsRef.current = nativeClickRippleGraphics;
+			videoContainer.addChild(nativeClickRippleGraphics);
 			if (cursorOverlayRef.current) {
 				videoContainer.addChild(cursorOverlayRef.current.container);
 			}
@@ -1547,6 +1567,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				// Keep the native cursor preview in the same transformed coordinate space as PIXI.
 				const nativeCursorSprite = nativeCursorSpriteRef.current;
 				const nativeCursorImage = nativeCursorImageRef.current;
+				nativeClickRippleGraphicsRef.current?.clear();
 				const hideNativeCursorPreview = () => {
 					if (nativeCursorSprite) {
 						nativeCursorSprite.visible = false;
@@ -1675,6 +1696,26 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									);
 									nativeCursorSprite.width = renderAsset.width * scale;
 									nativeCursorSprite.height = renderAsset.height * scale;
+								}
+								const rippleGraphics = nativeClickRippleGraphicsRef.current;
+								if (rippleGraphics) {
+									const rippleVisual = getClickRippleVisual(
+										getNativeCursorClickRippleProgress(cursorRecordingDataRef.current, timeMs),
+										cursorClickRippleRef.current,
+									);
+									if (rippleVisual) {
+										// Local-space cursor height without the bounce scale, so the ring
+										// doesn't pulse with the cursor; the camera transform is inherited.
+										const cursorLocalHeight =
+											renderAsset.height * Math.max(0, cursorSizeRef.current) * sizeNorm;
+										drawClickRippleOnGraphics(
+											rippleGraphics,
+											projectedLocalPoint.x,
+											projectedLocalPoint.y,
+											cursorLocalHeight,
+											rippleVisual,
+										);
+									}
 								}
 							} else {
 								hideNativeCursorPreview();

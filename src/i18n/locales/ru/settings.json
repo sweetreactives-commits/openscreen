@@ -216,6 +216,7 @@
 		"smoothing": "Сглаживание",
 		"motionBlur": "Размытие движения",
 		"clickBounce": "Отскок при клике",
+		"clickRipple": "Волна при клике",
 		"clipToBounds": "Обрезать по холсту"
 	},
 	"language": {

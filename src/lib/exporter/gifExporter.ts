@@ -55,6 +55,7 @@ interface GifExporterConfig {
 	cursorSmoothing?: number;
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
+	cursorClickRipple?: number;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
 	annotationRegions?: AnnotationRegion[];
@@ -163,6 +164,7 @@ export class GifExporter {
 				cursorSmoothing: this.config.cursorSmoothing,
 				cursorMotionBlur: this.config.cursorMotionBlur,
 				cursorClickBounce: this.config.cursorClickBounce,
+				cursorClickRipple: this.config.cursorClickRipple,
 				cursorClipToBounds: this.config.cursorClipToBounds,
 				cursorTheme: this.config.cursorTheme,
 				videoWidth: videoInfo.width,

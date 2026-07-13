@@ -207,6 +207,7 @@
 		"smoothing": "平滑",
 		"motionBlur": "运动模糊",
 		"clickBounce": "点击弹跳",
+		"clickRipple": "点击波纹",
 		"clipToBounds": "裁剪到画布"
 	},
 	"language": {

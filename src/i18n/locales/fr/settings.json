@@ -216,6 +216,7 @@
 		"smoothing": "Lissage",
 		"motionBlur": "Flou de mouvement",
 		"clickBounce": "Rebond au clic",
+		"clickRipple": "Onde au clic",
 		"clipToBounds": "Rogner au canevas"
 	},
 	"language": {

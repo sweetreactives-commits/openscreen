@@ -17,6 +17,7 @@ import upArrowUrl from "@/assets/cursors/Cursor=Up-Arrow.svg";
 import waitUrl from "@/assets/cursors/Cursor=Wait.svg";
 import type { CropRegion } from "@/components/video-editor/types";
 import { getAssetPath } from "@/lib/assetPath";
+import { CLICK_RIPPLE_DURATION_MS } from "@/lib/cursor/clickRipple";
 import { DEFAULT_CURSOR_THEME_ID, getCursorTheme } from "@/lib/cursor/cursorThemes";
 import type {
 	CursorRecordingData,
@@ -308,6 +309,33 @@ export function getNativeCursorClickBounceProgress(
 
 		if (sample.interactionType === "click") {
 			return 1 - ageMs / NATIVE_CURSOR_CLICK_ANIMATION_MS;
+		}
+	}
+
+	return 0;
+}
+
+export function getNativeCursorClickRippleProgress(
+	recordingData: CursorRecordingData | null | undefined,
+	timeMs: number,
+) {
+	if (!recordingData || recordingData.samples.length === 0) {
+		return 0;
+	}
+
+	for (
+		let index = findNativeCursorSampleIndexAtOrBefore(recordingData.samples, timeMs);
+		index >= 0;
+		index -= 1
+	) {
+		const sample = recordingData.samples[index];
+		const ageMs = timeMs - sample.timeMs;
+		if (ageMs > CLICK_RIPPLE_DURATION_MS) {
+			return 0;
+		}
+
+		if (sample.interactionType === "click") {
+			return 1 - ageMs / CLICK_RIPPLE_DURATION_MS;
 		}
 	}
 

@@ -207,6 +207,7 @@
 		"smoothing": "التنعيم",
 		"motionBlur": "ضبابية الحركة",
 		"clickBounce": "ارتداد النقر",
+		"clickRipple": "تموج النقر",
 		"clipToBounds": "القص ضمن اللوحة"
 	},
 	"language": {

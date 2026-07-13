@@ -342,6 +342,8 @@ interface SettingsPanelProps {
 	onCursorMotionBlurChange?: (blur: number) => void;
 	cursorClickBounce?: number;
 	onCursorClickBounceChange?: (bounce: number) => void;
+	cursorClickRipple?: number;
+	onCursorClickRippleChange?: (ripple: number) => void;
 	cursorClipToBounds?: boolean;
 	onCursorClipToBoundsChange?: (clip: boolean) => void;
 	cursorTheme?: string;
@@ -478,6 +480,8 @@ export function SettingsPanel({
 	onCursorMotionBlurChange,
 	cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 	onCursorClickBounceChange,
+	cursorClickRipple = DEFAULT_CURSOR_SETTINGS.clickRipple,
+	onCursorClickRippleChange,
 	cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	onCursorClipToBoundsChange,
 	cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
@@ -1683,6 +1687,24 @@ export function SettingsPanel({
 																	min={0}
 																	max={5}
 																	step={0.1}
+																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																/>
+															</div>
+															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																<div className="flex items-center justify-between mb-1">
+																	<div className="text-[10px] font-medium text-slate-300">
+																		{t("cursor.clickRipple")}
+																	</div>
+																	<span className="text-[10px] text-slate-500 font-mono">
+																		{Math.round(cursorClickRipple * 100)}%
+																	</span>
+																</div>
+																<Slider
+																	value={[cursorClickRipple]}
+																	onValueChange={(values) => onCursorClickRippleChange?.(values[0])}
+																	min={0}
+																	max={1}
+																	step={0.01}
 																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 																/>
 															</div>

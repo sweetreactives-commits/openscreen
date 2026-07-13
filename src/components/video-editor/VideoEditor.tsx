@@ -286,6 +286,7 @@ export default function VideoEditor() {
 	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SETTINGS.smoothing);
 	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_SETTINGS.motionBlur);
 	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_SETTINGS.clickBounce);
+	const [cursorClickRipple, setCursorClickRipple] = useState(DEFAULT_CURSOR_SETTINGS.clickRipple);
 	const [cursorClipToBounds, setCursorClipToBounds] = useState(
 		DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	);
@@ -859,6 +860,7 @@ export default function VideoEditor() {
 		setCursorSmoothing(DEFAULT_CURSOR_SETTINGS.smoothing);
 		setCursorMotionBlur(DEFAULT_CURSOR_SETTINGS.motionBlur);
 		setCursorClickBounce(DEFAULT_CURSOR_SETTINGS.clickBounce);
+		setCursorClickRipple(DEFAULT_CURSOR_SETTINGS.clickRipple);
 		setCursorClipToBounds(DEFAULT_CURSOR_SETTINGS.clipToBounds);
 		setCursorTheme(DEFAULT_CURSOR_SETTINGS.theme);
 		// Reset region ID counters.
@@ -1906,6 +1908,7 @@ export default function VideoEditor() {
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
+						cursorClickRipple,
 						cursorClipToBounds,
 						cursorTheme,
 						annotationRegions,
@@ -2000,6 +2003,7 @@ export default function VideoEditor() {
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
+						cursorClickRipple,
 						cursorClipToBounds,
 						cursorTheme,
 						annotationRegions,
@@ -2121,6 +2125,7 @@ export default function VideoEditor() {
 			cursorSmoothing,
 			cursorMotionBlur,
 			cursorClickBounce,
+			cursorClickRipple,
 			cursorClipToBounds,
 			cursorTheme,
 			t,
@@ -2641,6 +2646,7 @@ export default function VideoEditor() {
 													cursorSmoothing={cursorSmoothing}
 													cursorMotionBlur={cursorMotionBlur}
 													cursorClickBounce={cursorClickBounce}
+													cursorClickRipple={cursorClickRipple}
 													cursorClipToBounds={cursorClipToBounds}
 													cursorTheme={cursorTheme}
 													isPreviewingZoom={isPreviewingZoom}
@@ -2828,6 +2834,8 @@ export default function VideoEditor() {
 										onCursorMotionBlurChange={setCursorMotionBlur}
 										cursorClickBounce={cursorClickBounce}
 										onCursorClickBounceChange={setCursorClickBounce}
+										cursorClickRipple={cursorClickRipple}
+										onCursorClickRippleChange={setCursorClickRipple}
 										cursorClipToBounds={cursorClipToBounds}
 										onCursorClipToBoundsChange={setCursorClipToBounds}
 										cursorTheme={cursorTheme}

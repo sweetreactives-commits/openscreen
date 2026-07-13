@@ -1,5 +1,10 @@
 import { Assets, BlurFilter, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
+import {
+	CLICK_RIPPLE_DURATION_MS,
+	drawClickRippleOnGraphics,
+	getClickRippleVisual,
+} from "@/lib/cursor/clickRipple";
 import type { CursorTelemetryPoint } from "../types";
 import {
 	createSpringState,
@@ -53,6 +58,8 @@ export interface CursorRenderConfig {
 	motionBlur: number;
 	/** Click bounce multiplier. */
 	clickBounce: number;
+	/** Click ripple ring intensity (0-1, 0 disables it). */
+	clickRipple: number;
 }
 
 export const DEFAULT_CURSOR_CONFIG: CursorRenderConfig = {
@@ -63,12 +70,12 @@ export const DEFAULT_CURSOR_CONFIG: CursorRenderConfig = {
 	smoothingFactor: 0.18,
 	motionBlur: 0,
 	clickBounce: 1,
+	clickRipple: 0,
 };
 
 const REFERENCE_WIDTH = 1920;
 const MIN_CURSOR_VIEWPORT_SCALE = 0.55;
 const CLICK_ANIMATION_MS = 140;
-const CLICK_RING_FADE_MS = 240;
 const CURSOR_MOTION_BLUR_BASE_MULTIPLIER = 0.08;
 const CURSOR_TIME_DISCONTINUITY_MS = 100;
 const CURSOR_SVG_DROP_SHADOW_FILTER = "drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.35))";
@@ -405,8 +412,8 @@ function getCursorVisualState(samples: CursorTelemetryPoint[], timeMs: number) {
 		cursorType: findLatestStableCursorType(samples, timeMs),
 		clickBounceProgress,
 		clickProgress:
-			latestClick && isClickEvent && ageMs <= CLICK_RING_FADE_MS
-				? 1 - ageMs / CLICK_RING_FADE_MS
+			latestClick && isClickEvent && ageMs <= CLICK_RIPPLE_DURATION_MS
+				? 1 - ageMs / CLICK_RIPPLE_DURATION_MS
 				: 0,
 	};
 }
@@ -491,12 +498,20 @@ export class SmoothedCursorState {
 	}
 }
 
-function drawClickRing(graphics: Graphics, px: number, py: number, h: number, progress: number) {
-	void graphics;
-	void px;
-	void py;
-	void h;
-	void progress;
+function drawClickRing(
+	graphics: Graphics,
+	px: number,
+	py: number,
+	h: number,
+	progress: number,
+	intensity: number,
+) {
+	const visual = getClickRippleVisual(progress, intensity);
+	if (!visual) {
+		return;
+	}
+
+	drawClickRippleOnGraphics(graphics, px, py, h, visual);
 }
 
 export class PixiCursorOverlay {
@@ -577,6 +592,10 @@ export class PixiCursorOverlay {
 		this.config.clickBounce = Math.max(0, clickBounce);
 	}
 
+	setClickRipple(clickRipple: number) {
+		this.config.clickRipple = Math.max(0, clickRipple);
+	}
+
 	update(
 		samples: CursorTelemetryPoint[],
 		timeMs: number,
@@ -631,7 +650,7 @@ export class PixiCursorOverlay {
 		const scaledH = h;
 
 		this.clickRingGraphics.clear();
-		drawClickRing(this.clickRingGraphics, px, py, h, clickProgress);
+		drawClickRing(this.clickRingGraphics, px, py, h, clickProgress, this.config.clickRipple);
 
 		for (const [key, currentShadowSprite] of Object.entries(this.cursorShadowSprites) as Array<
 			[CursorAssetKey, Sprite]

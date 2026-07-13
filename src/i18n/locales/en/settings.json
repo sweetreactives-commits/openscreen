@@ -217,6 +217,7 @@
 		"smoothing": "Smoothing",
 		"motionBlur": "Motion Blur",
 		"clickBounce": "Click Bounce",
+		"clickRipple": "Click Ripple",
 		"clipToBounds": "Clip to Canvas",
 		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
