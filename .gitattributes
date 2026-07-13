@@ -1,0 +1,6 @@
+# Normalize line endings to LF — in the repo and in the working tree on
+# checkout — so tooling behaves identically on every OS regardless of git's
+# core.autocrlf. This keeps Biome (formatter.lineEnding = "lf") and the husky
+# pre-commit hook from flagging CRLF on Windows checkouts. Binary files are
+# auto-detected via text=auto and left untouched.
+* text=auto eol=lf
