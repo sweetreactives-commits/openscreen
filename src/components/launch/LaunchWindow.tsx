@@ -147,6 +147,7 @@ export function LaunchWindow() {
 	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
 	const hudBarRef = useRef<HTMLDivElement | null>(null);
 	const deviceSelectorRef = useRef<HTMLDivElement | null>(null);
+	const languagePromptRef = useRef<HTMLDivElement | null>(null);
 	// Measured bar height, anchors the popups above the tall vertical tray so they don't overlap it.
 	const [hudBarHeight, setHudBarHeight] = useState(0);
 	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
@@ -341,6 +342,20 @@ export function LaunchWindow() {
 			}
 		}
 
+		// First-run language suggestion sits above the bar (like the device popups), so it
+		// drives both dimensions the same way. Without this the window stays bar-sized and the
+		// prompt's action buttons get clipped outside the window bounds and can't be clicked.
+		if (languagePromptRef.current) {
+			const rect = languagePromptRef.current.getBoundingClientRect();
+			if (rect.width !== 0 || rect.height !== 0) {
+				topFromBottom = Math.max(
+					topFromBottom,
+					barEl.scrollHeight + HUD_DEVICE_POPUP_GAP + rect.height,
+				);
+				halfWidth = Math.max(halfWidth, rect.width / 2);
+			}
+		}
+
 		// The language menu scrolls within available height, so it only influences width.
 		// Its presence in the DOM means it's open.
 		if (languageMenuPanelRef.current) {
@@ -393,6 +408,10 @@ export function LaunchWindow() {
 	);
 	const setDeviceSelectorEl = useCallback(
 		(el: HTMLDivElement | null) => observeHudElement(el, deviceSelectorRef),
+		[observeHudElement],
+	);
+	const setLanguagePromptEl = useCallback(
+		(el: HTMLDivElement | null) => observeHudElement(el, languagePromptRef),
 		[observeHudElement],
 	);
 	const setLanguageMenuPanelEl = useCallback(
@@ -518,8 +537,10 @@ export function LaunchWindow() {
 		>
 			{systemLocaleSuggestion && (
 				<div
+					ref={setLanguagePromptEl}
 					data-hud-interactive="true"
-					className={`fixed top-8 left-1/2 z-30 w-[calc(100vw-1rem)] max-w-[520px] -translate-x-1/2 rounded-xl border border-white/15 bg-[rgba(20,20,28,0.95)] p-3 shadow-2xl backdrop-blur-xl text-white animate-in fade-in-0 zoom-in-95 duration-200 ${styles.electronNoDrag}`}
+					className={`fixed left-1/2 z-30 w-[340px] max-w-[calc(100vw-1rem)] -translate-x-1/2 rounded-xl border border-white/15 bg-[rgba(20,20,28,0.95)] p-3 shadow-2xl backdrop-blur-xl text-white animate-in fade-in-0 zoom-in-95 duration-200 ${styles.electronNoDrag}`}
+					style={{ bottom: hudBarHeight + HUD_DEVICE_POPUP_GAP }}
 				>
 					<div className="text-[13px] font-semibold text-white">
 						{t("systemLanguagePrompt.title")}
