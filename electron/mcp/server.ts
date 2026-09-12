@@ -23,6 +23,9 @@ import { callEditor, configureMcpBridge, resetMcpBridge } from "./bridge";
  * setup makes every open browser tab, a potential caller.
  */
 
+/** Decoding a frame means loading and seeking a video, well past a state read. */
+const FRAME_TIMEOUT_MS = 45_000;
+
 const MCP_ENDPOINT = "/mcp";
 const DISCOVERY_FILE = "mcp.json";
 
@@ -154,6 +157,55 @@ function buildMcpServer(): McpServer {
 			annotations: { readOnlyHint: true },
 		},
 		async (args) => readFromEditor("get_audio_profile", args),
+	);
+
+	server.registerTool(
+		"get_frame",
+		{
+			title: "Look at a frame",
+			description:
+				"A single frame of the source recording as an image, so you can see what is " +
+				"actually on screen at a moment — which window, which UI, what text. This is " +
+				"the raw recording, not the styled preview: no wallpaper, padding or zoom. " +
+				"The only expensive tool here, so ask for specific moments (a click from " +
+				"get_cursor_events, say) rather than sampling the timeline.",
+			inputSchema: z.object({
+				timeMs: z
+					.number()
+					.describe("When to grab, in milliseconds on the source recording's clock."),
+				maxWidth: z
+					.number()
+					.optional()
+					.describe("Longest edge of the image. Default 768, capped at 1920."),
+				quality: z.number().optional().describe("JPEG quality from 0 to 1. Default 0.7."),
+			}),
+			annotations: { readOnlyHint: true },
+		},
+		async (args) => {
+			// Loading and seeking a fresh video element is slower than a state read.
+			const response = await callEditor<{
+				timeMs: number;
+				width: number;
+				height: number;
+				mimeType: string;
+				base64: string;
+			}>("get_frame", args, FRAME_TIMEOUT_MS);
+
+			if (!response.ok) {
+				return { isError: true, content: [{ type: "text" as const, text: response.message }] };
+			}
+
+			const frame = response.data;
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `Frame at ${frame.timeMs}ms, ${frame.width}x${frame.height}`,
+					},
+					{ type: "image" as const, data: frame.base64, mimeType: frame.mimeType },
+				],
+			};
+		},
 	);
 
 	return server;

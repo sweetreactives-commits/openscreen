@@ -15,7 +15,7 @@ export const MCP_RESULT_CHANNEL = "mcp:command-result";
 export const MCP_CONTRACT_VERSION = 1;
 
 /** Read-only commands. Writes arrive with stage 2. */
-export type McpCommand = "get_project" | "get_cursor_events" | "get_audio_profile";
+export type McpCommand = "get_project" | "get_cursor_events" | "get_audio_profile" | "get_frame";
 
 export interface McpCommandRequest {
 	id: string;

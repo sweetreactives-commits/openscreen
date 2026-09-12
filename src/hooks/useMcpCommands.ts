@@ -5,6 +5,7 @@ import type { EditorState } from "@/hooks/useEditorHistory";
 import { buildAudioProfile } from "@/lib/mcp/audioProfile";
 import type { McpCommandRequest } from "@/lib/mcp/contracts";
 import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
+import { grabFrame } from "@/lib/mcp/frameGrab";
 import { buildProjectSummary } from "@/lib/mcp/projectSummary";
 import type { ProjectMedia } from "@/lib/recordingSession";
 
@@ -79,6 +80,14 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						bucketCount: asNumber(args.bucketCount),
 						silenceThreshold: asNumber(args.silenceThreshold),
 						minSilenceMs: asNumber(args.minSilenceMs),
+					});
+				}
+
+				case "get_frame": {
+					if (!current.videoUrl) throw new Error("No video is loaded");
+					return grabFrame(current.videoUrl, asNumber(args.timeMs) ?? 0, {
+						maxWidth: asNumber(args.maxWidth),
+						quality: asNumber(args.quality),
 					});
 				}
 

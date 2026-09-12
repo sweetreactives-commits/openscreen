@@ -115,6 +115,7 @@ test("serves the project, cursor and audio read tools to a connected client", as
 	});
 
 	let testVideoInRecordings = "";
+	let editorWindow: Awaited<ReturnType<typeof app.waitForEvent>> | null = null;
 
 	try {
 		const hudWindow = await app.firstWindow({ timeout: 60_000 });
@@ -133,7 +134,12 @@ test("serves the project, cursor and audio read tools to a connected client", as
 		const listed = await callMcp(endpoint, "tools/list");
 		const tools = (listed.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
 		expect(tools).toEqual(
-			expect.arrayContaining(["get_project", "get_cursor_events", "get_audio_profile"]),
+			expect.arrayContaining([
+				"get_project",
+				"get_cursor_events",
+				"get_audio_profile",
+				"get_frame",
+			]),
 		);
 
 		// Recorder mode has no editor state at all; that has to read as an
@@ -179,7 +185,7 @@ test("serves the project, cursor and audio read tools to a connected client", as
 			}
 		}
 
-		const editorWindow = await app.waitForEvent("window", {
+		editorWindow = await app.waitForEvent("window", {
 			predicate: (w) => w.url().includes("windowType=editor"),
 			timeout: 15_000,
 		});
@@ -223,7 +229,48 @@ test("serves the project, cursor and audio read tools to a connected client", as
 		const audio = await callTool(endpoint, "get_audio_profile", { bucketCount: 10 });
 		expect(audio).toHaveProperty("loudness");
 		expect(audio).toHaveProperty("silences");
+
+		// get_frame answers with image content rather than a structured payload.
+		const frameBody = await callMcp(
+			endpoint,
+			"tools/call",
+			{ name: "get_frame", arguments: { timeMs: 500, maxWidth: 320 } },
+			"get_frame",
+		);
+		const frameResult = frameBody.result as {
+			isError?: boolean;
+			content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+		};
+		expect(frameResult.isError, `get_frame failed: ${frameResult.content?.[0]?.text}`).toBeFalsy();
+
+		const image = frameResult.content.find((part) => part.type === "image");
+		expect(image, "get_frame returned no image part").toBeTruthy();
+		expect(image?.mimeType).toBe("image/jpeg");
+		// Decodes to a real JPEG: the first bytes of any JPEG are FF D8 FF.
+		const jpeg = Buffer.from(image?.data ?? "", "base64");
+		expect(jpeg.length).toBeGreaterThan(500);
+		expect(jpeg.subarray(0, 3).toString("hex")).toBe("ffd8ff");
+
+		// The recording is only a couple of seconds long, so a far-future request
+		// has to clamp into range rather than hang waiting for a seek that never lands.
+		const clampedBody = await callMcp(
+			endpoint,
+			"tools/call",
+			{ name: "get_frame", arguments: { timeMs: 99_000_000 } },
+			"get_frame",
+		);
+		const clampedText = (clampedBody.result as { content: Array<{ text?: string }> }).content[0]
+			.text;
+		expect(clampedText).toMatch(/^Frame at \d+ms/);
 	} finally {
+		// The editor guards its close with an unsaved-changes prompt, and in a
+		// headless run nobody can answer it, so app.close() would hang until the
+		// worker teardown timeout. This test isn't exercising that prompt.
+		await editorWindow
+			?.evaluate(() => window.electronAPI.setHasUnsavedChanges(false))
+			.catch(() => {
+				// The window may already be gone; closing is about to happen anyway.
+			});
 		await app.close().catch(() => {
 			// Already gone, or refusing to shut down cleanly — either way the run is over.
 		});

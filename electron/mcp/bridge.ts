@@ -19,8 +19,8 @@ import {
  * closes that window — so "no project open" is a normal answer, not a failure.
  */
 
-/** Reads are cheap; anything slower than this means the renderer is wedged. */
-const COMMAND_TIMEOUT_MS = 10_000;
+/** Most reads are cheap; anything slower than this means the renderer is wedged. */
+const DEFAULT_TIMEOUT_MS = 10_000;
 
 type Pending = {
 	resolve: (response: McpCommandResponse) => void;
@@ -68,6 +68,7 @@ export function isEditorAvailable(): boolean {
 export async function callEditor<T>(
 	command: McpCommand,
 	args?: Record<string, unknown>,
+	timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<McpCommandResponse<T>> {
 	const id = randomUUID();
 	const window = getEditorWindow?.() ?? null;
@@ -81,10 +82,8 @@ export async function callEditor<T>(
 	return new Promise<McpCommandResponse<T>>((resolve) => {
 		const timer = setTimeout(() => {
 			pending.delete(id);
-			resolve(
-				failure(id, "timeout", `${command} after ${COMMAND_TIMEOUT_MS}ms`) as McpCommandResponse<T>,
-			);
-		}, COMMAND_TIMEOUT_MS);
+			resolve(failure(id, "timeout", `${command} after ${timeoutMs}ms`) as McpCommandResponse<T>);
+		}, timeoutMs);
 
 		pending.set(id, { resolve: resolve as (response: McpCommandResponse) => void, timer });
 		window.webContents.send(MCP_COMMAND_CHANNEL, request);
