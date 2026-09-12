@@ -206,6 +206,30 @@ it("detects unsaved changes from differing snapshots", () => {
 	expect(hasProjectUnsavedChanges("current", "baseline")).toBe(true);
 });
 
+describe("zoom region source normalization", () => {
+	const zoom = (source?: unknown) => ({
+		zoomRegions: [
+			{ id: "zoom-1", startMs: 0, endMs: 1000, depth: 3, focus: { cx: 0.5, cy: 0.5 }, source },
+		],
+	});
+
+	it("keeps wand-suggested zooms marked auto", () => {
+		expect(normalizeProjectEditor(zoom("auto")).zoomRegions[0].source).toBe("auto");
+	});
+
+	it("keeps agent-proposed zooms marked agent", () => {
+		expect(normalizeProjectEditor(zoom("agent")).zoomRegions[0].source).toBe("agent");
+	});
+
+	it("treats a missing source as manual, for projects saved before the field existed", () => {
+		expect(normalizeProjectEditor(zoom(undefined)).zoomRegions[0].source).toBe("manual");
+	});
+
+	it("falls back to manual for unknown values", () => {
+		expect(normalizeProjectEditor(zoom("something-else")).zoomRegions[0].source).toBe("manual");
+	});
+});
+
 describe("wallpaper legacy normalization", () => {
 	it("rewrites pre-fix packaged paths (resources/assets/wallpapers/…)", () => {
 		const normalized = normalizeProjectEditor({

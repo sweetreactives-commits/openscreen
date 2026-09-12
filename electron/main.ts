@@ -427,6 +427,24 @@ function createCountdownOverlayWindowWrapper() {
 	return countdownOverlayWindow;
 }
 
+// One installed app, one running instance. A second launch would fight the first one
+// over the tray icon, the global shortcut and the recordings dir, and once the MCP
+// server lands there would be no telling which instance an agent is talking to. Hand
+// focus to the window that's already up instead.
+//
+// Only in packaged builds: `npm run dev` and the Playwright e2e suite (which launches
+// dist-electron/main.js directly, several specs in parallel) both need to run
+// side by side with an installed copy.
+if (app.isPackaged) {
+	if (app.requestSingleInstanceLock()) {
+		app.on("second-instance", () => {
+			showMainWindow();
+		});
+	} else {
+		app.quit();
+	}
+}
+
 // Closing every window quits the app (tray goes too). The in-app "Return to Recorder"
 // button covers the editor-to-HUD round-trip, so closing the last window means "I'm done".
 app.on("window-all-closed", () => {

@@ -63,10 +63,13 @@ export function rotation3DPerspective(width: number, height: number): number {
 
 /**
  * Origin of a zoom region. "auto" marks zooms from the magic-wand suggest pass;
- * toggling the wand off removes only these. Editing an auto zoom promotes it to
- * "manual" so it survives. Undefined is treated as "manual" for back-compat.
+ * toggling the wand off removes only these. "agent" marks zooms proposed by an
+ * external agent over MCP — they read as suggestions in the UI but survive the
+ * wand toggle, since the user never asked the wand for them. Editing a zoom of
+ * either kind promotes it to "manual" so it survives. Undefined is treated as
+ * "manual" for back-compat.
  */
-export type ZoomRegionSource = "auto" | "manual";
+export type ZoomRegionSource = "auto" | "agent" | "manual";
 
 export interface ZoomRegion {
 	id: string;

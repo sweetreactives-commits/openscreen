@@ -1089,7 +1089,8 @@ export default function VideoEditor() {
 	]);
 
 	// Wand toggle: ON regenerates suggestions around existing zooms; OFF removes
-	// only untouched auto zooms (manual and edited-to-manual survive).
+	// only untouched auto zooms (manual, edited-to-manual, and agent-proposed
+	// zooms survive — the user never asked the wand for those).
 	const handleToggleAutoZoom = useCallback(
 		(enabled: boolean) => {
 			if (enabled) {
