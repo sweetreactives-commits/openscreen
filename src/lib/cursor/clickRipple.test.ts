@@ -47,9 +47,9 @@ describe("native cursor click ripple progress", () => {
 	it("outlives the click bounce so the ring stays visible while it expands", () => {
 		expect(getNativeCursorClickRippleProgress(recordingData, 100)).toBe(1);
 		expect(getNativeCursorClickRippleProgress(recordingData, 400)).toBeGreaterThan(0);
-		expect(getNativeCursorClickRippleProgress(recordingData, 100 + CLICK_RIPPLE_DURATION_MS + 1)).toBe(
-			0,
-		);
+		expect(
+			getNativeCursorClickRippleProgress(recordingData, 100 + CLICK_RIPPLE_DURATION_MS + 1),
+		).toBe(0);
 	});
 
 	it("returns 0 before the click and without recording data", () => {

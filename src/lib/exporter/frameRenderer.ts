@@ -641,7 +641,13 @@ export class FrameRenderer {
 			// Canvas-space cursor height without the bounce scale, so the ring doesn't pulse.
 			const cursorCanvasHeight =
 				renderAsset.height * Math.max(0, this.config.cursorScale ?? 1) * appliedScale * sizeNorm;
-			drawClickRippleOnCanvas(this.foregroundCtx, canvasX, canvasY, cursorCanvasHeight, rippleVisual);
+			drawClickRippleOnCanvas(
+				this.foregroundCtx,
+				canvasX,
+				canvasY,
+				cursorCanvasHeight,
+				rippleVisual,
+			);
 			this.foregroundCtx.restore();
 		}
 		// Clip only when explicitly enabled; by default the cursor may overflow the canvas
