@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import {
+	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
 	DEFAULT_EDITOR_LAYOUT_SETTINGS,
 	DEFAULT_WEBCAM_SETTINGS,
@@ -49,6 +50,15 @@ export interface EditorState {
 	webcamReactiveZoom: boolean;
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
+	/** Cursor look. Undoable and saved with the project, like every other visual knob. */
+	showCursor: boolean;
+	cursorSize: number;
+	cursorSmoothing: number;
+	cursorMotionBlur: number;
+	cursorClickBounce: number;
+	cursorClickRipple: number;
+	cursorClipToBounds: boolean;
+	cursorTheme: string;
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
@@ -73,6 +83,14 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	webcamReactiveZoom: DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	webcamSizePreset: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	webcamPosition: DEFAULT_WEBCAM_SETTINGS.position,
+	showCursor: DEFAULT_CURSOR_SETTINGS.show,
+	cursorSize: DEFAULT_CURSOR_SETTINGS.size,
+	cursorSmoothing: DEFAULT_CURSOR_SETTINGS.smoothing,
+	cursorMotionBlur: DEFAULT_CURSOR_SETTINGS.motionBlur,
+	cursorClickBounce: DEFAULT_CURSOR_SETTINGS.clickBounce,
+	cursorClickRipple: DEFAULT_CURSOR_SETTINGS.clickRipple,
+	cursorClipToBounds: DEFAULT_CURSOR_SETTINGS.clipToBounds,
+	cursorTheme: DEFAULT_CURSOR_SETTINGS.theme,
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

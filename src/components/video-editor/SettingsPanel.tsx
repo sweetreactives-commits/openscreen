@@ -89,7 +89,10 @@ import type {
 import {
 	DEFAULT_WEBCAM_MIRRORED,
 	DEFAULT_WEBCAM_REACTIVE_ZOOM,
+	MAX_CURSOR_CLICK_BOUNCE,
+	MAX_CURSOR_SIZE,
 	MAX_ZOOM_SCALE,
+	MIN_CURSOR_SIZE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
 	SPEED_OPTIONS,
@@ -336,14 +339,19 @@ interface SettingsPanelProps {
 	onShowCursorChange?: (show: boolean) => void;
 	cursorSize?: number;
 	onCursorSizeChange?: (size: number) => void;
+	onCursorSizeCommit?: () => void;
 	cursorSmoothing?: number;
 	onCursorSmoothingChange?: (smoothing: number) => void;
+	onCursorSmoothingCommit?: () => void;
 	cursorMotionBlur?: number;
 	onCursorMotionBlurChange?: (blur: number) => void;
+	onCursorMotionBlurCommit?: () => void;
 	cursorClickBounce?: number;
 	onCursorClickBounceChange?: (bounce: number) => void;
+	onCursorClickBounceCommit?: () => void;
 	cursorClickRipple?: number;
 	onCursorClickRippleChange?: (ripple: number) => void;
+	onCursorClickRippleCommit?: () => void;
 	cursorClipToBounds?: boolean;
 	onCursorClipToBoundsChange?: (clip: boolean) => void;
 	cursorTheme?: string;
@@ -474,14 +482,19 @@ export function SettingsPanel({
 	onShowCursorChange,
 	cursorSize = DEFAULT_CURSOR_SETTINGS.size,
 	onCursorSizeChange,
+	onCursorSizeCommit,
 	cursorSmoothing = DEFAULT_CURSOR_SETTINGS.smoothing,
 	onCursorSmoothingChange,
+	onCursorSmoothingCommit,
 	cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
 	onCursorMotionBlurChange,
+	onCursorMotionBlurCommit,
 	cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 	onCursorClickBounceChange,
+	onCursorClickBounceCommit,
 	cursorClickRipple = DEFAULT_CURSOR_SETTINGS.clickRipple,
 	onCursorClickRippleChange,
+	onCursorClickRippleCommit,
 	cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	onCursorClipToBoundsChange,
 	cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
@@ -1630,8 +1643,9 @@ export function SettingsPanel({
 																<Slider
 																	value={[cursorSize]}
 																	onValueChange={(values) => onCursorSizeChange?.(values[0])}
-																	min={0.5}
-																	max={10}
+																	onValueCommit={() => onCursorSizeCommit?.()}
+																	min={MIN_CURSOR_SIZE}
+																	max={MAX_CURSOR_SIZE}
 																	step={0.1}
 																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 																/>
@@ -1648,6 +1662,7 @@ export function SettingsPanel({
 																<Slider
 																	value={[cursorSmoothing]}
 																	onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
+																	onValueCommit={() => onCursorSmoothingCommit?.()}
 																	min={0}
 																	max={1}
 																	step={0.01}
@@ -1666,6 +1681,7 @@ export function SettingsPanel({
 																<Slider
 																	value={[cursorMotionBlur]}
 																	onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
+																	onValueCommit={() => onCursorMotionBlurCommit?.()}
 																	min={0}
 																	max={1}
 																	step={0.01}
@@ -1684,8 +1700,9 @@ export function SettingsPanel({
 																<Slider
 																	value={[cursorClickBounce]}
 																	onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
+																	onValueCommit={() => onCursorClickBounceCommit?.()}
 																	min={0}
-																	max={5}
+																	max={MAX_CURSOR_CLICK_BOUNCE}
 																	step={0.1}
 																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 																/>
@@ -1702,6 +1719,7 @@ export function SettingsPanel({
 																<Slider
 																	value={[cursorClickRipple]}
 																	onValueChange={(values) => onCursorClickRippleChange?.(values[0])}
+																	onValueCommit={() => onCursorClickRippleCommit?.()}
 																	min={0}
 																	max={1}
 																	step={0.01}

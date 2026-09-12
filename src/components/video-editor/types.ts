@@ -204,6 +204,10 @@ export interface CursorVisualSettings {
 	clipToBounds: boolean;
 }
 
+export const MIN_CURSOR_SIZE = 0.5;
+export const MAX_CURSOR_SIZE = 10;
+export const MAX_CURSOR_CLICK_BOUNCE = 5;
+
 export const DEFAULT_CURSOR_SIZE = 3.0;
 export const DEFAULT_CURSOR_SMOOTHING = 0.67;
 export const DEFAULT_CURSOR_MOTION_BLUR = 0.35;

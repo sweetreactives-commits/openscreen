@@ -7,6 +7,7 @@ import { normalizeProjectMedia } from "@/lib/recordingSession";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
+	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
 	DEFAULT_EDITOR_LAYOUT_SETTINGS,
 	DEFAULT_EXPORT_SETTINGS,
@@ -32,9 +33,12 @@ import {
 	DEFAULT_ZOOM_MOTION_BLUR,
 	MAX_BLUR_BLOCK_SIZE,
 	MAX_BLUR_INTENSITY,
+	MAX_CURSOR_CLICK_BOUNCE,
+	MAX_CURSOR_SIZE,
 	MAX_PLAYBACK_SPEED,
 	MIN_BLUR_BLOCK_SIZE,
 	MIN_BLUR_INTENSITY,
+	MIN_CURSOR_SIZE,
 	MIN_PLAYBACK_SPEED,
 	type SpeedRegion,
 	type TrimRegion,
@@ -62,7 +66,13 @@ function normalizeWallpaperValue(value: string): string {
 	return CANONICAL_WALLPAPERS.has(canonical) ? canonical : DEFAULT_WALLPAPER;
 }
 
-export const PROJECT_VERSION = 2;
+/**
+ * 1 → single `videoPath`. 2 → explicit `media`. 3 → cursor look (size, smoothing,
+ * motion blur, click bounce/ripple, clipping, visibility) moved into the project;
+ * before that only `cursorTheme` was saved and the rest reset on every load.
+ * Older projects load fine — `normalizeProjectEditor` fills the gaps with defaults.
+ */
+export const PROJECT_VERSION = 3;
 
 export interface ProjectEditorState {
 	wallpaper: string;
@@ -92,6 +102,13 @@ export interface ProjectEditorState {
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
 	cursorTheme: string;
+	showCursor: boolean;
+	cursorSize: number;
+	cursorSmoothing: number;
+	cursorMotionBlur: number;
+	cursorClickBounce: number;
+	cursorClickRipple: number;
+	cursorClipToBounds: boolean;
 }
 
 export interface EditorProjectData {
@@ -446,8 +463,35 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 	const cropWidth = clamp(rawCropWidth, 0.01, 1 - cropX);
 	const cropHeight = clamp(rawCropHeight, 0.01, 1 - cropY);
 
-	return {
+	// Cursor look moved into the project in version 3. Version 2 projects carry only
+	// cursorTheme, so every other knob falls back to its default here.
+	const normalizedCursor = {
 		cursorTheme: normalizeCursorThemeId(editor.cursorTheme),
+		showCursor:
+			typeof editor.showCursor === "boolean" ? editor.showCursor : DEFAULT_CURSOR_SETTINGS.show,
+		cursorSize: isFiniteNumber(editor.cursorSize)
+			? clamp(editor.cursorSize, MIN_CURSOR_SIZE, MAX_CURSOR_SIZE)
+			: DEFAULT_CURSOR_SETTINGS.size,
+		cursorSmoothing: isFiniteNumber(editor.cursorSmoothing)
+			? clamp(editor.cursorSmoothing, 0, 1)
+			: DEFAULT_CURSOR_SETTINGS.smoothing,
+		cursorMotionBlur: isFiniteNumber(editor.cursorMotionBlur)
+			? clamp(editor.cursorMotionBlur, 0, 1)
+			: DEFAULT_CURSOR_SETTINGS.motionBlur,
+		cursorClickBounce: isFiniteNumber(editor.cursorClickBounce)
+			? clamp(editor.cursorClickBounce, 0, MAX_CURSOR_CLICK_BOUNCE)
+			: DEFAULT_CURSOR_SETTINGS.clickBounce,
+		cursorClickRipple: isFiniteNumber(editor.cursorClickRipple)
+			? clamp(editor.cursorClickRipple, 0, 1)
+			: DEFAULT_CURSOR_SETTINGS.clickRipple,
+		cursorClipToBounds:
+			typeof editor.cursorClipToBounds === "boolean"
+				? editor.cursorClipToBounds
+				: DEFAULT_CURSOR_SETTINGS.clipToBounds,
+	};
+
+	return {
+		...normalizedCursor,
 		wallpaper:
 			typeof editor.wallpaper === "string"
 				? normalizeWallpaperValue(editor.wallpaper)

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_CURSOR_SETTINGS } from "./editorDefaults";
 import {
 	createProjectData,
 	createProjectSnapshot,
@@ -8,6 +9,7 @@ import {
 	resolveProjectMedia,
 	validateProjectData,
 } from "./projectPersistence";
+import { MAX_CURSOR_CLICK_BOUNCE, MAX_CURSOR_SIZE, MIN_CURSOR_SIZE } from "./types";
 
 describe("projectPersistence media compatibility", () => {
 	it("accepts legacy projects with a single videoPath", () => {
@@ -227,6 +229,76 @@ describe("zoom region source normalization", () => {
 
 	it("falls back to manual for unknown values", () => {
 		expect(normalizeProjectEditor(zoom("something-else")).zoomRegions[0].source).toBe("manual");
+	});
+});
+
+describe("cursor look normalization (project version 3)", () => {
+	it("fills cursor defaults for version 2 projects, which only stored the theme", () => {
+		const normalized = normalizeProjectEditor({ cursorTheme: "system" });
+
+		expect(normalized.showCursor).toBe(DEFAULT_CURSOR_SETTINGS.show);
+		expect(normalized.cursorSize).toBe(DEFAULT_CURSOR_SETTINGS.size);
+		expect(normalized.cursorSmoothing).toBe(DEFAULT_CURSOR_SETTINGS.smoothing);
+		expect(normalized.cursorMotionBlur).toBe(DEFAULT_CURSOR_SETTINGS.motionBlur);
+		expect(normalized.cursorClickBounce).toBe(DEFAULT_CURSOR_SETTINGS.clickBounce);
+		expect(normalized.cursorClickRipple).toBe(DEFAULT_CURSOR_SETTINGS.clickRipple);
+		expect(normalized.cursorClipToBounds).toBe(DEFAULT_CURSOR_SETTINGS.clipToBounds);
+	});
+
+	it("round-trips a saved cursor look", () => {
+		const normalized = normalizeProjectEditor({
+			showCursor: false,
+			cursorSize: 4.2,
+			cursorSmoothing: 0.8,
+			cursorMotionBlur: 0.1,
+			cursorClickBounce: 3,
+			cursorClickRipple: 0.25,
+			cursorClipToBounds: true,
+		});
+
+		expect(normalized.showCursor).toBe(false);
+		expect(normalized.cursorSize).toBe(4.2);
+		expect(normalized.cursorSmoothing).toBe(0.8);
+		expect(normalized.cursorMotionBlur).toBe(0.1);
+		expect(normalized.cursorClickBounce).toBe(3);
+		expect(normalized.cursorClickRipple).toBe(0.25);
+		expect(normalized.cursorClipToBounds).toBe(true);
+	});
+
+	it("clamps out-of-range numbers to the slider bounds", () => {
+		const tooHigh = normalizeProjectEditor({
+			cursorSize: 999,
+			cursorSmoothing: 5,
+			cursorMotionBlur: 5,
+			cursorClickBounce: 999,
+			cursorClickRipple: 5,
+		});
+		expect(tooHigh.cursorSize).toBe(MAX_CURSOR_SIZE);
+		expect(tooHigh.cursorSmoothing).toBe(1);
+		expect(tooHigh.cursorMotionBlur).toBe(1);
+		expect(tooHigh.cursorClickBounce).toBe(MAX_CURSOR_CLICK_BOUNCE);
+		expect(tooHigh.cursorClickRipple).toBe(1);
+
+		const tooLow = normalizeProjectEditor({
+			cursorSize: -3,
+			cursorSmoothing: -1,
+			cursorClickBounce: -1,
+		});
+		expect(tooLow.cursorSize).toBe(MIN_CURSOR_SIZE);
+		expect(tooLow.cursorSmoothing).toBe(0);
+		expect(tooLow.cursorClickBounce).toBe(0);
+	});
+
+	it("falls back to defaults for non-numeric and non-boolean junk", () => {
+		const normalized = normalizeProjectEditor({
+			showCursor: "yes" as never,
+			cursorSize: Number.NaN,
+			cursorClipToBounds: 1 as never,
+		});
+
+		expect(normalized.showCursor).toBe(DEFAULT_CURSOR_SETTINGS.show);
+		expect(normalized.cursorSize).toBe(DEFAULT_CURSOR_SETTINGS.size);
+		expect(normalized.cursorClipToBounds).toBe(DEFAULT_CURSOR_SETTINGS.clipToBounds);
 	});
 });
 

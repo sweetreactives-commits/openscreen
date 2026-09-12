@@ -70,7 +70,6 @@ import {
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
 import {
-	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EXPORT_SETTINGS,
 	DEFAULT_GIF_SETTINGS,
 	DEFAULT_SOURCE_DIMENSIONS,
@@ -83,6 +82,7 @@ import {
 	fromFileUrl,
 	hasProjectUnsavedChanges,
 	normalizeProjectEditor,
+	type ProjectEditorState,
 	resolveProjectMedia,
 	toFileUrl,
 	validateProjectData,
@@ -209,6 +209,14 @@ export default function VideoEditor() {
 		webcamReactiveZoom,
 		webcamSizePreset,
 		webcamPosition,
+		showCursor,
+		cursorSize,
+		cursorSmoothing,
+		cursorMotionBlur,
+		cursorClickBounce,
+		cursorClickRipple,
+		cursorClipToBounds,
+		cursorTheme,
 	} = editorState;
 
 	// Non-undoable state
@@ -280,17 +288,6 @@ export default function VideoEditor() {
 			.map((sample) => sample.timeMs);
 	}, [cursorRecordingData, cursorTelemetry]);
 
-	// Cursor & motion blur visual settings (non-undoable preferences)
-	const [showCursor, setShowCursor] = useState(DEFAULT_CURSOR_SETTINGS.show);
-	const [cursorSize, setCursorSize] = useState(DEFAULT_CURSOR_SETTINGS.size);
-	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SETTINGS.smoothing);
-	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_SETTINGS.motionBlur);
-	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_SETTINGS.clickBounce);
-	const [cursorClickRipple, setCursorClickRipple] = useState(DEFAULT_CURSOR_SETTINGS.clickRipple);
-	const [cursorClipToBounds, setCursorClipToBounds] = useState(
-		DEFAULT_CURSOR_SETTINGS.clipToBounds,
-	);
-	const [cursorTheme, setCursorTheme] = useState(DEFAULT_CURSOR_SETTINGS.theme);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
 		useState<CursorCaptureMode | null>(null);
@@ -421,13 +418,20 @@ export default function VideoEditor() {
 				webcamReactiveZoom: normalizedEditor.webcamReactiveZoom,
 				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
+				showCursor: normalizedEditor.showCursor,
+				cursorSize: normalizedEditor.cursorSize,
+				cursorSmoothing: normalizedEditor.cursorSmoothing,
+				cursorMotionBlur: normalizedEditor.cursorMotionBlur,
+				cursorClickBounce: normalizedEditor.cursorClickBounce,
+				cursorClickRipple: normalizedEditor.cursorClickRipple,
+				cursorClipToBounds: normalizedEditor.cursorClipToBounds,
+				cursorTheme: normalizedEditor.cursorTheme,
 			});
 			setExportQuality(normalizedEditor.exportQuality);
 			setExportFormat(normalizedEditor.exportFormat);
 			setGifFrameRate(normalizedEditor.gifFrameRate);
 			setGifLoop(normalizedEditor.gifLoop);
 			setGifSizePreset(normalizedEditor.gifSizePreset);
-			setCursorTheme(normalizedEditor.cursorTheme);
 
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
@@ -472,69 +476,27 @@ export default function VideoEditor() {
 		[pushState],
 	);
 
-	const currentProjectSnapshot = useMemo(() => {
-		if (!currentProjectMedia) {
-			return null;
-		}
-		return createProjectSnapshot(currentProjectMedia, {
-			wallpaper,
-			shadowIntensity,
-			showBlur,
-			showTrimWaveform,
-			motionBlurAmount,
-			borderRadius,
-			padding,
-			cropRegion,
-			zoomRegions,
-			autoZoomEnabled,
-			autoFocusAll,
-			trimRegions,
-			speedRegions,
-			annotationRegions,
-			aspectRatio,
-			webcamLayoutPreset,
-			webcamMaskShape,
-			webcamMirrored,
-			webcamReactiveZoom,
-			webcamSizePreset,
-			webcamPosition,
+	// What gets written to the project file: the undoable editor state plus the export
+	// settings, which sit outside history. Built in one place so the snapshot and the
+	// save path can't drift apart as fields are added.
+	const projectEditorState = useMemo<ProjectEditorState>(
+		() => ({
+			...editorState,
 			exportQuality,
 			exportFormat,
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
-			cursorTheme,
-		});
-	}, [
-		currentProjectMedia,
-		cursorTheme,
-		wallpaper,
-		shadowIntensity,
-		showBlur,
-		showTrimWaveform,
-		motionBlurAmount,
-		borderRadius,
-		padding,
-		cropRegion,
-		zoomRegions,
-		autoZoomEnabled,
-		autoFocusAll,
-		trimRegions,
-		speedRegions,
-		annotationRegions,
-		aspectRatio,
-		webcamLayoutPreset,
-		webcamMaskShape,
-		webcamMirrored,
-		webcamReactiveZoom,
-		webcamSizePreset,
-		webcamPosition,
-		exportQuality,
-		exportFormat,
-		gifFrameRate,
-		gifLoop,
-		gifSizePreset,
-	]);
+		}),
+		[editorState, exportQuality, exportFormat, gifFrameRate, gifLoop, gifSizePreset],
+	);
+
+	const currentProjectSnapshot = useMemo(() => {
+		if (!currentProjectMedia) {
+			return null;
+		}
+		return createProjectSnapshot(currentProjectMedia, projectEditorState);
+	}, [currentProjectMedia, projectEditorState]);
 
 	const hasUnsavedChanges = hasProjectUnsavedChanges(currentProjectSnapshot, lastSavedSnapshot);
 
@@ -635,36 +597,7 @@ export default function VideoEditor() {
 				return false;
 			}
 
-			const editorState = {
-				wallpaper,
-				shadowIntensity,
-				showBlur,
-				showTrimWaveform,
-				motionBlurAmount,
-				borderRadius,
-				padding,
-				cropRegion,
-				zoomRegions,
-				autoZoomEnabled,
-				autoFocusAll,
-				trimRegions,
-				speedRegions,
-				annotationRegions,
-				aspectRatio,
-				webcamLayoutPreset,
-				webcamMaskShape,
-				webcamMirrored,
-				webcamReactiveZoom,
-				webcamSizePreset,
-				webcamPosition,
-				exportQuality,
-				exportFormat,
-				gifFrameRate,
-				gifLoop,
-				gifSizePreset,
-				cursorTheme,
-			};
-			const projectData = createProjectData(currentProjectMedia, editorState);
+			const projectData = createProjectData(currentProjectMedia, projectEditorState);
 
 			const fileNameBase =
 				currentProjectMedia.screenVideoPath
@@ -673,7 +606,7 @@ export default function VideoEditor() {
 					?.replace(/\.[^.]+$/, "") || `project-${Date.now()}`;
 			// Normalize the same way as currentProjectSnapshot so the post-save
 			// baseline compares equal and hasUnsavedChanges clears.
-			const projectSnapshot = createProjectSnapshot(currentProjectMedia, editorState);
+			const projectSnapshot = createProjectSnapshot(currentProjectMedia, projectEditorState);
 			const result = await nativeBridgeClient.project.saveProjectFile(
 				projectData,
 				fileNameBase,
@@ -698,39 +631,7 @@ export default function VideoEditor() {
 			toast.success(t("project.savedTo", { path: result.path ?? "" }));
 			return true;
 		},
-		[
-			currentProjectMedia,
-			currentProjectPath,
-			wallpaper,
-			shadowIntensity,
-			showBlur,
-			showTrimWaveform,
-			motionBlurAmount,
-			borderRadius,
-			padding,
-			cropRegion,
-			zoomRegions,
-			autoZoomEnabled,
-			autoFocusAll,
-			trimRegions,
-			speedRegions,
-			annotationRegions,
-			aspectRatio,
-			webcamLayoutPreset,
-			webcamMaskShape,
-			webcamMirrored,
-			webcamReactiveZoom,
-			webcamSizePreset,
-			webcamPosition,
-			exportQuality,
-			exportFormat,
-			gifFrameRate,
-			gifLoop,
-			gifSizePreset,
-			cursorTheme,
-			videoPath,
-			t,
-		],
+		[currentProjectMedia, currentProjectPath, projectEditorState, videoPath, t],
 	);
 
 	useEffect(() => {
@@ -854,15 +755,7 @@ export default function VideoEditor() {
 		// Reset playback.
 		setCurrentTime(0);
 		setIsPlaying(false);
-		// Reset cursor preferences to defaults.
-		setShowCursor(DEFAULT_CURSOR_SETTINGS.show);
-		setCursorSize(DEFAULT_CURSOR_SETTINGS.size);
-		setCursorSmoothing(DEFAULT_CURSOR_SETTINGS.smoothing);
-		setCursorMotionBlur(DEFAULT_CURSOR_SETTINGS.motionBlur);
-		setCursorClickBounce(DEFAULT_CURSOR_SETTINGS.clickBounce);
-		setCursorClickRipple(DEFAULT_CURSOR_SETTINGS.clickRipple);
-		setCursorClipToBounds(DEFAULT_CURSOR_SETTINGS.clipToBounds);
-		setCursorTheme(DEFAULT_CURSOR_SETTINGS.theme);
+		// Cursor look resets with the rest of the editor state above.
 		// Reset region ID counters.
 		nextZoomIdRef.current = 1;
 		nextTrimIdRef.current = 1;
@@ -2826,21 +2719,26 @@ export default function VideoEditor() {
 										onSaveUnsavedExport={handleSaveUnsavedExport}
 										onSaveDiagnostic={handleSaveDiagnostic}
 										showCursor={showCursor}
-										onShowCursorChange={setShowCursor}
+										onShowCursorChange={(v) => pushState({ showCursor: v })}
 										cursorSize={cursorSize}
-										onCursorSizeChange={setCursorSize}
+										onCursorSizeChange={(v) => updateState({ cursorSize: v })}
+										onCursorSizeCommit={commitState}
 										cursorSmoothing={cursorSmoothing}
-										onCursorSmoothingChange={setCursorSmoothing}
+										onCursorSmoothingChange={(v) => updateState({ cursorSmoothing: v })}
+										onCursorSmoothingCommit={commitState}
 										cursorMotionBlur={cursorMotionBlur}
-										onCursorMotionBlurChange={setCursorMotionBlur}
+										onCursorMotionBlurChange={(v) => updateState({ cursorMotionBlur: v })}
+										onCursorMotionBlurCommit={commitState}
 										cursorClickBounce={cursorClickBounce}
-										onCursorClickBounceChange={setCursorClickBounce}
+										onCursorClickBounceChange={(v) => updateState({ cursorClickBounce: v })}
+										onCursorClickBounceCommit={commitState}
 										cursorClickRipple={cursorClickRipple}
-										onCursorClickRippleChange={setCursorClickRipple}
+										onCursorClickRippleChange={(v) => updateState({ cursorClickRipple: v })}
+										onCursorClickRippleCommit={commitState}
 										cursorClipToBounds={cursorClipToBounds}
-										onCursorClipToBoundsChange={setCursorClipToBounds}
+										onCursorClipToBoundsChange={(v) => pushState({ cursorClipToBounds: v })}
 										cursorTheme={cursorTheme}
-										onCursorThemeChange={setCursorTheme}
+										onCursorThemeChange={(v) => pushState({ cursorTheme: v })}
 										hasCursorData={
 											cursorTelemetry.length > 0 ||
 											hasNativeCursorRecordingData(cursorRecordingData)
