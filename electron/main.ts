@@ -19,6 +19,7 @@ import {
 } from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
 import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
+import { startMcpServer, stopMcpServer } from "./mcp/server";
 import {
 	createCountdownOverlayWindow,
 	createEditorWindow,
@@ -469,6 +470,7 @@ app.on("activate", () => {
 
 app.on("will-quit", () => {
 	unregisterAllGlobalShortcuts();
+	void stopMcpServer();
 });
 
 app.whenReady().then(async () => {
@@ -477,6 +479,17 @@ app.whenReady().then(async () => {
 	// otherwise classify us as an accessory app.
 	if (process.platform === "darwin") {
 		app.dock?.show();
+	}
+
+	// Opt-in for now: the settings UI that turns this on (and its 13 locales)
+	// comes with the read tools. See docs/architecture/mcp-server.md.
+	if (process.env["OPENSCREEN_MCP"] === "1") {
+		try {
+			const mcp = await startMcpServer();
+			console.log(`[mcp] listening on ${mcp.url}`);
+		} catch (error) {
+			console.error("[mcp] failed to start:", error);
+		}
 	}
 
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {

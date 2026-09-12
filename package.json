@@ -46,6 +46,8 @@
 	},
 	"dependencies": {
 		"@fix-webm-duration/fix": "^1.0.1",
+		"@modelcontextprotocol/node": "^2.0.0",
+		"@modelcontextprotocol/server": "^2.0.0",
 		"@pixi/filter-drop-shadow": "^5.2.0",
 		"@radix-ui/react-accordion": "^1.2.12",
 		"@radix-ui/react-dialog": "^1.1.15",
@@ -71,6 +73,7 @@
 		"fix-webm-duration": "^1.0.6",
 		"gif.js": "^0.2.0",
 		"gsap": "^3.15.0",
+		"hono": "^4.13.7",
 		"lucide-react": "^0.545.0",
 		"mediabunny": "^1.40.1",
 		"motion": "^12.38.0",
@@ -86,7 +89,8 @@
 		"tailwind-merge": "^3.5.0",
 		"tailwindcss-animate": "^1.0.7",
 		"uuid": "^13.0.0",
-		"web-demuxer": "^4.0.0"
+		"web-demuxer": "^4.0.0",
+		"zod": "^4.6.2"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.12",
