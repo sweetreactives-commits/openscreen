@@ -229,7 +229,10 @@
 		"copied": "Đã sao chép",
 		"copyFailed": "Không sao chép được vào bộ nhớ tạm",
 		"security": "Chỉ máy tính này mới kết nối được, và chỉ với mã thông báo này. Mã thay đổi mỗi lần OpenScreen khởi động.",
-		"startFailed": "Không khởi động được: {{message}}"
+		"startFailed": "Không khởi động được: {{message}}",
+		"stateFull": "Bật. Đọc và chỉnh sửa.",
+		"allowEdits": "Cho phép chỉnh sửa",
+		"allowEditsHint": "Tác nhân có thể thêm thu phóng, cắt bỏ, chú thích và đổi giao diện. Mỗi loạt chỉnh sửa là một bước hoàn tác."
 	},
 	"textAnimation": {
 		"title": "Hoạt ảnh văn bản",

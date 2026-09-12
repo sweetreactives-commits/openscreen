@@ -33,11 +33,11 @@ export function McpSettingsDialog() {
 		if (open) void refresh();
 	}, [open, refresh]);
 
-	const toggle = useCallback(async (enabled: boolean) => {
+	const setMode = useCallback(async (mode: "off" | "read-only" | "full") => {
 		if (!window.electronAPI?.setMcpMode) return;
 		setBusy(true);
 		try {
-			setStatus(await window.electronAPI.setMcpMode(enabled ? "read-only" : "off"));
+			setStatus(await window.electronAPI.setMcpMode(mode));
 		} finally {
 			setBusy(false);
 		}
@@ -61,6 +61,7 @@ export function McpSettingsDialog() {
 	}, [connectCommand, t]);
 
 	const running = status?.running ?? false;
+	const canEdit = status?.mode === "full";
 
 	return (
 		<>
@@ -86,13 +87,35 @@ export function McpSettingsDialog() {
 							<div>
 								<div className="text-sm font-medium text-slate-100">{t("mcp.enable")}</div>
 								<div className="text-xs text-slate-500">
-									{running ? t("mcp.stateReadOnly") : t("mcp.stateOff")}
+									{!running
+										? t("mcp.stateOff")
+										: canEdit
+											? t("mcp.stateFull")
+											: t("mcp.stateReadOnly")}
 								</div>
 							</div>
-							<Switch checked={running} disabled={busy} onCheckedChange={toggle} />
+							<Switch
+								checked={running}
+								disabled={busy}
+								onCheckedChange={(on) => setMode(on ? "read-only" : "off")}
+							/>
 						</div>
 
 						<p className="text-xs text-slate-500">{t("mcp.exposes")}</p>
+
+						{running && (
+							<div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
+								<div className="pr-3">
+									<div className="text-sm font-medium text-slate-100">{t("mcp.allowEdits")}</div>
+									<div className="text-xs text-slate-500">{t("mcp.allowEditsHint")}</div>
+								</div>
+								<Switch
+									checked={canEdit}
+									disabled={busy}
+									onCheckedChange={(on) => setMode(on ? "full" : "read-only")}
+								/>
+							</div>
+						)}
 
 						{status?.error && (
 							<p className="text-xs text-red-400">

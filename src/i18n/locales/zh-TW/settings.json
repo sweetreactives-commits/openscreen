@@ -230,7 +230,10 @@
 		"copied": "已複製",
 		"copyFailed": "無法複製到剪貼簿",
 		"security": "只有這台電腦能連線，且必須使用此權杖。每次啟動 OpenScreen 時權杖都會更換。",
-		"startFailed": "無法啟動：{{message}}"
+		"startFailed": "無法啟動：{{message}}",
+		"stateFull": "已開啟。可讀取和編輯。",
+		"allowEdits": "允許編輯",
+		"allowEditsHint": "代理可以新增縮放、剪切和字幕，並變更外觀。每一批編輯算作一次復原。"
 	},
 	"textAnimation": {
 		"title": "文字動畫",

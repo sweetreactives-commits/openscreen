@@ -21,6 +21,11 @@ let resolveEditorWindow: (() => BrowserWindow | null) | null = null;
 let currentMode: McpMode = "off";
 let lastError: string | null = null;
 
+/** What the endpoint is currently allowed to do, read by the tool factory. */
+export function currentMcpMode(): McpMode {
+	return currentMode;
+}
+
 function status(): McpStatus {
 	const info = getMcpServerInfo();
 	return {
@@ -57,8 +62,9 @@ export async function applyMcpMode(mode: McpMode): Promise<McpStatus> {
 
 /**
  * Registers the settings IPC and starts the endpoint if the stored mode says so.
- * `OPENSCREEN_MCP=1` forces it on without touching the saved setting, which is
- * how the e2e suite and a dev run switch it on.
+ * `OPENSCREEN_MCP=1` forces read-only on without touching the saved setting, and
+ * `OPENSCREEN_MCP=full` also allows editing. That is how the e2e suite and a dev
+ * run switch it on.
  */
 export async function registerMcpIpc(getEditorWindow: () => BrowserWindow | null): Promise<void> {
 	resolveEditorWindow = getEditorWindow;
@@ -66,12 +72,13 @@ export async function registerMcpIpc(getEditorWindow: () => BrowserWindow | null
 	ipcMain.handle("mcp:get-status", () => status());
 
 	ipcMain.handle("mcp:set-mode", async (_event, mode: McpMode) => {
-		const next: McpMode = mode === "read-only" ? "read-only" : "off";
+		const next: McpMode = mode === "read-only" || mode === "full" ? mode : "off";
 		await saveMcpSettings({ mode: next });
 		return applyMcpMode(next);
 	});
 
 	const stored = await loadMcpSettings();
-	const mode: McpMode = process.env["OPENSCREEN_MCP"] === "1" ? "read-only" : stored.mode;
+	const forced = process.env["OPENSCREEN_MCP"];
+	const mode: McpMode = forced === "full" ? "full" : forced === "1" ? "read-only" : stored.mode;
 	await applyMcpMode(mode);
 }

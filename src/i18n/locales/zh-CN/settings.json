@@ -229,7 +229,10 @@
 		"copied": "已复制",
 		"copyFailed": "无法复制到剪贴板",
 		"security": "只有这台电脑能连接，且必须使用此令牌。每次启动 OpenScreen 时令牌都会更换。",
-		"startFailed": "无法启动：{{message}}"
+		"startFailed": "无法启动：{{message}}",
+		"stateFull": "已开启。可读取和编辑。",
+		"allowEdits": "允许编辑",
+		"allowEditsHint": "代理可以添加缩放、剪切和字幕，并更改外观。每一批编辑算作一次撤销。"
 	},
 	"textAnimation": {
 		"title": "文本动画",

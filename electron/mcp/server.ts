@@ -12,6 +12,7 @@ import { app, type BrowserWindow } from "electron";
 import { z } from "zod";
 import type { McpCommand } from "../../src/lib/mcp/contracts";
 import { callEditor, configureMcpBridge, resetMcpBridge } from "./bridge";
+import { currentMcpMode } from "./ipc";
 
 /**
  * Local MCP endpoint, so an agent the user already runs (Claude Code, Claude
@@ -230,7 +231,148 @@ function buildMcpServer(): McpServer {
 		},
 	);
 
+	// Editing is registered only in full mode, so the tool list an agent sees
+	// matches what the user actually allowed — rather than offering an edit tool
+	// that always refuses.
+	if (currentMcpMode() === "full") {
+		registerEditTool(server);
+	}
+
 	return server;
+}
+
+const span = {
+	startMs: z.number().describe("Start on the source recording's clock, in milliseconds."),
+	endMs: z.number().describe("End on the source recording's clock, in milliseconds."),
+};
+
+const commandSchema = z.discriminatedUnion("op", [
+	z.object({
+		op: z.literal("add_zoom"),
+		...span,
+		scale: z.number().optional().describe("Magnification, 1 to 5. Default 1.8."),
+		focus: z
+			.object({ cx: z.number(), cy: z.number() })
+			.optional()
+			.describe("Point to zoom on, each 0 to 1 across the frame. Default centre."),
+		followCursor: z.boolean().optional().describe("Track the cursor instead of a fixed point."),
+	}),
+	z.object({
+		op: z.literal("update_zoom"),
+		id: z.string(),
+		startMs: z.number().optional(),
+		endMs: z.number().optional(),
+		scale: z.number().optional(),
+		focus: z.object({ cx: z.number(), cy: z.number() }).optional(),
+		followCursor: z.boolean().optional(),
+	}),
+	z.object({
+		op: z.literal("remove_range"),
+		...span,
+		// Named for what it does: this cuts the span out of the finished video.
+	}),
+	z.object({
+		op: z.literal("set_speed"),
+		...span,
+		speed: z.number().describe("Playback multiplier: 2 is twice as fast, 0.5 half."),
+	}),
+	z.object({
+		op: z.literal("add_text"),
+		...span,
+		text: z.string(),
+		position: z
+			.object({ x: z.number(), y: z.number() })
+			.optional()
+			.describe("Centre of the text as a percentage of the frame. Default 50/50."),
+		fontSize: z.number().optional(),
+		color: z.string().optional().describe("CSS colour, e.g. #ffffff."),
+		animation: z
+			.enum(["none", "fade", "rise", "pop", "slide-left", "typewriter", "pulse"])
+			.optional(),
+	}),
+	z.object({
+		op: z.literal("update_text"),
+		id: z.string(),
+		text: z.string().optional(),
+		startMs: z.number().optional(),
+		endMs: z.number().optional(),
+		position: z.object({ x: z.number(), y: z.number() }).optional(),
+		fontSize: z.number().optional(),
+		color: z.string().optional(),
+		animation: z
+			.enum(["none", "fade", "rise", "pop", "slide-left", "typewriter", "pulse"])
+			.optional(),
+	}),
+	z.object({
+		op: z.literal("remove_region"),
+		id: z.string().describe("Any zoom, removed range, speed change or annotation id."),
+	}),
+	z.object({
+		op: z.literal("set_layout"),
+		padding: z.number().optional(),
+		borderRadius: z.number().optional(),
+		shadowIntensity: z.number().optional(),
+		wallpaper: z.string().optional(),
+	}),
+	z.object({
+		op: z.literal("set_cursor"),
+		visible: z.boolean().optional(),
+		size: z.number().optional(),
+		smoothing: z.number().optional(),
+		motionBlur: z.number().optional(),
+		clickBounce: z.number().optional(),
+		clickRipple: z.number().optional(),
+	}),
+]);
+
+function registerEditTool(server: McpServer): void {
+	server.registerTool(
+		"apply_commands",
+		{
+			title: "Edit the open project",
+			description:
+				"Applies a list of edits to the project the user has open. The whole list is " +
+				"one undo step for them, and it is all or nothing — if any command is invalid, " +
+				"nothing is applied and the reply names the one at fault. Timestamps are " +
+				"milliseconds on the source recording's clock, the same clock every read tool " +
+				"reports. Note that remove_range CUTS OUT the span you give it. Do not invent " +
+				"ids: new regions get ids back in createdIds, and existing ones come from " +
+				"get_project.",
+			inputSchema: z.object({
+				commands: z.array(commandSchema).describe("Edits to apply, in order."),
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+		},
+		async (args) => {
+			const response = await callEditor<
+				| { ok: true; createdIds: string[]; changed: string[] }
+				| { ok: false; code: string; message: string }
+			>("apply_commands", args);
+
+			if (!response.ok) {
+				return { isError: true, content: [{ type: "text" as const, text: response.message }] };
+			}
+			if (!response.data.ok) {
+				return {
+					isError: true,
+					content: [{ type: "text" as const, text: response.data.message }],
+				};
+			}
+
+			const { createdIds, changed } = response.data;
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `Applied. Changed: ${changed.join(", ") || "nothing"}.${
+							createdIds.length ? ` New ids: ${createdIds.join(", ")}.` : ""
+						}`,
+					},
+				],
+				structuredContent: { createdIds, changed },
+			};
+		},
+	);
 }
 
 /**

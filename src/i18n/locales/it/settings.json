@@ -240,6 +240,9 @@
 		"copied": "Copiato",
 		"copyFailed": "Impossibile copiare negli appunti",
 		"security": "Solo questo computer può connettersi, e solo con questo token. Il token cambia a ogni avvio di OpenScreen.",
-		"startFailed": "Avvio non riuscito: {{message}}"
+		"startFailed": "Avvio non riuscito: {{message}}",
+		"stateFull": "Attivo. Lettura e modifica.",
+		"allowEdits": "Consenti modifiche",
+		"allowEditsHint": "L’agente potrà aggiungere zoom, tagli e testi e cambiare l’aspetto. Ogni gruppo di modifiche è un solo passo di annullamento."
 	}
 }

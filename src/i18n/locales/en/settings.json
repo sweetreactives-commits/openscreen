@@ -240,6 +240,9 @@
 		"copied": "Copied",
 		"copyFailed": "Could not copy to the clipboard",
 		"security": "Only this computer can connect, and only with this token. The token changes every time OpenScreen starts.",
-		"startFailed": "Could not start: {{message}}"
+		"startFailed": "Could not start: {{message}}",
+		"stateFull": "On. Reading and editing.",
+		"allowEdits": "Allow edits",
+		"allowEditsHint": "The agent can add zooms, cuts, captions and change the look. Each batch of edits is one undo step."
 	}
 }

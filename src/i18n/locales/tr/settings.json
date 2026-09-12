@@ -229,7 +229,10 @@
 		"copied": "Kopyalandı",
 		"copyFailed": "Panoya kopyalanamadı",
 		"security": "Yalnızca bu bilgisayar ve yalnızca bu belirteçle bağlanabilir. Belirteç, OpenScreen her başladığında değişir.",
-		"startFailed": "Başlatılamadı: {{message}}"
+		"startFailed": "Başlatılamadı: {{message}}",
+		"stateFull": "Açık. Okuma ve düzenleme.",
+		"allowEdits": "Düzenlemeye izin ver",
+		"allowEditsHint": "Aracı; yakınlaştırma, kesme ve altyazı ekleyebilir ve görünümü değiştirebilir. Her düzenleme grubu tek bir geri alma adımıdır."
 	},
 	"textAnimation": {
 		"title": "Metin Animasyonu",

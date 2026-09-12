@@ -5,7 +5,7 @@ import { _electron as electron, expect, test } from "@playwright/test";
 import { LOCALE_STORAGE_KEY, SYSTEM_LANGUAGE_PROMPT_SEEN_KEY } from "../../src/i18n/config";
 
 /**
- * End-to-end cover for the MCP read tools.
+ * End-to-end cover for the MCP tools.
  *
  * These tools cross both process boundaries — an HTTP request lands in the main
  * process, which asks the editor window over IPC and waits for a correlated
@@ -142,6 +142,9 @@ test("serves the project, cursor and audio read tools to a connected client", as
 				"get_transcript",
 			]),
 		);
+		// Read-only must not even advertise editing, rather than offering a tool
+		// that always refuses.
+		expect(tools).not.toContain("apply_commands");
 
 		// Recorder mode has no editor state at all; that has to read as an
 		// explained refusal rather than an empty project.
@@ -330,5 +333,134 @@ test("stays off until the user turns it on, and stops when they turn it off", as
 		await app.close().catch(() => {
 			// Nothing left to close, or it refused; the run is over either way.
 		});
+	}
+});
+
+test("edits the project only in full mode, as one undo step", async () => {
+	test.setTimeout(180_000);
+
+	const app = await electron.launch({
+		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
+		env: {
+			...process.env,
+			HEADLESS: process.env["HEADLESS"] ?? "true",
+			OPENSCREEN_MCP: "full",
+		},
+	});
+
+	let testVideoInRecordings = "";
+	let editorWindow: Awaited<ReturnType<typeof app.waitForEvent>> | null = null;
+
+	try {
+		const hudWindow = await app.firstWindow({ timeout: 60_000 });
+		await hudWindow.waitForLoadState("domcontentloaded");
+
+		const userDataDir = await app.evaluate(({ app: electronApp }) => {
+			return electronApp.getPath("userData");
+		});
+		const endpoint = JSON.parse(
+			fs.readFileSync(path.join(userDataDir, "mcp.json"), "utf-8"),
+		) as McpEndpoint;
+
+		const listed = await callMcp(endpoint, "tools/list");
+		const tools = (listed.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
+		expect(tools).toContain("apply_commands");
+
+		const recordingsDir = path.join(userDataDir, "recordings");
+		testVideoInRecordings = path.join(recordingsDir, "mcp-edit-sample.webm");
+		fs.mkdirSync(recordingsDir, { recursive: true });
+		fs.copyFileSync(TEST_VIDEO, testVideoInRecordings);
+
+		await hudWindow.evaluate(
+			([localeKey, promptKey]: [string, string]) => {
+				localStorage.setItem(localeKey, "en");
+				localStorage.setItem(promptKey, "1");
+			},
+			[LOCALE_STORAGE_KEY, SYSTEM_LANGUAGE_PROMPT_SEEN_KEY] as [string, string],
+		);
+		await hudWindow.evaluate(
+			(videoPath: string) => window.electronAPI.setCurrentVideoPath(videoPath),
+			testVideoInRecordings,
+		);
+		try {
+			await hudWindow.evaluate(() => window.electronAPI.switchToEditor());
+		} catch (error) {
+			if (
+				!(error instanceof Error) ||
+				!/closed|destroyed|target page|target closed/i.test(error.message)
+			) {
+				throw error;
+			}
+		}
+
+		editorWindow = await app.waitForEvent("window", {
+			predicate: (w) => w.url().includes("windowType=editor"),
+			timeout: 15_000,
+		});
+		await editorWindow.waitForLoadState("domcontentloaded");
+		await expect(editorWindow.getByTestId("testId-export-panel-button")).toBeVisible({
+			timeout: 60_000,
+		});
+		await waitForOpenProject(endpoint);
+
+		const applied = await callTool(endpoint, "apply_commands", {
+			commands: [
+				{ op: "add_zoom", startMs: 200, endMs: 900, scale: 2.5 },
+				{ op: "add_text", startMs: 200, endMs: 900, text: "Look here" },
+			],
+		});
+		expect((applied.createdIds as string[]).length).toBe(2);
+
+		const after = await callTool(endpoint, "get_project");
+		const regions = after.regions as {
+			zooms: Array<{ id: string; scale: number; source: string }>;
+			annotations: Array<{ text?: string }>;
+		};
+		expect(regions.zooms).toHaveLength(1);
+		expect(regions.zooms[0].scale).toBe(2.5);
+		// Not "auto": the magic wand's toggle must not sweep an agent's zoom away.
+		expect(regions.zooms[0].source).toBe("agent");
+		expect(regions.annotations[0].text).toBe("Look here");
+
+		// A bad command anywhere in the batch leaves the project untouched.
+		const rejected = await callMcp(
+			endpoint,
+			"tools/call",
+			{
+				name: "apply_commands",
+				arguments: {
+					commands: [
+						{ op: "add_zoom", startMs: 1_000, endMs: 1_500 },
+						{ op: "add_zoom", startMs: 9_000, endMs: 1_000 },
+					],
+				},
+			},
+			"apply_commands",
+		);
+		const failure = rejected.result as { isError?: boolean; content: Array<{ text: string }> };
+		expect(failure.isError).toBe(true);
+		expect(failure.content[0].text).toContain("Command 2");
+
+		const unchanged = await callTool(endpoint, "get_project");
+		expect((unchanged.regions as { zooms: unknown[] }).zooms).toHaveLength(1);
+
+		// The whole batch collapses into a single undo for the user.
+		await editorWindow.keyboard.press("Control+z");
+		const undone = await callTool(endpoint, "get_project");
+		const undoneRegions = undone.regions as { zooms: unknown[]; annotations: unknown[] };
+		expect(undoneRegions.zooms).toHaveLength(0);
+		expect(undoneRegions.annotations).toHaveLength(0);
+	} finally {
+		await editorWindow
+			?.evaluate(() => window.electronAPI.setHasUnsavedChanges(false))
+			.catch(() => {
+				// Already gone; closing is about to happen anyway.
+			});
+		await app.close().catch(() => {
+			// Nothing left to close, or it refused; the run is over either way.
+		});
+		if (testVideoInRecordings && fs.existsSync(testVideoInRecordings)) {
+			fs.unlinkSync(testVideoInRecordings);
+		}
 	}
 });

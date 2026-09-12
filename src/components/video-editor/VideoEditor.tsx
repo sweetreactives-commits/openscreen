@@ -369,6 +369,8 @@ export default function VideoEditor() {
 		},
 		cursorTelemetry,
 		videoUrl: videoPath,
+		// pushState, not updateState: an agent's batch should be one undo step.
+		applyPatch: pushState,
 	});
 
 	const applyLoadedProject = useCallback(

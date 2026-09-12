@@ -294,7 +294,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	 * doesn't reimplement it.
 	 */
 	getMcpStatus: () => ipcRenderer.invoke("mcp:get-status"),
-	setMcpMode: (mode: "off" | "read-only") => ipcRenderer.invoke("mcp:set-mode", mode),
+	setMcpMode: (mode: "off" | "read-only" | "full") => ipcRenderer.invoke("mcp:set-mode", mode),
 	onMcpCommand: (callback: (request: McpCommandRequest) => Promise<unknown>) => {
 		const listener = async (_event: unknown, request: McpCommandRequest) => {
 			let response: McpCommandResponse;

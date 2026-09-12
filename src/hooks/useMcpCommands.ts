@@ -5,6 +5,7 @@ import type { EditorState } from "@/hooks/useEditorHistory";
 import { buildAudioProfile } from "@/lib/mcp/audioProfile";
 import type { McpCommandRequest } from "@/lib/mcp/contracts";
 import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
+import { applyCommands, type EditorCommand } from "@/lib/mcp/editorCommands";
 import { grabFrame } from "@/lib/mcp/frameGrab";
 import { buildProjectSummary } from "@/lib/mcp/projectSummary";
 import { requestTranscript } from "@/lib/mcp/transcriptJob";
@@ -29,6 +30,11 @@ export interface McpCommandSources {
 	cursorTelemetry: readonly CursorTelemetryPoint[];
 	/** Source to decode audio from, on demand. */
 	videoUrl: string | null;
+	/**
+	 * Applies an agent's edit through the editor's history, so the whole batch is
+	 * a single step the user can undo.
+	 */
+	applyPatch: (patch: Partial<EditorState>) => void;
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -90,6 +96,21 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						maxWidth: asNumber(args.maxWidth),
 						quality: asNumber(args.quality),
 					});
+				}
+
+				case "apply_commands": {
+					const commands = Array.isArray(args.commands) ? (args.commands as EditorCommand[]) : [];
+					const outcome = applyCommands(current.editor, commands, current.durationMs);
+					if (!outcome.ok) {
+						// Nothing was applied — the layer validates the whole batch first.
+						return outcome;
+					}
+					current.applyPatch(outcome.patch);
+					return {
+						ok: true,
+						createdIds: outcome.createdIds,
+						changed: Object.keys(outcome.patch),
+					};
 				}
 
 				case "get_transcript": {

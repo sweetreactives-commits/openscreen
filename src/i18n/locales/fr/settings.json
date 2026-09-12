@@ -240,6 +240,9 @@
 		"copied": "Copié",
 		"copyFailed": "Impossible de copier dans le presse-papiers",
 		"security": "Seul cet ordinateur peut se connecter, et uniquement avec ce jeton. Le jeton change à chaque démarrage d’OpenScreen.",
-		"startFailed": "Démarrage impossible : {{message}}"
+		"startFailed": "Démarrage impossible : {{message}}",
+		"stateFull": "Activé. Lecture et modification.",
+		"allowEdits": "Autoriser les modifications",
+		"allowEditsHint": "L’agent pourra ajouter des zooms, des coupes et des textes, et changer l’apparence. Chaque lot de modifications compte comme une seule annulation."
 	}
 }

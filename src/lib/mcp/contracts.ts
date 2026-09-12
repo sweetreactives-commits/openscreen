@@ -14,13 +14,13 @@ export const MCP_COMMAND_CHANNEL = "mcp:command";
 export const MCP_RESULT_CHANNEL = "mcp:command-result";
 export const MCP_CONTRACT_VERSION = 1;
 
-/** Read-only commands. Writes arrive with stage 2. */
 export type McpCommand =
 	| "get_project"
 	| "get_cursor_events"
 	| "get_audio_profile"
 	| "get_frame"
-	| "get_transcript";
+	| "get_transcript"
+	| "apply_commands";
 
 export interface McpCommandRequest {
 	id: string;

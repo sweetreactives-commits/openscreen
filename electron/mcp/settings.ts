@@ -12,10 +12,11 @@ import { app } from "electron";
  */
 
 /**
- * `full` is reserved for when write tools land. Storing the mode as a string
- * rather than a boolean means adding it later is additive, not a migration.
+ * `read-only` serves the read tools; `full` also exposes editing. Stored as a
+ * string rather than a pair of booleans so the set can grow again without a
+ * migration.
  */
-export type McpMode = "off" | "read-only";
+export type McpMode = "off" | "read-only" | "full";
 
 export interface McpSettings {
 	mode: McpMode;
@@ -24,7 +25,7 @@ export interface McpSettings {
 /** Off until the user says otherwise: this opens a port. */
 export const DEFAULT_MCP_SETTINGS: McpSettings = { mode: "off" };
 
-const VALID_MODES: readonly McpMode[] = ["off", "read-only"];
+const VALID_MODES: readonly McpMode[] = ["off", "read-only", "full"];
 
 function settingsFile(): string {
 	return path.join(app.getPath("userData"), "mcp-settings.json");

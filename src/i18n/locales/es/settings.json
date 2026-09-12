@@ -240,6 +240,9 @@
 		"copied": "Copiado",
 		"copyFailed": "No se pudo copiar al portapapeles",
 		"security": "Solo este equipo puede conectarse, y solo con este token. El token cambia cada vez que se inicia OpenScreen.",
-		"startFailed": "No se pudo iniciar: {{message}}"
+		"startFailed": "No se pudo iniciar: {{message}}",
+		"stateFull": "Activado. Lectura y edición.",
+		"allowEdits": "Permitir ediciones",
+		"allowEditsHint": "El agente podrá añadir zooms, cortes y textos, y cambiar el aspecto. Cada tanda de ediciones es un solo paso de deshacer."
 	}
 }
