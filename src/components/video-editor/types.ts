@@ -210,6 +210,7 @@ export const DEFAULT_CURSOR_CLICK_RIPPLE = 0.5;
 export const DEFAULT_CURSOR_CLIP_TO_BOUNDS = false;
 export const DEFAULT_ZOOM_MOTION_BLUR = 0.35;
 
+/** A span that is CUT OUT of the video. What survives are the gaps between regions. */
 export interface TrimRegion {
 	id: string;
 	startMs: number;

@@ -299,7 +299,7 @@ export class StreamingVideoDecoder {
 	/**
 	 * Decodes all video frames, applying trim/speed and resampling to the target frame rate.
 	 * @param targetFrameRate - Desired output frame rate.
-	 * @param trimRegions - Time regions to keep (others discarded).
+	 * @param trimRegions - Time regions to cut out; the gaps between them are what gets kept.
 	 * @param speedRegions - Speed adjustments for specific time ranges.
 	 * @param onFrame - Async callback receiving each decoded VideoFrame.
 	 */
