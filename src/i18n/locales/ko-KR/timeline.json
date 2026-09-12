@@ -5,7 +5,11 @@
 		"addTrim": "트림 추가 (T)",
 		"addAnnotation": "주석 추가 (A)",
 		"addSpeed": "속도 추가 (S)",
-		"addBlur": "블러 추가 (B)"
+		"addBlur": "블러 추가 (B)",
+		"autoZoomOn": "자동 줌 제안 켜짐 — 클릭하면 제안된 줌을 제거합니다",
+		"autoZoomOff": "자동 줌 제안 꺼짐 — 클릭하면 커서를 기준으로 줌을 제안합니다",
+		"autoFocusAllOn": "모든 줌에 자동 초점 켜짐 — 클릭하면 전부 수동으로 전환합니다",
+		"autoFocusAllOff": "모든 줌에 자동 초점 적용 (카메라가 커서를 따라감)"
 	},
 	"hints": {
 		"pressZoom": "Z를 눌러 줌 추가",

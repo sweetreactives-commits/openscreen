@@ -9,7 +9,8 @@
 		"openVideoFile": "Ouvrir un fichier vidéo",
 		"openProject": "Ouvrir un projet",
 		"useVerticalTray": "Utiliser la barre verticale",
-		"useHorizontalTray": "Utiliser la barre horizontale"
+		"useHorizontalTray": "Utiliser la barre horizontale",
+		"openStudio": "Ouvrir Studio"
 	},
 	"audio": {
 		"enableSystemAudio": "Activer l'audio système",
@@ -34,7 +35,10 @@
 		"loading": "Chargement des sources...",
 		"screens": "Écrans ({{count}})",
 		"windows": "Fenêtres ({{count}})",
-		"defaultSourceName": "Écran"
+		"defaultSourceName": "Écran",
+		"emptyTitle": "Aucun écran ni fenêtre trouvé",
+		"emptyDescription": "Si vous venez d’accorder l’autorisation d’enregistrement de l’écran, rechargez ce sélecteur. Sur macOS, vous devrez peut-être rouvrir OpenScreen.",
+		"loadFailedDescription": "OpenScreen n’a pas pu charger les sources de capture. Rechargez ce sélecteur et réessayez."
 	},
 	"recording": {
 		"selectSource": "Veuillez sélectionner une source à enregistrer"

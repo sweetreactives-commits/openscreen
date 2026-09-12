@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "放弃并加载项目",
 		"loadProject": "加载项目…",
 		"saveProject": "保存项目…",
-		"saveProjectAs": "项目另存为…"
+		"saveProjectAs": "项目另存为…",
+		"newProject": "新建项目",
+		"importVideo": "导入视频文件…"
 	},
 	"fileDialogs": {
 		"saveGif": "保存导出的 GIF",

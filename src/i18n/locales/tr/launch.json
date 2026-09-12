@@ -9,7 +9,8 @@
 		"openVideoFile": "Video dosyası aç",
 		"openProject": "Proje aç",
 		"useVerticalTray": "Dikey araç çubuğunu kullan",
-		"useHorizontalTray": "Yatay araç çubuğunu kullan"
+		"useHorizontalTray": "Yatay araç çubuğunu kullan",
+		"openStudio": "Stüdyoyu Aç"
 	},
 	"audio": {
 		"enableSystemAudio": "Sistem sesini etkinleştir",
@@ -34,7 +35,10 @@
 		"loading": "Kaynaklar yükleniyor...",
 		"screens": "Ekranlar ({{count}})",
 		"windows": "Pencereler ({{count}})",
-		"defaultSourceName": "Ekran"
+		"defaultSourceName": "Ekran",
+		"emptyTitle": "Ekran veya pencere bulunamadı",
+		"emptyDescription": "Ekran kaydı iznini yeni verdiyseniz bu seçiciyi yeniden yükleyin. macOS’ta OpenScreen’i yeniden açmanız gerekebilir.",
+		"loadFailedDescription": "OpenScreen yakalama kaynaklarını yükleyemedi. Bu seçiciyi yeniden yükleyip tekrar deneyin."
 	},
 	"recording": {
 		"selectSource": "Lütfen kayıt için bir kaynak seçin"

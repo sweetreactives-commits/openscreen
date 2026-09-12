@@ -9,7 +9,8 @@
 		"openVideoFile": "비디오 파일 열기",
 		"openProject": "프로젝트 열기",
 		"useVerticalTray": "세로 트레이 사용",
-		"useHorizontalTray": "가로 트레이 사용"
+		"useHorizontalTray": "가로 트레이 사용",
+		"openStudio": "스튜디오 열기"
 	},
 	"audio": {
 		"enableSystemAudio": "시스템 오디오 활성화",
@@ -34,7 +35,10 @@
 		"loading": "소스 불러오는 중...",
 		"screens": "화면 ({{count}}개)",
 		"windows": "창 ({{count}}개)",
-		"defaultSourceName": "화면"
+		"defaultSourceName": "화면",
+		"emptyTitle": "화면이나 창을 찾을 수 없습니다",
+		"emptyDescription": "화면 기록 권한을 방금 허용했다면 이 선택 창을 새로 고치세요. macOS에서는 OpenScreen을 다시 열어야 할 수도 있습니다.",
+		"loadFailedDescription": "OpenScreen이 캡처 소스를 불러오지 못했습니다. 이 선택 창을 새로 고친 뒤 다시 시도하세요."
 	},
 	"recording": {
 		"selectSource": "녹화할 소스를 선택해 주세요"

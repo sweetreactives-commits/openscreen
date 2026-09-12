@@ -9,7 +9,8 @@
 		"openVideoFile": "Открыть видеофайл",
 		"openProject": "Открыть проект",
 		"useVerticalTray": "Использовать вертикальную панель",
-		"useHorizontalTray": "Использовать горизонтальную панель"
+		"useHorizontalTray": "Использовать горизонтальную панель",
+		"openStudio": "Открыть студию"
 	},
 	"audio": {
 		"enableSystemAudio": "Включить системное аудио",
@@ -30,7 +31,10 @@
 		"loading": "Загрузка источников...",
 		"screens": "Экраны ({{count}})",
 		"windows": "Окна ({{count}})",
-		"defaultSourceName": "Экран"
+		"defaultSourceName": "Экран",
+		"emptyTitle": "Экраны и окна не найдены",
+		"emptyDescription": "Если вы только что выдали разрешение на запись экрана, перезагрузите этот список. На macOS может потребоваться заново открыть OpenScreen.",
+		"loadFailedDescription": "OpenScreen не смог загрузить источники захвата. Перезагрузите этот список и попробуйте снова."
 	},
 	"recording": {
 		"selectSource": "Пожалуйста, выберите источник для записи"

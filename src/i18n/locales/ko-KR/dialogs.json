@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "저장하지 않고 프로젝트 불러오기",
 		"loadProject": "프로젝트 불러오기...",
 		"saveProject": "프로젝트 저장...",
-		"saveProjectAs": "다른 이름으로 프로젝트 저장..."
+		"saveProjectAs": "다른 이름으로 프로젝트 저장...",
+		"newProject": "새 프로젝트",
+		"importVideo": "동영상 파일 가져오기…"
 	},
 	"fileDialogs": {
 		"saveGif": "내보낸 GIF 저장",

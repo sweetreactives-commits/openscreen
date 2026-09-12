@@ -9,7 +9,8 @@
 		"openVideoFile": "開啟影片檔案",
 		"openProject": "開啟專案",
 		"useVerticalTray": "使用直向托盤",
-		"useHorizontalTray": "使用橫向托盤"
+		"useHorizontalTray": "使用橫向托盤",
+		"openStudio": "開啟工作室"
 	},
 	"audio": {
 		"enableSystemAudio": "啟用系統音訊",
@@ -34,7 +35,10 @@
 		"loading": "正在載入來源...",
 		"screens": "螢幕 ({{count}})",
 		"windows": "視窗 ({{count}})",
-		"defaultSourceName": "螢幕"
+		"defaultSourceName": "螢幕",
+		"emptyTitle": "找不到螢幕或視窗",
+		"emptyDescription": "如果你剛剛授予螢幕錄製權限，請重新載入此選擇器。在 macOS 上可能需要重新開啟 OpenScreen。",
+		"loadFailedDescription": "OpenScreen 無法載入擷取來源。請重新載入此選擇器後再試一次。"
 	},
 	"recording": {
 		"selectSource": "請選擇要錄製的來源"

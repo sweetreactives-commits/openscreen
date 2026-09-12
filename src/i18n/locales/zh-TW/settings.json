@@ -8,7 +8,8 @@
 			"title": "對焦模式",
 			"manual": "手動",
 			"auto": "自動",
-			"autoDescription": "攝影機跟隨錄製時的游標位置"
+			"autoDescription": "攝影機跟隨錄製時的游標位置",
+			"lockedDisclaimer": "由時間軸上的全域自動對焦開關控制。關閉它即可為每個縮放單獨設定對焦模式。"
 		},
 		"speed": {},
 		"threeD": {
@@ -133,8 +134,6 @@
 		"textPlaceholder": "輸入您的文字...",
 		"fontStyle": "字體樣式",
 		"selectStyle": "選擇樣式",
-		"textAnimation": "文字動畫",
-		"selectAnimation": "選擇動畫",
 		"size": "大小",
 		"customFonts": "自訂字體",
 		"textColor": "文字顏色",
@@ -209,7 +208,8 @@
 		"motionBlur": "動態模糊",
 		"clickBounce": "點擊彈跳",
 		"clickRipple": "點擊波紋",
-		"clipToBounds": "裁切至畫布"
+		"clipToBounds": "裁切至畫布",
+		"clipToBoundsDescription": "把游標限制在畫面內。關閉後游標可以超出邊緣，在縮放或平移時很有用。"
 	},
 	"language": {
 		"title": "語言"
@@ -231,5 +231,16 @@
 		"copyFailed": "無法複製到剪貼簿",
 		"security": "只有這台電腦能連線，且必須使用此權杖。每次啟動 OpenScreen 時權杖都會更換。",
 		"startFailed": "無法啟動：{{message}}"
+	},
+	"textAnimation": {
+		"title": "文字動畫",
+		"selectAnimation": "選擇動畫",
+		"none": "無",
+		"fade": "淡入",
+		"rise": "上升",
+		"pop": "彈出",
+		"slideLeft": "向左滑入",
+		"typewriter": "打字機",
+		"pulse": "脈衝"
 	}
 }

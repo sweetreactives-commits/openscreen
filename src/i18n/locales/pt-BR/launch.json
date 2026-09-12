@@ -7,7 +7,10 @@
 		"pauseRecording": "Pausar gravação",
 		"resumeRecording": "Retomar gravação",
 		"openVideoFile": "Abrir arquivo de vídeo",
-		"openProject": "Abrir projeto"
+		"openProject": "Abrir projeto",
+		"openStudio": "Abrir Studio",
+		"useVerticalTray": "Usar barra vertical",
+		"useHorizontalTray": "Usar barra horizontal"
 	},
 	"audio": {
 		"enableSystemAudio": "Ativar áudio do sistema",
@@ -32,7 +35,10 @@
 		"loading": "Carregando fontes...",
 		"screens": "Telas ({{count}})",
 		"windows": "Janelas ({{count}})",
-		"defaultSourceName": "Tela"
+		"defaultSourceName": "Tela",
+		"emptyTitle": "Nenhuma tela ou janela encontrada",
+		"emptyDescription": "Se você acabou de conceder a permissão de gravação de tela, recarregue este seletor. No macOS, pode ser necessário reabrir o OpenScreen.",
+		"loadFailedDescription": "O OpenScreen não conseguiu carregar as fontes de captura. Recarregue este seletor e tente novamente."
 	},
 	"recording": {
 		"selectSource": "Por favor, selecione uma fonte para gravar"

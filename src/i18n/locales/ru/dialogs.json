@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "Отменить и загрузить проект",
 		"loadProject": "Загрузить проект…",
 		"saveProject": "Сохранить проект…",
-		"saveProjectAs": "Сохранить проект как…"
+		"saveProjectAs": "Сохранить проект как…",
+		"newProject": "Новый проект",
+		"importVideo": "Импортировать видеофайл…"
 	},
 	"fileDialogs": {
 		"saveGif": "Сохранить экспортированный GIF",

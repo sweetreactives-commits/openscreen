@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "تجاهل وتحميل مشروع",
 		"loadProject": "تحميل مشروع...",
 		"saveProject": "حفظ المشروع...",
-		"saveProjectAs": "حفظ المشروع باسم..."
+		"saveProjectAs": "حفظ المشروع باسم...",
+		"newProject": "مشروع جديد",
+		"importVideo": "استيراد ملف فيديو…"
 	},
 	"fileDialogs": {
 		"saveGif": "حفظ GIF المصدر",

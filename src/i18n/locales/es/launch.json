@@ -9,7 +9,8 @@
 		"openVideoFile": "Abrir archivo de video",
 		"openProject": "Abrir proyecto",
 		"useVerticalTray": "Usar bandeja vertical",
-		"useHorizontalTray": "Usar bandeja horizontal"
+		"useHorizontalTray": "Usar bandeja horizontal",
+		"openStudio": "Abrir Studio"
 	},
 	"audio": {
 		"enableSystemAudio": "Activar audio del sistema",
@@ -34,7 +35,10 @@
 		"loading": "Cargando fuentes...",
 		"screens": "Pantallas ({{count}})",
 		"windows": "Ventanas ({{count}})",
-		"defaultSourceName": "Pantalla"
+		"defaultSourceName": "Pantalla",
+		"emptyTitle": "No se encontraron pantallas ni ventanas",
+		"emptyDescription": "Si acabas de conceder el permiso de grabación de pantalla, vuelve a cargar este selector. En macOS puede que necesites reabrir OpenScreen.",
+		"loadFailedDescription": "OpenScreen no pudo cargar las fuentes de captura. Vuelve a cargar este selector e inténtalo de nuevo."
 	},
 	"recording": {
 		"selectSource": "Por favor selecciona una fuente para grabar"

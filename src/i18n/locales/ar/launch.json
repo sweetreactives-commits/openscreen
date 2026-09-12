@@ -9,7 +9,8 @@
 		"openVideoFile": "فتح ملف فيديو",
 		"openProject": "فتح مشروع",
 		"useVerticalTray": "استخدام الشريط العمودي",
-		"useHorizontalTray": "استخدام الشريط الأفقي"
+		"useHorizontalTray": "استخدام الشريط الأفقي",
+		"openStudio": "فتح الاستوديو"
 	},
 	"audio": {
 		"enableSystemAudio": "تفعيل صوت النظام",
@@ -30,7 +31,10 @@
 		"loading": "جاري تحميل المصادر...",
 		"screens": "الشاشات ({{count}})",
 		"windows": "النوافذ ({{count}})",
-		"defaultSourceName": "الشاشة"
+		"defaultSourceName": "الشاشة",
+		"emptyTitle": "لم يتم العثور على شاشات أو نوافذ",
+		"emptyDescription": "إذا كنت قد منحت إذن تسجيل الشاشة للتو، فأعد تحميل هذا المحدد. على macOS قد تحتاج إلى إعادة فتح OpenScreen.",
+		"loadFailedDescription": "تعذّر على OpenScreen تحميل مصادر التقاط الشاشة. أعد تحميل هذا المحدد وحاول مرة أخرى."
 	},
 	"recording": {
 		"selectSource": "يرجى تحديد مصدر للتسجيل"

@@ -8,7 +8,8 @@
 			"title": "Odak Modu",
 			"manual": "Manuel",
 			"auto": "Otomatik",
-			"autoDescription": "Kamera kaydedilen imleç konumunu takip eder"
+			"autoDescription": "Kamera kaydedilen imleç konumunu takip eder",
+			"lockedDisclaimer": "Zaman çizelgesindeki genel Otomatik Odak anahtarı tarafından denetlenir. Her yakınlaştırma için odak modunu ayrı ayarlamak üzere kapatın."
 		},
 		"threeD": {
 			"title": "3D Döndürme",
@@ -132,8 +133,6 @@
 		"textPlaceholder": "Metninizi girin...",
 		"fontStyle": "Yazı Tipi Stili",
 		"selectStyle": "Stil seçin",
-		"textAnimation": "Metin Animasyonu",
-		"selectAnimation": "Animasyon seçin",
 		"size": "Boyut",
 		"customFonts": "Özel Yazı Tipleri",
 		"textColor": "Metin Rengi",
@@ -208,7 +207,8 @@
 		"motionBlur": "Hareket Bulanıklığı",
 		"clickBounce": "Tıklama Sıçraması",
 		"clickRipple": "Tıklama Dalgası",
-		"clipToBounds": "Tuvale Kırp"
+		"clipToBounds": "Tuvale Kırp",
+		"clipToBoundsDescription": "İmleci video karesinin içinde tutar. Kapattığınızda imleç kenarların dışına taşabilir; yakınlaştırma veya kaydırma sırasında işe yarar."
 	},
 	"language": {
 		"title": "Dil"
@@ -230,5 +230,16 @@
 		"copyFailed": "Panoya kopyalanamadı",
 		"security": "Yalnızca bu bilgisayar ve yalnızca bu belirteçle bağlanabilir. Belirteç, OpenScreen her başladığında değişir.",
 		"startFailed": "Başlatılamadı: {{message}}"
+	},
+	"textAnimation": {
+		"title": "Metin Animasyonu",
+		"selectAnimation": "Animasyon seçin",
+		"none": "Yok",
+		"fade": "Solma",
+		"rise": "Yükselme",
+		"pop": "Sıçrama",
+		"slideLeft": "Sola Kaydırma",
+		"typewriter": "Daktilo",
+		"pulse": "Nabız"
 	}
 }

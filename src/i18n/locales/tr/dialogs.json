@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "Kaydetmeden Proje Yükle",
 		"loadProject": "Proje Yükle…",
 		"saveProject": "Proje Kaydet…",
-		"saveProjectAs": "Farklı Kaydet…"
+		"saveProjectAs": "Farklı Kaydet…",
+		"newProject": "Yeni Proje",
+		"importVideo": "Video Dosyası İçe Aktar…"
 	},
 	"fileDialogs": {
 		"saveGif": "Dışa Aktarılan GIF'i Kaydet",

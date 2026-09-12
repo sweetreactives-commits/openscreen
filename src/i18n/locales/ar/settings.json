@@ -8,7 +8,8 @@
 			"title": "وضع التركيز",
 			"manual": "يدوي",
 			"auto": "تلقائي",
-			"autoDescription": "الكاميرا تتبع موضع المؤشر المسجل"
+			"autoDescription": "الكاميرا تتبع موضع المؤشر المسجل",
+			"lockedDisclaimer": "يتحكم به مفتاح التركيز التلقائي العام في المخطط الزمني. أوقفه لضبط وضع التركيز لكل تكبير على حدة."
 		},
 		"customScale": "تكبير مخصص",
 		"position": {
@@ -132,8 +133,6 @@
 		"textPlaceholder": "أدخل النص هنا...",
 		"fontStyle": "نمط الخط",
 		"selectStyle": "حدد النمط",
-		"textAnimation": "تحريك النص",
-		"selectAnimation": "حدد الحركة",
 		"size": "الحجم",
 		"customFonts": "خطوط مخصصة",
 		"textColor": "لون النص",
@@ -208,7 +207,8 @@
 		"motionBlur": "ضبابية الحركة",
 		"clickBounce": "ارتداد النقر",
 		"clickRipple": "تموج النقر",
-		"clipToBounds": "القص ضمن اللوحة"
+		"clipToBounds": "القص ضمن اللوحة",
+		"clipToBoundsDescription": "يُبقي المؤشر داخل إطار الفيديو. أوقفه للسماح للمؤشر بتجاوز الحواف — مفيد عند التكبير أو التحريك."
 	},
 	"language": {
 		"title": "اللغة"
@@ -230,5 +230,16 @@
 		"copyFailed": "تعذّر النسخ إلى الحافظة",
 		"security": "لا يمكن الاتصال إلا من هذا الحاسوب، وبهذا الرمز فقط. ويتغيّر الرمز في كل مرة يبدأ فيها OpenScreen.",
 		"startFailed": "تعذّر البدء: {{message}}"
+	},
+	"textAnimation": {
+		"title": "تحريك النص",
+		"selectAnimation": "حدد الحركة",
+		"none": "بدون",
+		"fade": "تلاشٍ",
+		"rise": "صعود",
+		"pop": "ظهور مفاجئ",
+		"slideLeft": "انزلاق لليسار",
+		"typewriter": "آلة كاتبة",
+		"pulse": "نبض"
 	}
 }

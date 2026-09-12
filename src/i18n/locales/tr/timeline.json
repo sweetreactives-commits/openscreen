@@ -5,7 +5,11 @@
 		"addTrim": "Kırpma Ekle (T)",
 		"addAnnotation": "Açıklama Ekle (A)",
 		"addSpeed": "Hız Ekle (S)",
-		"addBlur": "Bulanık ekle (B)"
+		"addBlur": "Bulanık ekle (B)",
+		"autoZoomOn": "Otomatik yakınlaştırma önerileri açık — önerilen yakınlaştırmaları kaldırmak için tıklayın",
+		"autoZoomOff": "Otomatik yakınlaştırma önerileri kapalı — imlece göre yakınlaştırma önermek için tıklayın",
+		"autoFocusAllOn": "Tüm yakınlaştırmalarda otomatik odak açık — hepsini manuele çevirmek için tıklayın",
+		"autoFocusAllOff": "Tüm yakınlaştırmalarda otomatik odak (kamera imleci izler)"
 	},
 	"hints": {
 		"pressZoom": "Yakınlaştırma eklemek için Z tuşuna basın",

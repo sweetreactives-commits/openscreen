@@ -40,7 +40,8 @@
 		"cameraDenied": "Acesso à câmera negado. A gravação continuará sem webcam.",
 		"cameraDisconnected": "Webcam desconectada.",
 		"cameraNotFound": "Câmera não encontrada.",
-		"permissionDenied": "Permissão de gravação negada. Por favor, permita a gravação de tela."
+		"permissionDenied": "Permissão de gravação negada. Por favor, permita a gravação de tela.",
+		"accessibilityAllowAndRetry": "Permita o acesso de Acessibilidade ao OpenScreen e pressione gravar novamente para iniciar a contagem regressiva."
 	},
 	"autoCaptions": {
 		"button": "Legendas automáticas",
@@ -60,5 +61,21 @@
 		"noAudio": "Este vídeo não tem áudio utilizável para transcrição.",
 		"failed": "Não foi possível gerar as legendas.",
 		"truncated": "Apenas os primeiros {{minutes}} minutos foram transcritos."
+	},
+	"loadingEditor": "Carregando editor…",
+	"emptyState": {
+		"title": "Nenhum projeto aberto",
+		"description": "Importe um vídeo para começar a editar ou carregue um projeto do OpenScreen já existente.",
+		"importVideoButton": "Importar Arquivo de Vídeo…",
+		"loadProjectButton": "Carregar Projeto…",
+		"supportedFormats": "Formatos compatíveis: MP4, MOV, WebM, MKV, AVI, M4V, WMV",
+		"dragDropHint": "ou arraste e solte um arquivo de projeto .openscreen aqui",
+		"dropOverlay": "Solte o arquivo de projeto para abrir",
+		"dropErrors": {
+			"unsupportedFormatTitle": "Formato Não Compatível",
+			"unsupportedFormatMessage": "Só é possível soltar aqui arquivos de projeto .openscreen. Para importar um vídeo, use o botão “Importar Arquivo de Vídeo…” nesta tela.",
+			"couldNotOpenTitle": "Não Foi Possível Abrir o Arquivo",
+			"couldNotOpenMessage": "Não foi possível abrir o arquivo de projeto. O vídeo ao qual ele se refere pode ter sido movido ou excluído."
+		}
 	}
 }

@@ -8,7 +8,8 @@
 			"title": "Modo de enfoque",
 			"manual": "Manual",
 			"auto": "Auto",
-			"autoDescription": "La cámara sigue la posición del cursor grabado"
+			"autoDescription": "La cámara sigue la posición del cursor grabado",
+			"lockedDisclaimer": "Lo controla el interruptor global de Enfoque automático en la línea de tiempo. Desactívalo para ajustar el modo de enfoque en cada zoom."
 		},
 		"threeD": {
 			"title": "Rotación 3D",
@@ -217,7 +218,8 @@
 		"motionBlur": "Desenfoque de movimiento",
 		"clickBounce": "Rebote al clic",
 		"clickRipple": "Onda al clic",
-		"clipToBounds": "Recortar al lienzo"
+		"clipToBounds": "Recortar al lienzo",
+		"clipToBoundsDescription": "Mantiene el cursor dentro del fotograma. Desactívalo para dejar que el cursor sobresalga de los bordes: útil al hacer zoom o al desplazar."
 	},
 	"language": {
 		"title": "Idioma"

@@ -9,7 +9,8 @@
 		"openVideoFile": "Mở tệp video",
 		"openProject": "Mở dự án",
 		"useVerticalTray": "Dùng khay dọc",
-		"useHorizontalTray": "Dùng khay ngang"
+		"useHorizontalTray": "Dùng khay ngang",
+		"openStudio": "Mở Studio"
 	},
 	"audio": {
 		"enableSystemAudio": "Bật âm thanh hệ thống",
@@ -30,7 +31,10 @@
 		"loading": "Đang tải nguồn...",
 		"screens": "Màn hình ({{count}})",
 		"windows": "Cửa sổ ({{count}})",
-		"defaultSourceName": "Màn hình"
+		"defaultSourceName": "Màn hình",
+		"emptyTitle": "Không tìm thấy màn hình hoặc cửa sổ nào",
+		"emptyDescription": "Nếu bạn vừa cấp quyền ghi màn hình, hãy tải lại bộ chọn này. Trên macOS, bạn có thể cần mở lại OpenScreen.",
+		"loadFailedDescription": "OpenScreen không tải được nguồn ghi hình. Hãy tải lại bộ chọn này và thử lại."
 	},
 	"recording": {
 		"selectSource": "Vui lòng chọn một nguồn để ghi"

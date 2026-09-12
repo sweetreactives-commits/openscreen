@@ -8,7 +8,8 @@
 			"title": "对焦模式",
 			"manual": "手动",
 			"auto": "自动",
-			"autoDescription": "摄像头跟随录制时的光标位置"
+			"autoDescription": "摄像头跟随录制时的光标位置",
+			"lockedDisclaimer": "由时间轴上的全局自动对焦开关控制。关闭它即可为每个缩放单独设置对焦模式。"
 		},
 		"threeD": {
 			"title": "3D 旋转",
@@ -132,8 +133,6 @@
 		"textPlaceholder": "输入您的文本...",
 		"fontStyle": "字体样式",
 		"selectStyle": "选择样式",
-		"textAnimation": "文本动画",
-		"selectAnimation": "选择动画",
 		"size": "大小",
 		"customFonts": "自定义字体",
 		"textColor": "文本颜色",
@@ -208,7 +207,8 @@
 		"motionBlur": "运动模糊",
 		"clickBounce": "点击弹跳",
 		"clickRipple": "点击波纹",
-		"clipToBounds": "裁剪到画布"
+		"clipToBounds": "裁剪到画布",
+		"clipToBoundsDescription": "把光标限制在画面内。关闭后光标可以超出边缘，在缩放或平移时很有用。"
 	},
 	"language": {
 		"title": "语言"
@@ -230,5 +230,16 @@
 		"copyFailed": "无法复制到剪贴板",
 		"security": "只有这台电脑能连接，且必须使用此令牌。每次启动 OpenScreen 时令牌都会更换。",
 		"startFailed": "无法启动：{{message}}"
+	},
+	"textAnimation": {
+		"title": "文本动画",
+		"selectAnimation": "选择动画",
+		"none": "无",
+		"fade": "淡入",
+		"rise": "上升",
+		"pop": "弹出",
+		"slideLeft": "向左滑入",
+		"typewriter": "打字机",
+		"pulse": "脉冲"
 	}
 }

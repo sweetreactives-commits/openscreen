@@ -9,7 +9,8 @@
 		"openVideoFile": "打开视频文件",
 		"openProject": "打开项目",
 		"useVerticalTray": "使用竖向托盘",
-		"useHorizontalTray": "使用横向托盘"
+		"useHorizontalTray": "使用横向托盘",
+		"openStudio": "打开工作室"
 	},
 	"audio": {
 		"enableSystemAudio": "启用系统音频",
@@ -34,7 +35,10 @@
 		"loading": "正在加载源...",
 		"screens": "屏幕 ({{count}})",
 		"windows": "窗口 ({{count}})",
-		"defaultSourceName": "屏幕"
+		"defaultSourceName": "屏幕",
+		"emptyTitle": "未找到屏幕或窗口",
+		"emptyDescription": "如果你刚刚授予了屏幕录制权限，请重新加载此选择器。在 macOS 上可能需要重新打开 OpenScreen。",
+		"loadFailedDescription": "OpenScreen 无法加载捕获源。请重新加载此选择器后重试。"
 	},
 	"recording": {
 		"selectSource": "请选择要录制的源"

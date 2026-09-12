@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "Bỏ qua & Tải dự án",
 		"loadProject": "Tải dự án…",
 		"saveProject": "Lưu dự án…",
-		"saveProjectAs": "Lưu dự án thành…"
+		"saveProjectAs": "Lưu dự án thành…",
+		"newProject": "Dự án mới",
+		"importVideo": "Nhập tệp video…"
 	},
 	"fileDialogs": {
 		"saveGif": "Lưu GIF đã xuất",

@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "捨棄並載入專案",
 		"loadProject": "載入專案…",
 		"saveProject": "儲存專案…",
-		"saveProjectAs": "專案另存新檔…"
+		"saveProjectAs": "專案另存新檔…",
+		"newProject": "新增專案",
+		"importVideo": "匯入影片檔…"
 	},
 	"fileDialogs": {
 		"saveGif": "儲存匯出的 GIF",

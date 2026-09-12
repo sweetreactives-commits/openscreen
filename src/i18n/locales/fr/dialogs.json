@@ -59,7 +59,9 @@
 		"discardAndLoadProject": "Ignorer et charger un projet",
 		"loadProject": "Charger un projet…",
 		"saveProject": "Enregistrer le projet…",
-		"saveProjectAs": "Enregistrer le projet sous…"
+		"saveProjectAs": "Enregistrer le projet sous…",
+		"newProject": "Nouveau projet",
+		"importVideo": "Importer un fichier vidéo…"
 	},
 	"fileDialogs": {
 		"saveGif": "Enregistrer le GIF exporté",
