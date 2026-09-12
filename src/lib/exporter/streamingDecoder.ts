@@ -1,5 +1,6 @@
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import { computeTimeline } from "@/lib/mcp/timeline";
 
 const SOURCE_LOAD_TIMEOUT_MS = 60_000;
 const EPSILON_SEC = 0.001;
@@ -347,10 +348,7 @@ export class StreamingVideoDecoder {
 			codec.includes("av1") ||
 			codec.includes("vp09") ||
 			codec.includes("vp9");
-		const segments = this.splitBySpeed(
-			this.computeSegments(this.metadata.duration, trimRegions),
-			speedRegions,
-		);
+		const segments = this.buildSegments(trimRegions, speedRegions);
 		const requiredEndSec = segments[segments.length - 1]?.endSec ?? 0;
 
 		const segmentOutputFrameCounts = segments.map((segment) =>
@@ -636,35 +634,25 @@ export class StreamingVideoDecoder {
 	}
 
 	/**
-	 * Converts trim regions into the segments that should be kept.
-	 * Returns a single full-duration segment when no trim regions are present.
+	 * The source spans this export will actually render, with their playback speeds.
+	 *
+	 * Delegates to the shared timeline math in `@/lib/mcp/timeline` so the exporter and
+	 * the MCP layer can never disagree about what a trim means. Works in milliseconds
+	 * there (the project's unit) and converts at this boundary, since the decoder
+	 * reasons in seconds.
 	 */
-	private computeSegments(
-		totalDuration: number,
+	private buildSegments(
 		trimRegions?: TrimRegion[],
-	): Array<{ startSec: number; endSec: number }> {
-		if (!trimRegions || trimRegions.length === 0) {
-			return [{ startSec: 0, endSec: totalDuration }];
-		}
-
-		const sorted = [...trimRegions].sort((a, b) => a.startMs - b.startMs);
-		const segments: Array<{ startSec: number; endSec: number }> = [];
-		let cursor = 0;
-
-		for (const trim of sorted) {
-			const trimStart = trim.startMs / 1000;
-			const trimEnd = trim.endMs / 1000;
-			if (cursor < trimStart) {
-				segments.push({ startSec: cursor, endSec: trimStart });
-			}
-			cursor = trimEnd;
-		}
-
-		if (cursor < totalDuration) {
-			segments.push({ startSec: cursor, endSec: totalDuration });
-		}
-
-		return segments;
+		speedRegions?: SpeedRegion[],
+	): Array<{ startSec: number; endSec: number; speed: number }> {
+		if (!this.metadata) throw new Error("Must call loadMetadata() first");
+		return computeTimeline(this.metadata.duration * 1000, trimRegions, speedRegions).map(
+			(segment) => ({
+				startSec: segment.startMs / 1000,
+				endSec: segment.endMs / 1000,
+				speed: segment.speed,
+			}),
+		);
 	}
 
 	/**
@@ -676,9 +664,7 @@ export class StreamingVideoDecoder {
 		trimRegions?: TrimRegion[],
 		speedRegions?: SpeedRegion[],
 	): { effectiveDuration: number; totalFrames: number } {
-		if (!this.metadata) throw new Error("Must call loadMetadata() first");
-		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
-		const segments = this.splitBySpeed(trimSegments, speedRegions);
+		const segments = this.buildSegments(trimRegions, speedRegions);
 		return {
 			effectiveDuration: segments.reduce(
 				(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
@@ -689,42 +675,6 @@ export class StreamingVideoDecoder {
 				return sum + Math.max(0, Math.ceil((segDur / seg.speed) * targetFrameRate));
 			}, 0),
 		};
-	}
-
-	/**
-	 * Splits keep-segments by overlapping speed regions, annotating each
-	 * sub-segment with its playback speed multiplier (defaults to 1×).
-	 */
-	private splitBySpeed(
-		segments: Array<{ startSec: number; endSec: number }>,
-		speedRegions?: SpeedRegion[],
-	): Array<{ startSec: number; endSec: number; speed: number }> {
-		if (!speedRegions || speedRegions.length === 0)
-			return segments.map((s) => ({ ...s, speed: 1 }));
-
-		const result: Array<{ startSec: number; endSec: number; speed: number }> = [];
-		for (const segment of segments) {
-			const overlapping = speedRegions
-				.filter((sr) => sr.startMs / 1000 < segment.endSec && sr.endMs / 1000 > segment.startSec)
-				.sort((a, b) => a.startMs - b.startMs);
-
-			if (overlapping.length === 0) {
-				result.push({ ...segment, speed: 1 });
-				continue;
-			}
-
-			let cursor = segment.startSec;
-			for (const sr of overlapping) {
-				const srStart = Math.max(sr.startMs / 1000, segment.startSec);
-				const srEnd = Math.min(sr.endMs / 1000, segment.endSec);
-				if (cursor < srStart) result.push({ startSec: cursor, endSec: srStart, speed: 1 });
-				result.push({ startSec: srStart, endSec: srEnd, speed: sr.speed });
-				cursor = srEnd;
-			}
-			if (cursor < segment.endSec)
-				result.push({ startSec: cursor, endSec: segment.endSec, speed: 1 });
-		}
-		return result.filter((s) => s.endSec - s.startSec > 0.0001);
 	}
 
 	/** Returns the underlying WebDemuxer instance, or null if not yet loaded. */
