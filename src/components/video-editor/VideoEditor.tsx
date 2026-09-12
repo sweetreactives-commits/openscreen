@@ -51,6 +51,7 @@ import {
 	VideoExporter,
 } from "@/lib/exporter";
 import { computeFrameStepTime } from "@/lib/frameStep";
+import type { ExportRunner } from "@/lib/mcp/exportJob";
 import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
@@ -256,6 +257,7 @@ export default function VideoEditor() {
 		DEFAULT_GIF_SETTINGS.sizePreset,
 	);
 	const [exportedFilePath, setExportedFilePath] = useState<string | null>(null);
+	const exportOutcomeRef = useRef<{ ok: boolean; path?: string; message?: string } | null>(null);
 	const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string | null>(null);
 	const [unsavedExport, setUnsavedExport] = useState<{
 		arrayBuffer: ArrayBuffer;
@@ -352,26 +354,6 @@ export default function VideoEditor() {
 		webcamVideoSourcePath,
 		recordingCursorCaptureMode,
 	]);
-
-	// Answers the MCP endpoint's read commands with this editor's live state.
-	// No-ops unless the user has turned the endpoint on.
-	useMcpCommands({
-		editor: editorState,
-		media: currentProjectMedia,
-		projectPath: currentProjectPath,
-		durationMs: duration * 1000,
-		getSourceDimensions: () => {
-			const video = videoPlaybackRef.current?.video;
-			return {
-				width: video?.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width,
-				height: video?.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height,
-			};
-		},
-		cursorTelemetry,
-		videoUrl: videoPath,
-		// pushState, not updateState: an agent's batch should be one undo step.
-		applyPatch: pushState,
-	});
 
 	const applyLoadedProject = useCallback(
 		async (candidate: unknown, path?: string | null) => {
@@ -1741,7 +1723,10 @@ export default function VideoEditor() {
 	}, [unsavedExport, handleExportSaved]);
 
 	const handleExport = useCallback(
-		async (settings: ExportSettings) => {
+		async (settings: ExportSettings, targetPathOverride?: string) => {
+			// handleExport reports through toasts and component state, which a
+			// programmatic caller cannot observe. This carries the outcome back.
+			exportOutcomeRef.current = null;
 			if (!videoPath) {
 				toast.error("No video loaded");
 				return;
@@ -1754,18 +1739,25 @@ export default function VideoEditor() {
 			}
 
 			// Pick the save path before exporting, otherwise the save dialog can end up
-			// hidden behind other windows after a long-running export.
-			const isGifFormat = settings.format === "gif";
-			const targetFileName = `export-${Date.now()}.${isGifFormat ? "gif" : "mp4"}`;
-			const pickResult = await window.electronAPI.pickExportSavePath(
-				targetFileName,
-				getExportFolder(),
-			);
-			if (pickResult.canceled || !pickResult.success || !pickResult.path) {
-				setShowExportDialog(false);
-				return;
+			// hidden behind other windows after a long-running export. An agent-driven
+			// export brings its own path, already checked against the export folder.
+			let targetPath = targetPathOverride;
+			if (!targetPath) {
+				const isGifFormat = settings.format === "gif";
+				const targetFileName = `export-${Date.now()}.${isGifFormat ? "gif" : "mp4"}`;
+				const pickResult = await window.electronAPI.pickExportSavePath(
+					targetFileName,
+					getExportFolder(),
+				);
+				if (pickResult.canceled || !pickResult.success || !pickResult.path) {
+					setShowExportDialog(false);
+					return;
+				}
+				targetPath = pickResult.path;
 			}
-			const targetPath = pickResult.path;
+			// Named from the path actually being written, so the fallback that keeps an
+			// unsaved export in memory suggests the same name the user just saw.
+			const targetFileName = targetPath.split(/[/]/).pop() || `export-${Date.now()}`;
 
 			setIsExporting(true);
 			setExportProgress(null);
@@ -1858,9 +1850,14 @@ export default function VideoEditor() {
 
 						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
+							exportOutcomeRef.current = { ok: true, path: saveResult.path };
 							handleExportSaved("GIF", saveResult.path);
 						} else {
 							setUnsavedExport({ arrayBuffer, fileName: targetFileName, format: "gif" });
+							exportOutcomeRef.current = {
+								ok: false,
+								message: saveResult.message || "Failed to save GIF",
+							};
 							const message = buildSaveDiagnosticMessage(
 								"GIF",
 								saveResult.message || "Failed to save GIF",
@@ -1869,6 +1866,10 @@ export default function VideoEditor() {
 							toast.error(message);
 						}
 					} else {
+						exportOutcomeRef.current = {
+							ok: false,
+							message: result.error || "GIF export failed",
+						};
 						const message = buildExportDiagnosticMessage({
 							formatLabel: "GIF",
 							reason: result.error || "GIF export failed",
@@ -1953,9 +1954,14 @@ export default function VideoEditor() {
 
 						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
+							exportOutcomeRef.current = { ok: true, path: saveResult.path };
 							handleExportSaved("Video", saveResult.path);
 						} else {
 							setUnsavedExport({ arrayBuffer, fileName: targetFileName, format: "mp4" });
+							exportOutcomeRef.current = {
+								ok: false,
+								message: saveResult.message || "Failed to save video",
+							};
 							const message = buildSaveDiagnosticMessage(
 								"Video",
 								saveResult.message || "Failed to save video",
@@ -1964,6 +1970,10 @@ export default function VideoEditor() {
 							toast.error(message);
 						}
 					} else {
+						exportOutcomeRef.current = {
+							ok: false,
+							message: result.error || "Export failed",
+						};
 						const message = buildExportDiagnosticMessage({
 							formatLabel: "Video",
 							reason: result.error || "Export failed",
@@ -1984,6 +1994,10 @@ export default function VideoEditor() {
 				}
 			} catch (error) {
 				console.error("Export error:", error);
+				exportOutcomeRef.current = {
+					ok: false,
+					message: error instanceof Error ? error.message : "Unknown export error",
+				};
 				if (error instanceof BackgroundLoadError) {
 					const message = t("errors.exportBackgroundLoadFailed", { url: error.displayUrl });
 					setExportError(message);
@@ -2047,52 +2061,60 @@ export default function VideoEditor() {
 		],
 	);
 
+	/** Export settings for a format, from whatever the panel is currently set to. */
+	const buildExportSettings = useCallback(
+		(format: ExportFormat): ExportSettings | null => {
+			const video = videoPlaybackRef.current?.video;
+			if (!video) return null;
+
+			const sourceWidth = video.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+			const sourceHeight = video.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
+			const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
+				sourceWidth,
+				sourceHeight,
+				cropRegion,
+			);
+			const aspectRatioValue =
+				aspectRatio === "native"
+					? getNativeAspectRatioValue(sourceWidth, sourceHeight, cropRegion)
+					: getAspectRatioValue(aspectRatio);
+			const gifDimensions = calculateOutputDimensions(
+				effectiveSourceDimensions.width,
+				effectiveSourceDimensions.height,
+				gifSizePreset,
+				GIF_SIZE_PRESETS,
+				aspectRatioValue,
+			);
+
+			return {
+				format,
+				quality: format === "mp4" ? exportQuality : undefined,
+				gifConfig:
+					format === "gif"
+						? {
+								frameRate: gifFrameRate,
+								loop: gifLoop,
+								sizePreset: gifSizePreset,
+								width: gifDimensions.width,
+								height: gifDimensions.height,
+							}
+						: undefined,
+			};
+		},
+		[exportQuality, gifFrameRate, gifLoop, gifSizePreset, aspectRatio, cropRegion],
+	);
+
 	const handleOpenExportDialog = useCallback(() => {
 		if (!videoPath) {
 			toast.error("No video loaded");
 			return;
 		}
 
-		const video = videoPlaybackRef.current?.video;
-		if (!video) {
+		const settings = buildExportSettings(exportFormat);
+		if (!settings) {
 			toast.error("Video not ready");
 			return;
 		}
-
-		// Build export settings from current state
-		const sourceWidth = video.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
-		const sourceHeight = video.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
-		const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
-			sourceWidth,
-			sourceHeight,
-			cropRegion,
-		);
-		const aspectRatioValue =
-			aspectRatio === "native"
-				? getNativeAspectRatioValue(sourceWidth, sourceHeight, cropRegion)
-				: getAspectRatioValue(aspectRatio);
-		const gifDimensions = calculateOutputDimensions(
-			effectiveSourceDimensions.width,
-			effectiveSourceDimensions.height,
-			gifSizePreset,
-			GIF_SIZE_PRESETS,
-			aspectRatioValue,
-		);
-
-		const settings: ExportSettings = {
-			format: exportFormat,
-			quality: exportFormat === "mp4" ? exportQuality : undefined,
-			gifConfig:
-				exportFormat === "gif"
-					? {
-							frameRate: gifFrameRate,
-							loop: gifLoop,
-							sizePreset: gifSizePreset,
-							width: gifDimensions.width,
-							height: gifDimensions.height,
-						}
-					: undefined,
-		};
 
 		setShowExportDialog(true);
 		setExportError(null);
@@ -2100,17 +2122,51 @@ export default function VideoEditor() {
 
 		// Start export immediately
 		handleExport(settings);
-	}, [
-		videoPath,
-		exportFormat,
-		exportQuality,
-		gifFrameRate,
-		gifLoop,
-		gifSizePreset,
-		aspectRatio,
-		cropRegion,
-		handleExport,
-	]);
+	}, [videoPath, exportFormat, buildExportSettings, handleExport]);
+
+	// Renders to a file for an agent. The destination is resolved in the main
+	// process against the user's export folder — the agent supplies only a name.
+	const runExportForAgent = useCallback<ExportRunner>(
+		async (targetPath, format) => {
+			const settings = buildExportSettings(format);
+			if (!settings) throw new Error("The video is not ready to export yet.");
+
+			setShowExportDialog(true);
+			setExportError(null);
+			setExportedFilePath(null);
+			await handleExport(settings, targetPath);
+
+			const outcome = exportOutcomeRef.current;
+			if (!outcome) throw new Error("The export stopped before writing a file.");
+			if (!outcome.ok || !outcome.path) {
+				throw new Error(outcome.message ?? "The export failed.");
+			}
+			return outcome.path;
+		},
+		[buildExportSettings, handleExport],
+	);
+
+	// Answers the MCP endpoint's commands with this editor's live state.
+	// No-ops unless the user has turned the endpoint on.
+	useMcpCommands({
+		editor: editorState,
+		media: currentProjectMedia,
+		projectPath: currentProjectPath,
+		durationMs: duration * 1000,
+		getSourceDimensions: () => {
+			const video = videoPlaybackRef.current?.video;
+			return {
+				width: video?.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width,
+				height: video?.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height,
+			};
+		},
+		cursorTelemetry,
+		videoUrl: videoPath,
+		// pushState, not updateState: an agent's batch should be one undo step.
+		applyPatch: pushState,
+		runExport: runExportForAgent,
+		exportFolder: getExportFolder() ?? null,
+	});
 
 	const handleCancelExport = useCallback(() => {
 		if (exporterRef.current) {

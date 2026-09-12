@@ -19,6 +19,7 @@ import {
 } from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
 import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
+import { registerExportPathHandler } from "./mcp/exportPath";
 import { registerMcpIpc } from "./mcp/ipc";
 import { stopMcpServer } from "./mcp/server";
 import {
@@ -484,6 +485,7 @@ app.whenReady().then(async () => {
 
 	// Reads the stored mode and starts the endpoint only if the user turned it on.
 	// See docs/architecture/mcp-server.md for why it is off by default.
+	registerExportPathHandler(RECORDINGS_DIR);
 	await registerMcpIpc(() =>
 		mainWindow && !mainWindow.isDestroyed() && isEditorWindow(mainWindow) ? mainWindow : null,
 	);

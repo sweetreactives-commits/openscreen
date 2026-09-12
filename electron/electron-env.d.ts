@@ -292,6 +292,10 @@ interface Window {
 			projectState: unknown;
 			logs: string[];
 		}) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+		resolveMcpExportPath: (
+			fileName: string,
+			exportFolder: string | null,
+		) => Promise<import("./mcp/exportPath").ResolvedExportPath>;
 		getMcpStatus: () => Promise<import("./mcp/ipc").McpStatus>;
 		setMcpMode: (mode: "off" | "read-only" | "full") => Promise<import("./mcp/ipc").McpStatus>;
 		onMcpCommand: (

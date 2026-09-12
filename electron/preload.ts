@@ -293,6 +293,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	 * turning a throw into an error response — is handled here so each caller
 	 * doesn't reimplement it.
 	 */
+	resolveMcpExportPath: (fileName: string, exportFolder: string | null) =>
+		ipcRenderer.invoke("mcp:resolve-export-path", fileName, exportFolder),
 	getMcpStatus: () => ipcRenderer.invoke("mcp:get-status"),
 	setMcpMode: (mode: "off" | "read-only" | "full") => ipcRenderer.invoke("mcp:set-mode", mode),
 	onMcpCommand: (callback: (request: McpCommandRequest) => Promise<unknown>) => {

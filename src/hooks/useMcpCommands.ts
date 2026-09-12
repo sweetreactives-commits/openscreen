@@ -6,6 +6,7 @@ import { buildAudioProfile } from "@/lib/mcp/audioProfile";
 import type { McpCommandRequest } from "@/lib/mcp/contracts";
 import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
 import { applyCommands, type EditorCommand } from "@/lib/mcp/editorCommands";
+import { currentExport, type ExportRunner, requestExport } from "@/lib/mcp/exportJob";
 import { grabFrame } from "@/lib/mcp/frameGrab";
 import { resolveImageCommands } from "@/lib/mcp/imageAnnotation";
 import { buildProjectSummary } from "@/lib/mcp/projectSummary";
@@ -36,6 +37,10 @@ export interface McpCommandSources {
 	 * a single step the user can undo.
 	 */
 	applyPatch: (patch: Partial<EditorState>) => void;
+	/** Renders the project to an already-resolved destination. */
+	runExport: ExportRunner;
+	/** The user's chosen export folder, or null to fall back to the recordings folder. */
+	exportFolder: string | null;
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -121,6 +126,30 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						createdIds: outcome.createdIds,
 						changed: Object.keys(outcome.patch),
 					};
+				}
+
+				case "export_video": {
+					const format = args.format === "mp4" ? "mp4" : "gif";
+					const fileName = typeof args.fileName === "string" ? args.fileName : "";
+					// Asking with no name is how a caller polls a render already going.
+					if (!fileName) {
+						const state = currentExport();
+						if (state) return state;
+						return { status: "error", message: "Give a fileName to start an export." };
+					}
+					// Settle the destination before starting: a bad name or an existing
+					// file should be refused now, not discovered on a later poll.
+					const resolved = await window.electronAPI.resolveMcpExportPath(
+						fileName,
+						current.exportFolder,
+					);
+					if (!resolved.success || !resolved.path) {
+						return {
+							status: "error",
+							message: resolved.message ?? "Could not resolve a path for the export.",
+						};
+					}
+					return requestExport(resolved.path, format, current.runExport);
 				}
 
 				case "get_transcript": {

@@ -342,8 +342,9 @@ test("stays off until the user turns it on, and stops when they turn it off", as
 	}
 });
 
-test("edits the project only in full mode, as one undo step", async () => {
-	test.setTimeout(180_000);
+test("edits and exports only in full mode, one undo step per batch", async () => {
+	// A real GIF render is CPU-bound; give it room.
+	test.setTimeout(300_000);
 
 	const app = await electron.launch({
 		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
@@ -403,6 +404,9 @@ test("edits the project only in full mode, as one undo step", async () => {
 			predicate: (w) => w.url().includes("windowType=editor"),
 			timeout: 15_000,
 		});
+		// WebCodecs may not be registered in the renderer on first load, and without
+		// it the render fails. The GIF export suite reloads for the same reason.
+		await editorWindow.reload();
 		await editorWindow.waitForLoadState("domcontentloaded");
 		await expect(editorWindow.getByTestId("testId-export-panel-button")).toBeVisible({
 			timeout: 60_000,
@@ -479,6 +483,40 @@ test("edits the project only in full mode, as one undo step", async () => {
 
 		const unchanged = await callTool(endpoint, "get_project");
 		expect((unchanged.regions as { zooms: unknown[] }).zooms).toHaveLength(1);
+
+		// Exporting: the agent names the file, never the folder, and polls until done.
+		const started = await callTool(endpoint, "export_video", {
+			fileName: "mcp-demo.gif",
+			format: "gif",
+		});
+		expect(started.status).toBe("running");
+
+		const exportDeadline = Date.now() + 150_000;
+		let exportState = started;
+		while (exportState.status === "running" && Date.now() < exportDeadline) {
+			await new Promise((resolve) => setTimeout(resolve, 2_000));
+			exportState = await callTool(endpoint, "export_video");
+		}
+		expect(exportState.status, `export ended as ${JSON.stringify(exportState)}`).toBe("ready");
+
+		const exportedPath = exportState.path as string;
+		expect(fs.existsSync(exportedPath), `expected a file at ${exportedPath}`).toBe(true);
+		expect(fs.readFileSync(exportedPath).subarray(0, 6).toString("ascii")).toMatch(/^GIF8[79]a/);
+		fs.unlinkSync(exportedPath);
+
+		// A path, rather than a name, is refused outright.
+		const traversal = await callMcp(
+			endpoint,
+			"tools/call",
+			{ name: "export_video", arguments: { fileName: "../../escaped.gif" } },
+			"export_video",
+		);
+		const traversalResult = traversal.result as {
+			isError?: boolean;
+			content: Array<{ text: string }>;
+		};
+		expect(traversalResult.isError).toBe(true);
+		expect(traversalResult.content[0].text).toContain("plain file name");
 
 		// The whole batch collapses into a single undo for the user: one press
 		// takes back the image batch, the next takes back the zoom-and-text batch.

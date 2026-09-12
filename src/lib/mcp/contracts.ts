@@ -20,7 +20,8 @@ export type McpCommand =
 	| "get_audio_profile"
 	| "get_frame"
 	| "get_transcript"
-	| "apply_commands";
+	| "apply_commands"
+	| "export_video";
 
 export interface McpCommandRequest {
 	id: string;

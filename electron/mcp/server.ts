@@ -236,6 +236,8 @@ function buildMcpServer(): McpServer {
 	// that always refuses.
 	if (currentMcpMode() === "full") {
 		registerEditTool(server);
+		// Exporting writes a file, so it belongs with editing rather than reading.
+		registerExportTool(server);
 	}
 
 	return server;
@@ -349,6 +351,66 @@ const commandSchema = z.discriminatedUnion("op", [
 		clickRipple: z.number().optional(),
 	}),
 ]);
+
+function registerExportTool(server: McpServer): void {
+	server.registerTool(
+		"export_video",
+		{
+			title: "Render the project to a file",
+			description:
+				"Renders the open project and writes it to the user's export folder. " +
+				"Rendering takes a while, so this never waits: it starts the job and reports " +
+				"where it stands. Call it again with no arguments to check progress, until " +
+				'status is "ready". You choose the file name, not the folder, and an ' +
+				"existing file is never overwritten — pick another name instead.",
+			inputSchema: z.object({
+				fileName: z
+					.string()
+					.optional()
+					.describe(
+						"Plain file name ending in .mp4 or .gif, with no folders in it. " +
+							"Omit to poll a render already under way.",
+					),
+				format: z
+					.enum(["mp4", "gif"])
+					.optional()
+					.describe("Defaults to gif, which is what a README wants."),
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+		},
+		async (args) => {
+			const response = await callEditor<{ status: string; path?: string; message?: string }>(
+				"export_video",
+				args,
+			);
+
+			if (!response.ok) {
+				return { isError: true, content: [{ type: "text" as const, text: response.message }] };
+			}
+
+			const state = response.data;
+			if (state.status === "error") {
+				return {
+					isError: true,
+					content: [{ type: "text" as const, text: state.message ?? "The export failed." }],
+				};
+			}
+
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text:
+							state.status === "ready"
+								? `Exported to ${state.path}`
+								: "Still rendering. Call export_video again with no arguments to check.",
+					},
+				],
+				structuredContent: state as Record<string, unknown>,
+			};
+		},
+	);
+}
 
 function registerEditTool(server: McpServer): void {
 	server.registerTool(
