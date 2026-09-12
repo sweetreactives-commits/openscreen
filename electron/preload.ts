@@ -1,4 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import {
+	MCP_COMMAND_CHANNEL,
+	MCP_CONTRACT_VERSION,
+	MCP_RESULT_CHANNEL,
+	type McpCommandRequest,
+	type McpCommandResponse,
+} from "../src/lib/mcp/contracts";
 import type { NativeMacRecordingRequest } from "../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
@@ -279,5 +286,38 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => {
 		ipcRenderer.send("close-confirm-response", choice);
+	},
+	/**
+	 * Answers read commands from the MCP endpoint in the main process. The
+	 * callback returns the data; everything else — matching the correlation id,
+	 * turning a throw into an error response — is handled here so each caller
+	 * doesn't reimplement it.
+	 */
+	onMcpCommand: (callback: (request: McpCommandRequest) => Promise<unknown>) => {
+		const listener = async (_event: unknown, request: McpCommandRequest) => {
+			let response: McpCommandResponse;
+			if (request?.version !== MCP_CONTRACT_VERSION) {
+				response = {
+					id: request?.id,
+					ok: false,
+					code: "version-mismatch",
+					message: `Editor speaks contract v${MCP_CONTRACT_VERSION}, request was v${request?.version}`,
+				};
+			} else {
+				try {
+					response = { id: request.id, ok: true, data: await callback(request) };
+				} catch (error) {
+					response = {
+						id: request.id,
+						ok: false,
+						code: "renderer-error",
+						message: error instanceof Error ? error.message : String(error),
+					};
+				}
+			}
+			ipcRenderer.send(MCP_RESULT_CHANNEL, response);
+		};
+		ipcRenderer.on(MCP_COMMAND_CHANNEL, listener);
+		return () => ipcRenderer.removeListener(MCP_COMMAND_CHANNEL, listener);
 	},
 });

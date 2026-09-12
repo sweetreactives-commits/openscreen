@@ -28,7 +28,8 @@ export interface ProjectSummaryInput {
 	sourceWidth: number;
 	sourceHeight: number;
 	hasCursorTelemetry: boolean;
-	hasAudio: boolean;
+	/** null when the track hasn't been decoded yet — get_audio_profile settles it. */
+	hasAudio: boolean | null;
 }
 
 export interface ProjectSummary {
@@ -42,7 +43,7 @@ export interface ProjectSummary {
 		note: string;
 	};
 	output: { durationMs: number; keepSegments: KeepSegment[] };
-	capabilities: { cursorTelemetry: boolean; webcam: boolean; audio: boolean };
+	capabilities: { cursorTelemetry: boolean; webcam: boolean; audio: boolean | null };
 	layout: Record<string, unknown>;
 	cursor: Record<string, unknown>;
 	webcam: Record<string, unknown>;

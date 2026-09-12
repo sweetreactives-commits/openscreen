@@ -23,6 +23,7 @@ import {
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
+import { useMcpCommands } from "@/hooks/useMcpCommands";
 import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import {
@@ -351,6 +352,24 @@ export default function VideoEditor() {
 		webcamVideoSourcePath,
 		recordingCursorCaptureMode,
 	]);
+
+	// Answers the MCP endpoint's read commands with this editor's live state.
+	// No-ops unless the user has turned the endpoint on.
+	useMcpCommands({
+		editor: editorState,
+		media: currentProjectMedia,
+		projectPath: currentProjectPath,
+		durationMs: duration * 1000,
+		getSourceDimensions: () => {
+			const video = videoPlaybackRef.current?.video;
+			return {
+				width: video?.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width,
+				height: video?.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height,
+			};
+		},
+		cursorTelemetry,
+		videoUrl: videoPath,
+	});
 
 	const applyLoadedProject = useCallback(
 		async (candidate: unknown, path?: string | null) => {

@@ -28,3 +28,5 @@ export type Locale = string;
 export type I18nNamespace = (typeof I18N_NAMESPACES)[number];
 
 export const LOCALE_STORAGE_KEY = "openscreen-locale";
+/** Set once the first-run "use your system language?" prompt has been answered. */
+export const SYSTEM_LANGUAGE_PROMPT_SEEN_KEY = "openscreen-system-language-prompt-seen";

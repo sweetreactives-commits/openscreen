@@ -1,0 +1,90 @@
+import { useEffect, useRef } from "react";
+import type { CursorTelemetryPoint } from "@/components/video-editor/types";
+import { decodeAudioPeaks, getCachedAudioPeaks } from "@/hooks/useAudioPeaks";
+import type { EditorState } from "@/hooks/useEditorHistory";
+import { buildAudioProfile } from "@/lib/mcp/audioProfile";
+import type { McpCommandRequest } from "@/lib/mcp/contracts";
+import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
+import { buildProjectSummary } from "@/lib/mcp/projectSummary";
+import type { ProjectMedia } from "@/lib/recordingSession";
+
+/**
+ * Answers read commands from the MCP endpoint with the editor's live state.
+ *
+ * Everything an agent can read passes through here, which is why it reads rather
+ * than writes: this hook has no way to change the project. Writes will arrive as
+ * a separate command set going through the editor's history, so they are
+ * undoable — see docs/architecture/mcp-server.md.
+ */
+
+export interface McpCommandSources {
+	editor: EditorState;
+	media: ProjectMedia | null;
+	projectPath: string | null;
+	durationMs: number;
+	/** Read through the live <video> element, which is where the real dimensions are. */
+	getSourceDimensions: () => { width: number; height: number };
+	cursorTelemetry: readonly CursorTelemetryPoint[];
+	/** Source to decode audio from, on demand. */
+	videoUrl: string | null;
+}
+
+function asNumber(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function useMcpCommands(sources: McpCommandSources): void {
+	// The listener is registered once but must always see current state, so it
+	// reads through a ref rather than closing over a render's values.
+	const sourcesRef = useRef(sources);
+	sourcesRef.current = sources;
+
+	useEffect(() => {
+		if (!window.electronAPI?.onMcpCommand) return;
+
+		return window.electronAPI.onMcpCommand(async (request: McpCommandRequest) => {
+			const current = sourcesRef.current;
+			const args = request.args ?? {};
+
+			switch (request.command) {
+				case "get_project": {
+					const dimensions = current.getSourceDimensions();
+					// Don't decode audio just to answer this: report what is already known
+					// and let get_audio_profile settle it.
+					const cachedPeaks = getCachedAudioPeaks(current.videoUrl ?? undefined);
+					return buildProjectSummary({
+						editor: current.editor,
+						media: current.media,
+						projectPath: current.projectPath,
+						durationMs: current.durationMs,
+						sourceWidth: dimensions.width,
+						sourceHeight: dimensions.height,
+						hasCursorTelemetry: current.cursorTelemetry.length > 0,
+						hasAudio: cachedPeaks ? true : null,
+					});
+				}
+
+				case "get_cursor_events":
+					return summarizeCursorEvents(current.cursorTelemetry, {
+						minIdleMs: asNumber(args.minIdleMs),
+						movementThreshold: asNumber(args.movementThreshold),
+						maxClicks: asNumber(args.maxClicks),
+					});
+
+				case "get_audio_profile": {
+					// Decodes on first ask and caches, so the waveform being off costs nothing
+					// and a second call is free.
+					const peaks = current.videoUrl ? await decodeAudioPeaks(current.videoUrl) : null;
+					return buildAudioProfile(peaks, current.durationMs, {
+						bucketCount: asNumber(args.bucketCount),
+						silenceThreshold: asNumber(args.silenceThreshold),
+						minSilenceMs: asNumber(args.minSilenceMs),
+					});
+				}
+
+				default:
+					throw new Error(`Unknown command: ${request.command}`);
+			}
+		});
+	}, []);
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { loadFileAsArrayBuffer } from "@/lib/exporter/streamingDecoder";
 
 let _audioCtx: AudioContext | null = null;
@@ -58,17 +58,49 @@ function computePeaksInWorker(
 	});
 }
 
+// Module-scoped so the waveform and the MCP audio profile share one decode, and
+// so it survives the timeline unmounting when the waveform is toggled off.
+const peaksCache = new Map<string, Float32Array>();
+
+/** Peaks already decoded for this source, without starting a decode. */
+export function getCachedAudioPeaks(videoUrl?: string): Float32Array | null {
+	return videoUrl ? (peaksCache.get(videoUrl) ?? null) : null;
+}
+
 /**
  * Decodes audio from `videoUrl` into paired [min, max] peaks (length = 2 * N
- * blocks). Returns `null` while decoding, and stays `null` on no audio track or
- * decode failure (silent degradation). Results are cached in a ref scoped to the
- * hook instance, so they survive re-renders and waveform toggles but not unmount.
+ * blocks), or `null` when there is no audio track or the format is unsupported.
+ * Cached by URL; concurrent callers each decode at most once thanks to the cache
+ * check, and a repeat call after the first is free.
+ */
+export async function decodeAudioPeaks(
+	videoUrl: string,
+	signal?: AbortSignal,
+): Promise<Float32Array | null> {
+	const cached = peaksCache.get(videoUrl);
+	if (cached) return cached;
+
+	try {
+		const { data: arrayBuffer } = await loadFileAsArrayBuffer(videoUrl);
+		const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
+		const peaks = await computePeaksInWorker(audioBuffer, signal);
+		peaksCache.set(videoUrl, peaks);
+		return peaks;
+	} catch (err) {
+		if (err instanceof DOMException && err.name === "AbortError") throw err;
+		// No audio track or unsupported format: degrade quietly, but log so an
+		// unexpectedly-missing waveform is diagnosable.
+		console.warn("decodeAudioPeaks: could not decode audio:", err);
+		return null;
+	}
+}
+
+/**
+ * Peaks for the waveform. `null` while decoding, and on no audio track or decode
+ * failure. Shares the module-level cache with {@link decodeAudioPeaks}.
  */
 export function useAudioPeaks(videoUrl?: string): Float32Array | null {
-	const cacheRef = useRef<Map<string, Float32Array>>(new Map());
-	const [peaks, setPeaks] = useState<Float32Array | null>(() =>
-		videoUrl ? (cacheRef.current.get(videoUrl) ?? null) : null,
-	);
+	const [peaks, setPeaks] = useState<Float32Array | null>(() => getCachedAudioPeaks(videoUrl));
 
 	useEffect(() => {
 		if (!videoUrl) {
@@ -76,7 +108,7 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 			return;
 		}
 
-		const cached = cacheRef.current.get(videoUrl);
+		const cached = peaksCache.get(videoUrl);
 		if (cached) {
 			setPeaks(cached);
 			return;
@@ -86,25 +118,13 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 		let cancelled = false;
 		const controller = new AbortController();
 
-		(async () => {
-			try {
-				const { data: arrayBuffer } = await loadFileAsArrayBuffer(videoUrl);
-				if (cancelled) return;
-				const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
-				if (cancelled) return;
-				const p = await computePeaksInWorker(audioBuffer, controller.signal);
-				if (cancelled) return;
-				cacheRef.current.set(videoUrl, p);
-				setPeaks(p);
-			} catch (err) {
-				// AbortError means the effect cleaned up, so no state update needed.
-				if (err instanceof DOMException && err.name === "AbortError") return;
-				// No audio track or unsupported format: degrade to no waveform, but log
-				// so an unexpectedly-missing waveform is diagnosable.
-				console.warn("useAudioPeaks: could not decode audio for waveform:", err);
-				if (!cancelled) setPeaks(null);
-			}
-		})();
+		decodeAudioPeaks(videoUrl, controller.signal)
+			.then((result) => {
+				if (!cancelled) setPeaks(result);
+			})
+			.catch(() => {
+				// AbortError only: the effect cleaned up, so no state update needed.
+			});
 
 		return () => {
 			cancelled = true;

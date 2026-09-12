@@ -485,7 +485,9 @@ app.whenReady().then(async () => {
 	// comes with the read tools. See docs/architecture/mcp-server.md.
 	if (process.env["OPENSCREEN_MCP"] === "1") {
 		try {
-			const mcp = await startMcpServer();
+			const mcp = await startMcpServer(() =>
+				mainWindow && !mainWindow.isDestroyed() && isEditorWindow(mainWindow) ? mainWindow : null,
+			);
 			console.log(`[mcp] listening on ${mcp.url}`);
 		} catch (error) {
 			console.error("[mcp] failed to start:", error);

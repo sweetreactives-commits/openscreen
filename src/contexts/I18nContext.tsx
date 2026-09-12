@@ -8,7 +8,13 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { DEFAULT_LOCALE, type I18nNamespace, LOCALE_STORAGE_KEY, type Locale } from "@/i18n/config";
+import {
+	DEFAULT_LOCALE,
+	type I18nNamespace,
+	LOCALE_STORAGE_KEY,
+	type Locale,
+	SYSTEM_LANGUAGE_PROMPT_SEEN_KEY,
+} from "@/i18n/config";
 import { getAvailableLocales, translate } from "@/i18n/loader";
 
 type TranslateVars = Record<string, string | number>;
@@ -22,8 +28,6 @@ interface I18nContextValue {
 	dismissSystemLocaleSuggestion: () => void;
 	resolveSystemLocaleSuggestion: () => void;
 }
-
-const SYSTEM_LANGUAGE_PROMPT_SEEN_KEY = "openscreen-system-language-prompt-seen";
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 

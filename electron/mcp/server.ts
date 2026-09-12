@@ -8,7 +8,10 @@ import {
 	toNodeHandler,
 } from "@modelcontextprotocol/node";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
-import { app } from "electron";
+import { app, type BrowserWindow } from "electron";
+import { z } from "zod";
+import type { McpCommand } from "../../src/lib/mcp/contracts";
+import { callEditor, configureMcpBridge, resetMcpBridge } from "./bridge";
 
 /**
  * Local MCP endpoint, so an agent the user already runs (Claude Code, Claude
@@ -60,18 +63,97 @@ async function removeDiscoveryFile(): Promise<void> {
 	await fs.rm(discoveryFilePath(), { force: true });
 }
 
+/**
+ * Runs an editor command and shapes it as a tool result.
+ *
+ * A closed editor is an ordinary outcome, not a crash — the app spends half its
+ * life in recorder mode — so it comes back as an error result carrying the
+ * reason rather than as a thrown exception.
+ */
+async function readFromEditor(command: McpCommand, args?: Record<string, unknown>) {
+	const response = await callEditor<unknown>(command, args);
+
+	if (!response.ok) {
+		return {
+			isError: true,
+			content: [{ type: "text" as const, text: response.message }],
+		};
+	}
+
+	return {
+		content: [{ type: "text" as const, text: JSON.stringify(response.data, null, 2) }],
+		structuredContent: response.data as Record<string, unknown>,
+	};
+}
+
 function buildMcpServer(): McpServer {
 	const server = new McpServer({ name: "openscreen", version: app.getVersion() });
 
-	// Placeholder until the read tools land: proves the endpoint is reachable and
-	// gives a client something to call while wiring up a connection.
 	server.registerTool(
-		"ping",
+		"get_project",
 		{
-			title: "Ping OpenScreen",
-			description: "Returns ok when the OpenScreen MCP endpoint is reachable.",
+			title: "Read the open project",
+			description:
+				"The recording and every edit currently applied to it: source dimensions and " +
+				"duration, layout, cursor and webcam settings, and all zoom, trim, speed and " +
+				"annotation regions with their ids. Also returns the segments that survive " +
+				"trimming and the resulting output duration, so you never have to work those " +
+				"out yourself. All timestamps are milliseconds on the original recording's " +
+				"clock — adding a trim does not shift anything around it.",
+			annotations: { readOnlyHint: true },
 		},
-		async () => ({ content: [{ type: "text", text: "ok" }] }),
+		async () => readFromEditor("get_project"),
+	);
+
+	server.registerTool(
+		"get_cursor_events",
+		{
+			title: "Read cursor activity",
+			description:
+				"Where the user clicked and where the cursor sat still, derived from the " +
+				"recording's cursor telemetry. Clicks are the natural anchors for zooms; the " +
+				"idle stretches are candidates for cutting or speeding up. Returns nothing " +
+				"useful on Linux, where the browser capture pipeline records no telemetry — " +
+				"check capabilities.cursorTelemetry in get_project first.",
+			inputSchema: z.object({
+				minIdleMs: z
+					.number()
+					.optional()
+					.describe("Shortest stretch of stillness worth reporting. Default 1500."),
+				movementThreshold: z
+					.number()
+					.optional()
+					.describe("Movement below this share of the frame counts as still. Default 0.01."),
+				maxClicks: z.number().optional().describe("Ceiling on returned clicks. Default 500."),
+			}),
+			annotations: { readOnlyHint: true },
+		},
+		async (args) => readFromEditor("get_cursor_events", args),
+	);
+
+	server.registerTool(
+		"get_audio_profile",
+		{
+			title: "Read the audio profile",
+			description:
+				"A coarse loudness curve plus the quiet stretches in the recording — dead air " +
+				"worth trimming. Derived from the waveform peaks the editor already computed, " +
+				"so it costs nothing extra. Returns an empty profile when the recording has no " +
+				"audio track.",
+			inputSchema: z.object({
+				bucketCount: z.number().optional().describe("Points in the loudness curve. Default 120."),
+				silenceThreshold: z
+					.number()
+					.optional()
+					.describe("Amplitude at or below which audio counts as quiet. Default 0.02."),
+				minSilenceMs: z
+					.number()
+					.optional()
+					.describe("Shortest quiet stretch worth reporting. Default 700."),
+			}),
+			annotations: { readOnlyHint: true },
+		},
+		async (args) => readFromEditor("get_audio_profile", args),
 	);
 
 	return server;
@@ -81,9 +163,12 @@ function buildMcpServer(): McpServer {
  * Starts the endpoint on a loopback port chosen by the OS and returns its
  * details. Calling it while already running returns the existing server.
  */
-export async function startMcpServer(): Promise<McpServerInfo> {
+export async function startMcpServer(
+	getEditorWindow: () => BrowserWindow | null,
+): Promise<McpServerInfo> {
 	if (info) return info;
 
+	configureMcpBridge(getEditorWindow);
 	const token = randomBytes(32).toString("hex");
 	const handler = toNodeHandler(createMcpHandler(() => buildMcpServer()));
 	// DNS-rebinding guards from the SDK: a page on some other origin must not be
@@ -142,6 +227,7 @@ export async function stopMcpServer(): Promise<void> {
 	const server = httpServer;
 	httpServer = null;
 	info = null;
+	resetMcpBridge();
 
 	if (server) {
 		await new Promise<void>((resolve) => {

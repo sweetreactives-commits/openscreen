@@ -292,6 +292,9 @@ interface Window {
 			projectState: unknown;
 			logs: string[];
 		}) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+		onMcpCommand: (
+			callback: (request: import("../src/lib/mcp/contracts").McpCommandRequest) => Promise<unknown>,
+		) => () => void;
 	};
 }
 
