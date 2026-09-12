@@ -139,6 +139,7 @@ test("serves the project, cursor and audio read tools to a connected client", as
 				"get_cursor_events",
 				"get_audio_profile",
 				"get_frame",
+				"get_transcript",
 			]),
 		);
 
@@ -229,6 +230,14 @@ test("serves the project, cursor and audio read tools to a connected client", as
 		const audio = await callTool(endpoint, "get_audio_profile", { bucketCount: 10 });
 		expect(audio).toHaveProperty("loudness");
 		expect(audio).toHaveProperty("silences");
+
+		// The point of get_transcript is that it never blocks: Whisper takes minutes,
+		// so the call must come back with a status right away. Whether the model is
+		// reachable in this environment is beside the point.
+		const transcriptStarted = Date.now();
+		const transcript = await callTool(endpoint, "get_transcript");
+		expect(Date.now() - transcriptStarted).toBeLessThan(9_000);
+		expect(["running", "ready", "error"]).toContain(transcript.status);
 
 		// get_frame answers with image content rather than a structured payload.
 		const frameBody = await callMcp(

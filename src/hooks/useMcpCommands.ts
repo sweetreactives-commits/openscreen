@@ -7,6 +7,7 @@ import type { McpCommandRequest } from "@/lib/mcp/contracts";
 import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
 import { grabFrame } from "@/lib/mcp/frameGrab";
 import { buildProjectSummary } from "@/lib/mcp/projectSummary";
+import { requestTranscript } from "@/lib/mcp/transcriptJob";
 import type { ProjectMedia } from "@/lib/recordingSession";
 
 /**
@@ -89,6 +90,12 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						maxWidth: asNumber(args.maxWidth),
 						quality: asNumber(args.quality),
 					});
+				}
+
+				case "get_transcript": {
+					if (!current.videoUrl) throw new Error("No video is loaded");
+					// Returns the current state without waiting; Whisper runs for minutes.
+					return requestTranscript(current.videoUrl, { restart: args.restart === true });
 				}
 
 				default:

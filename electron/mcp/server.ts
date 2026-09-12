@@ -160,6 +160,28 @@ function buildMcpServer(): McpServer {
 	);
 
 	server.registerTool(
+		"get_transcript",
+		{
+			title: "Read the spoken transcript",
+			description:
+				"What was said, with timestamps on the source recording's clock. Transcription " +
+				"runs locally with Whisper and takes minutes on a long recording, so this never " +
+				"waits: it starts the job and reports where it stands. Call it again until " +
+				'status is "ready". A status of "error" stays put until you pass restart. ' +
+				"The transcript covers the whole recording, including stretches you may be " +
+				"planning to trim away.",
+			inputSchema: z.object({
+				restart: z
+					.boolean()
+					.optional()
+					.describe("Discard a finished or failed transcript and start over."),
+			}),
+			annotations: { readOnlyHint: true },
+		},
+		async (args) => readFromEditor("get_transcript", args),
+	);
+
+	server.registerTool(
 		"get_frame",
 		{
 			title: "Look at a frame",
