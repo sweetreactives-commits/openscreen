@@ -225,5 +225,19 @@
 	"timeline": {
 		"title": "Línea de tiempo",
 		"waveform": "Mostrar forma de onda en pista de recorte"
+	},
+	"mcp": {
+		"title": "Acceso para agentes de IA",
+		"description": "Permite que un agente de IA que ya uses — Claude Code, Claude Desktop — lea el proyecto abierto en este editor.",
+		"enable": "Permitir acceso del agente",
+		"stateOff": "Desactivado. No hay nada a la escucha.",
+		"stateReadOnly": "Activado. Solo lectura.",
+		"exposes": "El agente puede leer la línea de tiempo y sus ajustes, dónde hiciste clic, el perfil de audio y fotogramas sueltos. No puede modificar tu proyecto ni exportar nada.",
+		"connect": "Comando de conexión",
+		"copyCommand": "Copiar comando",
+		"copied": "Copiado",
+		"copyFailed": "No se pudo copiar al portapapeles",
+		"security": "Solo este equipo puede conectarse, y solo con este token. El token cambia cada vez que se inicia OpenScreen.",
+		"startFailed": "No se pudo iniciar: {{message}}"
 	}
 }

@@ -224,5 +224,19 @@
 	"timeline": {
 		"title": "Timeline",
 		"waveform": "Mostra la forma d'onda sulla traccia di ritaglio"
+	},
+	"mcp": {
+		"title": "Accesso per agenti IA",
+		"description": "Consenti a un agente IA che già usi — Claude Code, Claude Desktop — di leggere il progetto aperto in questo editor.",
+		"enable": "Consenti l’accesso dell’agente",
+		"stateOff": "Disattivato. Nessuna porta in ascolto.",
+		"stateReadOnly": "Attivo. Sola lettura.",
+		"exposes": "L’agente può leggere la timeline e le sue impostazioni, dove hai fatto clic, il profilo audio e singoli fotogrammi. Non può modificare il progetto né esportare nulla.",
+		"connect": "Comando di connessione",
+		"copyCommand": "Copia comando",
+		"copied": "Copiato",
+		"copyFailed": "Impossibile copiare negli appunti",
+		"security": "Solo questo computer può connettersi, e solo con questo token. Il token cambia a ogni avvio di OpenScreen.",
+		"startFailed": "Avvio non riuscito: {{message}}"
 	}
 }

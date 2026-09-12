@@ -216,5 +216,19 @@
 	"timeline": {
 		"title": "时间轴",
 		"waveform": "在剪辑轨道上显示音频波形"
+	},
+	"mcp": {
+		"title": "AI 代理访问",
+		"description": "允许你已经在用的 AI 代理（Claude Code、Claude Desktop）读取此编辑器中打开的项目。",
+		"enable": "允许代理访问",
+		"stateOff": "已关闭。没有任何监听。",
+		"stateReadOnly": "已开启。仅读取。",
+		"exposes": "代理可以读取时间轴及其设置、你点击的位置、音频概况和单帧画面。它无法修改项目，也无法导出任何内容。",
+		"connect": "连接命令",
+		"copyCommand": "复制命令",
+		"copied": "已复制",
+		"copyFailed": "无法复制到剪贴板",
+		"security": "只有这台电脑能连接，且必须使用此令牌。每次启动 OpenScreen 时令牌都会更换。",
+		"startFailed": "无法启动：{{message}}"
 	}
 }

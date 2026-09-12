@@ -207,5 +207,19 @@
 	},
 	"language": {
 		"title": "Idioma"
+	},
+	"mcp": {
+		"title": "Acesso para agentes de IA",
+		"description": "Permita que um agente de IA que você já usa — Claude Code, Claude Desktop — leia o projeto aberto neste editor.",
+		"enable": "Permitir acesso do agente",
+		"stateOff": "Desligado. Nada está escutando.",
+		"stateReadOnly": "Ligado. Somente leitura.",
+		"exposes": "O agente pode ler a linha do tempo e suas configurações, onde você clicou, o perfil de áudio e quadros isolados. Ele não pode alterar seu projeto nem exportar nada.",
+		"connect": "Comando de conexão",
+		"copyCommand": "Copiar comando",
+		"copied": "Copiado",
+		"copyFailed": "Não foi possível copiar para a área de transferência",
+		"security": "Apenas este computador pode se conectar, e somente com este token. O token muda a cada inicialização do OpenScreen.",
+		"startFailed": "Não foi possível iniciar: {{message}}"
 	}
 }

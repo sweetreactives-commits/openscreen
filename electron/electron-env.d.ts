@@ -292,6 +292,8 @@ interface Window {
 			projectState: unknown;
 			logs: string[];
 		}) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+		getMcpStatus: () => Promise<import("./mcp/ipc").McpStatus>;
+		setMcpMode: (mode: "off" | "read-only") => Promise<import("./mcp/ipc").McpStatus>;
 		onMcpCommand: (
 			callback: (request: import("../src/lib/mcp/contracts").McpCommandRequest) => Promise<unknown>,
 		) => () => void;

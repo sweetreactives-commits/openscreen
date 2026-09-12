@@ -217,5 +217,19 @@
 	"timeline": {
 		"title": "時間軸",
 		"waveform": "在剪輯軌道上顯示音訊波形"
+	},
+	"mcp": {
+		"title": "AI 代理存取",
+		"description": "允許你已經在用的 AI 代理（Claude Code、Claude Desktop）讀取此編輯器中開啟的專案。",
+		"enable": "允許代理存取",
+		"stateOff": "已關閉。沒有任何監聽。",
+		"stateReadOnly": "已開啟。僅讀取。",
+		"exposes": "代理可以讀取時間軸及其設定、你點擊的位置、音訊概況和單一影格。它無法修改專案，也無法匯出任何內容。",
+		"connect": "連線指令",
+		"copyCommand": "複製指令",
+		"copied": "已複製",
+		"copyFailed": "無法複製到剪貼簿",
+		"security": "只有這台電腦能連線，且必須使用此權杖。每次啟動 OpenScreen 時權杖都會更換。",
+		"startFailed": "無法啟動：{{message}}"
 	}
 }

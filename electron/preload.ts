@@ -293,6 +293,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	 * turning a throw into an error response — is handled here so each caller
 	 * doesn't reimplement it.
 	 */
+	getMcpStatus: () => ipcRenderer.invoke("mcp:get-status"),
+	setMcpMode: (mode: "off" | "read-only") => ipcRenderer.invoke("mcp:set-mode", mode),
 	onMcpCommand: (callback: (request: McpCommandRequest) => Promise<unknown>) => {
 		const listener = async (_event: unknown, request: McpCommandRequest) => {
 			let response: McpCommandResponse;

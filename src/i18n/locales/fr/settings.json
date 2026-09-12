@@ -225,5 +225,19 @@
 	"timeline": {
 		"title": "Montage",
 		"waveform": "Afficher la forme d'onde sur la piste de découpe"
+	},
+	"mcp": {
+		"title": "Accès pour agent IA",
+		"description": "Autorisez un agent IA que vous utilisez déjà — Claude Code, Claude Desktop — à lire le projet ouvert dans cet éditeur.",
+		"enable": "Autoriser l’accès de l’agent",
+		"stateOff": "Désactivé. Rien n’est à l’écoute.",
+		"stateReadOnly": "Activé. Lecture seule.",
+		"exposes": "L’agent peut lire la timeline et ses réglages, l’emplacement de vos clics, le profil audio et des images isolées. Il ne peut ni modifier votre projet ni exporter quoi que ce soit.",
+		"connect": "Commande de connexion",
+		"copyCommand": "Copier la commande",
+		"copied": "Copié",
+		"copyFailed": "Impossible de copier dans le presse-papiers",
+		"security": "Seul cet ordinateur peut se connecter, et uniquement avec ce jeton. Le jeton change à chaque démarrage d’OpenScreen.",
+		"startFailed": "Démarrage impossible : {{message}}"
 	}
 }

@@ -216,5 +216,19 @@
 	"timeline": {
 		"title": "Dòng thời gian",
 		"waveform": "Hiển thị dạng sóng âm thanh trên rãnh cắt"
+	},
+	"mcp": {
+		"title": "Quyền truy cập cho tác nhân AI",
+		"description": "Cho phép một tác nhân AI bạn đang dùng — Claude Code, Claude Desktop — đọc dự án đang mở trong trình chỉnh sửa này.",
+		"enable": "Cho phép tác nhân truy cập",
+		"stateOff": "Tắt. Không có gì đang lắng nghe.",
+		"stateReadOnly": "Bật. Chỉ đọc.",
+		"exposes": "Tác nhân có thể đọc dòng thời gian cùng các thiết lập, vị trí bạn đã nhấp, hồ sơ âm thanh và từng khung hình. Nó không thể sửa dự án hay xuất bất cứ thứ gì.",
+		"connect": "Lệnh kết nối",
+		"copyCommand": "Sao chép lệnh",
+		"copied": "Đã sao chép",
+		"copyFailed": "Không sao chép được vào bộ nhớ tạm",
+		"security": "Chỉ máy tính này mới kết nối được, và chỉ với mã thông báo này. Mã thay đổi mỗi lần OpenScreen khởi động.",
+		"startFailed": "Không khởi động được: {{message}}"
 	}
 }

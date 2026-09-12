@@ -216,5 +216,19 @@
 	"timeline": {
 		"title": "Zaman Tüneli",
 		"waveform": "Kırpma Parçasında Ses Dalgasını Göster"
+	},
+	"mcp": {
+		"title": "Yapay zekâ aracısı erişimi",
+		"description": "Hâlihazırda kullandığınız bir yapay zekâ aracısının — Claude Code, Claude Desktop — bu düzenleyicide açık olan projeyi okumasına izin verin.",
+		"enable": "Aracı erişimine izin ver",
+		"stateOff": "Kapalı. Hiçbir şey dinlemiyor.",
+		"stateReadOnly": "Açık. Yalnızca okuma.",
+		"exposes": "Aracı; zaman çizelgesini ve ayarlarını, nereye tıkladığınızı, ses profilini ve tek tek kareleri okuyabilir. Projenizi değiştiremez ve dışa aktarma yapamaz.",
+		"connect": "Bağlantı komutu",
+		"copyCommand": "Komutu kopyala",
+		"copied": "Kopyalandı",
+		"copyFailed": "Panoya kopyalanamadı",
+		"security": "Yalnızca bu bilgisayar ve yalnızca bu belirteçle bağlanabilir. Belirteç, OpenScreen her başladığında değişir.",
+		"startFailed": "Başlatılamadı: {{message}}"
 	}
 }

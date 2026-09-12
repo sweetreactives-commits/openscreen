@@ -225,5 +225,19 @@
 	"timeline": {
 		"title": "타임라인",
 		"waveform": "트림 트랙에 오디오 파형 표시"
+	},
+	"mcp": {
+		"title": "AI 에이전트 액세스",
+		"description": "이미 사용 중인 AI 에이전트(Claude Code, Claude Desktop)가 이 편집기에 열려 있는 프로젝트를 읽도록 허용합니다.",
+		"enable": "에이전트 액세스 허용",
+		"stateOff": "꺼짐. 아무것도 수신하지 않습니다.",
+		"stateReadOnly": "켜짐. 읽기 전용.",
+		"exposes": "에이전트는 타임라인과 설정, 클릭한 위치, 오디오 프로필, 개별 프레임을 읽을 수 있습니다. 프로젝트를 변경하거나 내보낼 수는 없습니다.",
+		"connect": "연결 명령어",
+		"copyCommand": "명령어 복사",
+		"copied": "복사됨",
+		"copyFailed": "클립보드에 복사하지 못했습니다",
+		"security": "이 컴퓨터에서만, 그리고 이 토큰으로만 연결할 수 있습니다. 토큰은 OpenScreen을 시작할 때마다 바뀝니다.",
+		"startFailed": "시작하지 못했습니다: {{message}}"
 	}
 }

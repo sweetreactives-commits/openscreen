@@ -71,6 +71,7 @@ import {
 } from "./editorDefaults";
 import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
+import { McpSettingsDialog } from "./McpSettingsDialog";
 import type {
 	AnnotationRegion,
 	AnnotationType,
@@ -905,7 +906,10 @@ export function SettingsPanel({
 				<div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-0">
 					<div className="mb-3 flex items-center justify-between px-1">
 						<span className="text-sm font-semibold text-slate-100">{activeModeLabel}</span>
-						<KeyboardShortcutsHelp />
+						<div className="flex items-center gap-2">
+							<McpSettingsDialog />
+							<KeyboardShortcutsHelp />
+						</div>
 					</div>
 					{zoomEnabled && (
 						<div className="editor-panel-section mb-3 space-y-3 px-1">

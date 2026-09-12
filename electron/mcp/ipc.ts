@@ -1,0 +1,77 @@
+import type { BrowserWindow } from "electron";
+import { ipcMain } from "electron";
+import { getMcpServerInfo, startMcpServer, stopMcpServer } from "./server";
+import { loadMcpSettings, type McpMode, saveMcpSettings } from "./settings";
+
+/**
+ * Turning the endpoint on and off from the UI, and reporting what a client
+ * needs to connect.
+ */
+
+export interface McpStatus {
+	mode: McpMode;
+	running: boolean;
+	url: string | null;
+	/** Only while running; it is regenerated on every start. */
+	token: string | null;
+	error: string | null;
+}
+
+let resolveEditorWindow: (() => BrowserWindow | null) | null = null;
+let currentMode: McpMode = "off";
+let lastError: string | null = null;
+
+function status(): McpStatus {
+	const info = getMcpServerInfo();
+	return {
+		mode: currentMode,
+		running: info !== null,
+		url: info?.url ?? null,
+		token: info?.token ?? null,
+		error: lastError,
+	};
+}
+
+/**
+ * Brings the endpoint in line with `mode`, starting or stopping it as needed.
+ * A failure to start is reported rather than thrown: the app must keep working
+ * when the port is unavailable.
+ */
+export async function applyMcpMode(mode: McpMode): Promise<McpStatus> {
+	currentMode = mode;
+	lastError = null;
+
+	try {
+		if (mode === "off") {
+			await stopMcpServer();
+		} else if (resolveEditorWindow) {
+			await startMcpServer(resolveEditorWindow);
+		}
+	} catch (error) {
+		lastError = error instanceof Error ? error.message : String(error);
+		console.error("[mcp] could not apply mode", mode, error);
+	}
+
+	return status();
+}
+
+/**
+ * Registers the settings IPC and starts the endpoint if the stored mode says so.
+ * `OPENSCREEN_MCP=1` forces it on without touching the saved setting, which is
+ * how the e2e suite and a dev run switch it on.
+ */
+export async function registerMcpIpc(getEditorWindow: () => BrowserWindow | null): Promise<void> {
+	resolveEditorWindow = getEditorWindow;
+
+	ipcMain.handle("mcp:get-status", () => status());
+
+	ipcMain.handle("mcp:set-mode", async (_event, mode: McpMode) => {
+		const next: McpMode = mode === "read-only" ? "read-only" : "off";
+		await saveMcpSettings({ mode: next });
+		return applyMcpMode(next);
+	});
+
+	const stored = await loadMcpSettings();
+	const mode: McpMode = process.env["OPENSCREEN_MCP"] === "1" ? "read-only" : stored.mode;
+	await applyMcpMode(mode);
+}

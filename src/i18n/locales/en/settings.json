@@ -227,5 +227,19 @@
 	"timeline": {
 		"title": "Timeline",
 		"waveform": "Show Audio Waveform on Trim Track"
+	},
+	"mcp": {
+		"title": "AI agent access",
+		"description": "Let an AI agent you already run — Claude Code, Claude Desktop — read the project open in this editor.",
+		"enable": "Allow agent access",
+		"stateOff": "Off. Nothing is listening.",
+		"stateReadOnly": "On. Reading only.",
+		"exposes": "An agent can read the timeline and its settings, where you clicked, the audio profile, and single frames. It cannot change your project or export anything.",
+		"connect": "Connection command",
+		"copyCommand": "Copy command",
+		"copied": "Copied",
+		"copyFailed": "Could not copy to the clipboard",
+		"security": "Only this computer can connect, and only with this token. The token changes every time OpenScreen starts.",
+		"startFailed": "Could not start: {{message}}"
 	}
 }

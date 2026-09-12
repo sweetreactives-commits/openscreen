@@ -279,3 +279,47 @@ test("serves the project, cursor and audio read tools to a connected client", as
 		}
 	}
 });
+
+test("stays off until the user turns it on, and stops when they turn it off", async () => {
+	test.setTimeout(180_000);
+
+	// No OPENSCREEN_MCP here: this is the path a real user takes.
+	const app = await electron.launch({
+		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
+		env: { ...process.env, HEADLESS: process.env["HEADLESS"] ?? "true" },
+	});
+
+	try {
+		const hudWindow = await app.firstWindow({ timeout: 60_000 });
+		await hudWindow.waitForLoadState("domcontentloaded");
+
+		const userDataDir = await app.evaluate(({ app: electronApp }) => {
+			return electronApp.getPath("userData");
+		});
+		const discoveryPath = path.join(userDataDir, "mcp.json");
+
+		// A mode stored by an earlier run would make the rest meaningless, so start
+		// from a known-off state rather than assuming a clean profile.
+		const initial = await hudWindow.evaluate(() => window.electronAPI.setMcpMode("off"));
+		expect(initial.running).toBe(false);
+		expect(fs.existsSync(discoveryPath)).toBe(false);
+
+		const enabled = await hudWindow.evaluate(() => window.electronAPI.setMcpMode("read-only"));
+		expect(enabled.running).toBe(true);
+		expect(enabled.url).toContain("127.0.0.1");
+		expect(enabled.token).toBeTruthy();
+		expect(fs.existsSync(discoveryPath), "discovery file should appear once running").toBe(true);
+
+		// The endpoint answers even with no editor open — it just has nothing to read.
+		const listed = await callMcp(enabled as unknown as McpEndpoint, "tools/list");
+		expect((listed.result as { tools: unknown[] }).tools.length).toBeGreaterThan(0);
+
+		const disabled = await hudWindow.evaluate(() => window.electronAPI.setMcpMode("off"));
+		expect(disabled.running).toBe(false);
+		expect(fs.existsSync(discoveryPath), "discovery file should be cleared on stop").toBe(false);
+	} finally {
+		await app.close().catch(() => {
+			// Nothing left to close, or it refused; the run is over either way.
+		});
+	}
+});
