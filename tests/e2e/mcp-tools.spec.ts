@@ -20,6 +20,12 @@ const TEST_VIDEO = path.join(__dirname, "../fixtures/sample.webm");
 
 const PROTOCOL_VERSION = "2026-07-28";
 
+/** Smallest valid PNG: a single transparent pixel. */
+const MINIMAL_PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+	"base64",
+);
+
 interface McpEndpoint {
 	url: string;
 	token: string;
@@ -422,6 +428,36 @@ test("edits the project only in full mode, as one undo step", async () => {
 		expect(regions.zooms[0].source).toBe("agent");
 		expect(regions.annotations[0].text).toBe("Look here");
 
+		// An image annotation is given as a path and read on this side, so the
+		// agent never ships base64 over the wire.
+		const imagePath = path.join(userDataDir, "recordings", "mcp-badge.png");
+		fs.writeFileSync(imagePath, MINIMAL_PNG);
+		const withImage = await callTool(endpoint, "apply_commands", {
+			commands: [{ op: "add_image", startMs: 100, endMs: 800, path: imagePath }],
+		});
+		expect((withImage.createdIds as string[]).length).toBe(1);
+
+		const withImageProject = await callTool(endpoint, "get_project");
+		const imageAnnotation = (
+			withImageProject.regions as { annotations: Array<{ image?: { present: boolean } }> }
+		).annotations.find((annotation) => annotation.image?.present);
+		expect(imageAnnotation, "expected an image annotation").toBeTruthy();
+
+		const missingImage = await callMcp(
+			endpoint,
+			"tools/call",
+			{
+				name: "apply_commands",
+				arguments: {
+					commands: [
+						{ op: "add_image", startMs: 0, endMs: 500, path: path.join(userDataDir, "nope.png") },
+					],
+				},
+			},
+			"apply_commands",
+		);
+		expect((missingImage.result as { isError?: boolean }).isError).toBe(true);
+
 		// A bad command anywhere in the batch leaves the project untouched.
 		const rejected = await callMcp(
 			endpoint,
@@ -444,7 +480,9 @@ test("edits the project only in full mode, as one undo step", async () => {
 		const unchanged = await callTool(endpoint, "get_project");
 		expect((unchanged.regions as { zooms: unknown[] }).zooms).toHaveLength(1);
 
-		// The whole batch collapses into a single undo for the user.
+		// The whole batch collapses into a single undo for the user: one press
+		// takes back the image batch, the next takes back the zoom-and-text batch.
+		await editorWindow.keyboard.press("Control+z");
 		await editorWindow.keyboard.press("Control+z");
 		const undone = await callTool(endpoint, "get_project");
 		const undoneRegions = undone.regions as { zooms: unknown[]; annotations: unknown[] };

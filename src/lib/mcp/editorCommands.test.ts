@@ -226,6 +226,82 @@ describe("applyCommands", () => {
 		});
 	});
 
+	describe("webcam", () => {
+		it("sets layout, shape and size", () => {
+			// Start away from the defaults so each change is real and lands in the patch.
+			const state = { ...INITIAL_EDITOR_STATE, webcamLayoutPreset: "no-webcam" as const };
+			const result = ok(
+				run(
+					[{ op: "set_webcam", layout: "picture-in-picture", shape: "circle", sizePercent: 30 }],
+					state,
+				),
+			);
+			expect(result.patch.webcamLayoutPreset).toBe("picture-in-picture");
+			expect(result.patch.webcamMaskShape).toBe("circle");
+			expect(result.patch.webcamSizePreset).toBe(30);
+		});
+
+		it("clamps the size to what the panel allows", () => {
+			expect(ok(run([{ op: "set_webcam", sizePercent: 90 }])).patch.webcamSizePreset).toBe(50);
+			expect(ok(run([{ op: "set_webcam", sizePercent: 1 }])).patch.webcamSizePreset).toBe(10);
+		});
+
+		it("rejects a layout the editor does not have", () => {
+			const outcome = failed(
+				run([{ op: "set_webcam", layout: "floating" as unknown as "no-webcam" }]),
+			);
+			expect(outcome.code).toBe("invalid-value");
+		});
+
+		it("refuses dual-frame on a portrait project, which the loader would undo anyway", () => {
+			const portrait = { ...INITIAL_EDITOR_STATE, aspectRatio: "9:16" as const };
+			const outcome = failed(run([{ op: "set_webcam", layout: "dual-frame" }], portrait));
+			expect(outcome.message).toContain("portrait");
+		});
+
+		it("clears the position when the layout is not picture-in-picture", () => {
+			const state = {
+				...INITIAL_EDITOR_STATE,
+				webcamLayoutPreset: "picture-in-picture" as const,
+				webcamPosition: { cx: 0.2, cy: 0.8 },
+			};
+			const result = ok(run([{ op: "set_webcam", layout: "vertical-stack" }], state));
+			expect(result.patch.webcamPosition).toBeNull();
+		});
+
+		it("clamps a position into the frame", () => {
+			const result = ok(
+				run([{ op: "set_webcam", layout: "picture-in-picture", position: { cx: 5, cy: -2 } }]),
+			);
+			expect(result.patch.webcamPosition).toEqual({ cx: 1, cy: 0 });
+		});
+	});
+
+	describe("image annotations", () => {
+		it("adds an image once the renderer has encoded it", () => {
+			const result = ok(
+				run([
+					{
+						op: "add_image",
+						startMs: 0,
+						endMs: 1_000,
+						dataUrl: "data:image/png;base64,QUFB",
+					},
+				]),
+			);
+			const annotation = result.patch.annotationRegions?.[0];
+			expect(annotation?.type).toBe("image");
+			expect(annotation?.imageContent).toBe("data:image/png;base64,QUFB");
+		});
+
+		it("refuses anything that is not an image", () => {
+			const outcome = failed(
+				run([{ op: "add_image", startMs: 0, endMs: 1_000, dataUrl: "https://example.com/a.png" }]),
+			);
+			expect(outcome.code).toBe("invalid-value");
+		});
+	});
+
 	describe("batches", () => {
 		it("applies several commands as one patch", () => {
 			const result = ok(

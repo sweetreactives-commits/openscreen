@@ -7,6 +7,7 @@ import type { McpCommandRequest } from "@/lib/mcp/contracts";
 import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
 import { applyCommands, type EditorCommand } from "@/lib/mcp/editorCommands";
 import { grabFrame } from "@/lib/mcp/frameGrab";
+import { resolveImageCommands } from "@/lib/mcp/imageAnnotation";
 import { buildProjectSummary } from "@/lib/mcp/projectSummary";
 import { requestTranscript } from "@/lib/mcp/transcriptJob";
 import type { ProjectMedia } from "@/lib/recordingSession";
@@ -99,7 +100,16 @@ export function useMcpCommands(sources: McpCommandSources): void {
 				}
 
 				case "apply_commands": {
-					const commands = Array.isArray(args.commands) ? (args.commands as EditorCommand[]) : [];
+					const raw = Array.isArray(args.commands)
+						? (args.commands as Record<string, unknown>[])
+						: [];
+					// Image annotations arrive as paths. Read them here, before anything is
+					// applied, so an unreadable file fails the batch rather than leaving
+					// half of it written.
+					const commands = (await resolveImageCommands(
+						raw,
+						window.electronAPI.readBinaryFile,
+					)) as unknown as EditorCommand[];
 					const outcome = applyCommands(current.editor, commands, current.durationMs);
 					if (!outcome.ok) {
 						// Nothing was applied — the layer validates the whole batch first.

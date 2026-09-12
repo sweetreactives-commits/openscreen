@@ -304,6 +304,31 @@ const commandSchema = z.discriminatedUnion("op", [
 			.optional(),
 	}),
 	z.object({
+		op: z.literal("add_image"),
+		...span,
+		path: z
+			.string()
+			.describe(
+				"Path to an image already on this computer (png, jpg, gif, webp, svg). " +
+					"It is read and stored inside the project, so it must be under 2 MB.",
+			),
+		position: z.object({ x: z.number(), y: z.number() }).optional(),
+		size: z.object({ width: z.number(), height: z.number() }).optional(),
+	}),
+	z.object({
+		op: z.literal("set_webcam"),
+		layout: z.enum(["picture-in-picture", "vertical-stack", "dual-frame", "no-webcam"]).optional(),
+		shape: z.enum(["rectangle", "circle", "square", "rounded"]).optional(),
+		sizePercent: z.number().optional().describe("Webcam size across the frame, 10 to 50."),
+		position: z
+			.object({ cx: z.number(), cy: z.number() })
+			.nullable()
+			.optional()
+			.describe("Centre of the webcam, 0 to 1. Only the picture-in-picture layout uses it."),
+		mirrored: z.boolean().optional(),
+		reactiveZoom: z.boolean().optional(),
+	}),
+	z.object({
 		op: z.literal("remove_region"),
 		id: z.string().describe("Any zoom, removed range, speed change or annotation id."),
 	}),

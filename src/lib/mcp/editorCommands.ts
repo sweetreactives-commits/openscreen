@@ -17,6 +17,7 @@ import {
 	type ZoomRegion,
 } from "@/components/video-editor/types";
 import type { EditorState } from "@/hooks/useEditorHistory";
+import { isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 
 /**
  * The typed command layer between an agent and the editor's document.
@@ -105,6 +106,22 @@ export type EditorCommand =
 			shadowIntensity?: number;
 			wallpaper?: string;
 	  }
+	| ({
+			op: "add_image";
+			/** Already-encoded image; the caller gives a path and the renderer reads it. */
+			dataUrl: string;
+			position?: { x: number; y: number };
+			size?: { width: number; height: number };
+	  } & TimeSpan)
+	| {
+			op: "set_webcam";
+			layout?: "picture-in-picture" | "vertical-stack" | "dual-frame" | "no-webcam";
+			shape?: "rectangle" | "circle" | "square" | "rounded";
+			sizePercent?: number;
+			position?: { cx: number; cy: number } | null;
+			mirrored?: boolean;
+			reactiveZoom?: boolean;
+	  }
 	| {
 			op: "set_cursor";
 			visible?: boolean;
@@ -114,6 +131,9 @@ export type EditorCommand =
 			clickBounce?: number;
 			clickRipple?: number;
 	  };
+
+const WEBCAM_LAYOUTS = ["picture-in-picture", "vertical-stack", "dual-frame", "no-webcam"] as const;
+const WEBCAM_SHAPES = ["rectangle", "circle", "square", "rounded"] as const;
 
 function fail(code: CommandErrorCode, message: string): CommandFailure {
 	return { ok: false, code, message };
@@ -316,6 +336,87 @@ function applyOne(
 			return { ...state, annotationRegions };
 		}
 
+		case "add_image": {
+			const invalid = validateSpan(command, durationMs, "An image annotation");
+			if (invalid) return invalid;
+			if (typeof command.dataUrl !== "string" || !command.dataUrl.startsWith("data:image/")) {
+				return fail("invalid-value", "An image annotation needs an image.");
+			}
+
+			const id = newId("annotation");
+			createdIds.push(id);
+			const zIndex =
+				state.annotationRegions.reduce((max, region) => Math.max(max, region.zIndex), 0) + 1;
+			const region: AnnotationRegion = {
+				id,
+				startMs: Math.round(command.startMs),
+				endMs: Math.round(command.endMs),
+				type: "image",
+				content: "",
+				imageContent: command.dataUrl,
+				position: command.position ?? DEFAULT_ANNOTATION_POSITION,
+				size: command.size ?? DEFAULT_ANNOTATION_SIZE,
+				style: DEFAULT_ANNOTATION_STYLE,
+				zIndex,
+			};
+			return { ...state, annotationRegions: [...state.annotationRegions, region] };
+		}
+
+		case "set_webcam": {
+			const next = { ...state };
+
+			if (command.layout !== undefined) {
+				if (!WEBCAM_LAYOUTS.includes(command.layout)) {
+					return fail("invalid-value", `Unknown webcam layout "${command.layout}".`);
+				}
+				// The editor forbids this pairing and its loader would rewrite it anyway.
+				if (command.layout === "dual-frame" && isPortraitAspectRatio(state.aspectRatio)) {
+					return fail(
+						"invalid-value",
+						"The dual-frame layout does not apply to a portrait aspect ratio.",
+					);
+				}
+				next.webcamLayoutPreset = command.layout;
+			}
+			if (command.shape !== undefined) {
+				if (!WEBCAM_SHAPES.includes(command.shape)) {
+					return fail("invalid-value", `Unknown webcam shape "${command.shape}".`);
+				}
+				next.webcamMaskShape = command.shape;
+			}
+			if (command.sizePercent !== undefined) {
+				if (!isFinitePositive(command.sizePercent)) {
+					return fail("invalid-value", "Webcam size must be a number.");
+				}
+				next.webcamSizePreset = clamp(command.sizePercent, 10, 50);
+			}
+			if (command.position !== undefined) {
+				if (command.position === null) {
+					next.webcamPosition = null;
+				} else if (
+					!isFinitePositive(command.position.cx) ||
+					!isFinitePositive(command.position.cy)
+				) {
+					return fail("invalid-value", "Webcam position needs numeric cx and cy.");
+				} else {
+					next.webcamPosition = {
+						cx: clamp(command.position.cx, 0, 1),
+						cy: clamp(command.position.cy, 0, 1),
+					};
+				}
+			}
+			if (command.mirrored !== undefined) next.webcamMirrored = command.mirrored === true;
+			if (command.reactiveZoom !== undefined) {
+				next.webcamReactiveZoom = command.reactiveZoom === true;
+			}
+
+			// Only the picture-in-picture layout has a free position, matching what
+			// the project loader enforces on reload.
+			if (next.webcamLayoutPreset !== "picture-in-picture") next.webcamPosition = null;
+
+			return next;
+		}
+
 		case "remove_region": {
 			const { id } = command;
 			if (state.zoomRegions.some((region) => region.id === id)) {
@@ -411,6 +512,12 @@ const PATCHABLE_KEYS: Array<keyof EditorState> = [
 	"cursorMotionBlur",
 	"cursorClickBounce",
 	"cursorClickRipple",
+	"webcamLayoutPreset",
+	"webcamMaskShape",
+	"webcamSizePreset",
+	"webcamPosition",
+	"webcamMirrored",
+	"webcamReactiveZoom",
 ];
 
 /**
