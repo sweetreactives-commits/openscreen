@@ -19,8 +19,15 @@ import {
  * closes that window — so "no project open" is a normal answer, not a failure.
  */
 
-/** Most reads are cheap; anything slower than this means the renderer is wedged. */
-const DEFAULT_TIMEOUT_MS = 10_000;
+/**
+ * Reads are cheap in themselves, but the renderer they run in is the same one
+ * rendering an export, and that saturates a core for minutes. A tight limit here
+ * turns "the app is busy" into "the editor did not respond" — which an agent
+ * polling export_video would hit routinely, since polling goes through this very
+ * channel. Generous enough to survive a heavy render, bounded enough that a
+ * genuinely wedged renderer still reports.
+ */
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 type Pending = {
 	resolve: (response: McpCommandResponse) => void;

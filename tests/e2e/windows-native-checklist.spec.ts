@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
 import { _electron as electron, expect, test } from "@playwright/test";
+import { LOCALE_STORAGE_KEY, SYSTEM_LANGUAGE_PROMPT_SEEN_KEY } from "../../src/i18n/config";
 import { NATIVE_BRIDGE_CHANNEL, NATIVE_BRIDGE_VERSION } from "../../src/native/contracts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -90,6 +91,26 @@ async function copyFixtureToRecordings(app: ElectronApplication, fileName: strin
 	return targetPath;
 }
 
+/**
+ * Pins the UI to English and answers the first-run language question.
+ *
+ * Assertions below match English strings, and the app otherwise follows the
+ * machine's language — so on a non-English machine they compared "Background"
+ * against a translation and failed for reasons that had nothing to do with the
+ * feature under test.
+ */
+async function switchUiToEnglish(page: Page) {
+	await page.evaluate(
+		([localeKey, promptKey]: [string, string]) => {
+			localStorage.setItem(localeKey, "en");
+			localStorage.setItem(promptKey, "1");
+		},
+		[LOCALE_STORAGE_KEY, SYSTEM_LANGUAGE_PROMPT_SEEN_KEY] as [string, string],
+	);
+	await page.reload();
+	await page.waitForLoadState("domcontentloaded");
+}
+
 async function dismissLanguagePrompt(page: Page) {
 	const keepCurrentLanguage = page
 		.getByRole("button")
@@ -111,6 +132,7 @@ test.describe("Windows native checklist smoke tests", () => {
 			const hudWindow = await app.firstWindow({ timeout: 60_000 });
 			await hudWindow.waitForLoadState("domcontentloaded");
 			await dismissLanguagePrompt(hudWindow);
+			await switchUiToEnglish(hudWindow);
 
 			await expect(hudWindow.getByTestId("launch-record-button")).toBeDisabled();
 			await expect(hudWindow.getByTestId("launch-source-selector-button")).toBeVisible();
@@ -165,7 +187,28 @@ test.describe("Windows native checklist smoke tests", () => {
 		}
 	});
 
-	test("launch window opens an existing video into the editor and playback controls respond", async () => {
+	/**
+	 * Brings up the editor.
+	 *
+	 * Until 00191c4 these tests got here by clicking a button in the launch window.
+	 * That entry point moved into the editor's own empty state, so the switch the
+	 * rest of the app uses is what is left.
+	 */
+	async function openEditor(hudWindow: Page) {
+		try {
+			await hudWindow.evaluate(() => window.electronAPI.switchToEditor());
+		} catch (error) {
+			// Switching destroys the HUD, so its evaluate call can reject mid-flight.
+			if (
+				!(error instanceof Error) ||
+				!/closed|destroyed|target page|target closed/i.test(error.message)
+			) {
+				throw error;
+			}
+		}
+	}
+
+	test("an existing video opens into the editor and playback controls respond", async () => {
 		const app = await launchApp();
 		let testVideoInRecordings = "";
 
@@ -173,6 +216,7 @@ test.describe("Windows native checklist smoke tests", () => {
 			const hudWindow = await app.firstWindow({ timeout: 60_000 });
 			await hudWindow.waitForLoadState("domcontentloaded");
 			await dismissLanguagePrompt(hudWindow);
+			await switchUiToEnglish(hudWindow);
 			testVideoInRecordings = await copyFixtureToRecordings(app, "checklist-sample.webm");
 
 			await app.evaluate(({ ipcMain }, videoPath) => {
@@ -183,7 +227,11 @@ test.describe("Windows native checklist smoke tests", () => {
 				}));
 			}, testVideoInRecordings);
 
-			await hudWindow.getByTestId("launch-open-video-button").click();
+			await hudWindow.evaluate(
+				(videoPath: string) => window.electronAPI.setCurrentVideoPath(videoPath),
+				testVideoInRecordings,
+			);
+			await openEditor(hudWindow);
 			const editorWindow = await app.waitForEvent("window", {
 				predicate: (w) => w.url().includes("windowType=editor"),
 				timeout: 15_000,
@@ -207,10 +255,13 @@ test.describe("Windows native checklist smoke tests", () => {
 			});
 			await expect.poll(() => seekInput.inputValue(), { timeout: 10_000 }).not.toBe("0");
 
-			await expect(
-				editorWindow.getByText("Background").or(editorWindow.getByText("Arrière-plan")),
-			).toBeVisible();
-			await expect(editorWindow.getByTestId("testId-export-button")).toBeVisible();
+			// The settings panel is checked by its rail button rather than by the word
+			// "Background": a text locator only holds in the languages it lists, and
+			// testId-export-button — what this used to assert — lives inside the export
+			// panel and renders only while that panel is open.
+			await expect(editorWindow.getByTestId("testId-export-panel-button")).toBeVisible({
+				timeout: 20_000,
+			});
 		} finally {
 			await closeApp(app);
 			if (testVideoInRecordings && fs.existsSync(testVideoInRecordings)) {
@@ -219,7 +270,7 @@ test.describe("Windows native checklist smoke tests", () => {
 		}
 	});
 
-	test("launch window opens an existing project into the editor", async () => {
+	test("an existing project opens into the editor", async () => {
 		const app = await launchApp();
 		let testVideoInRecordings = "";
 		let projectPath = "";
@@ -228,6 +279,7 @@ test.describe("Windows native checklist smoke tests", () => {
 			const hudWindow = await app.firstWindow({ timeout: 60_000 });
 			await hudWindow.waitForLoadState("domcontentloaded");
 			await dismissLanguagePrompt(hudWindow);
+			await switchUiToEnglish(hudWindow);
 			testVideoInRecordings = await copyFixtureToRecordings(app, "checklist-project-sample.webm");
 			projectPath = path.join(os.tmpdir(), `openscreen-checklist-${Date.now()}.openscreen`);
 			const project = {
@@ -301,14 +353,19 @@ test.describe("Windows native checklist smoke tests", () => {
 				},
 			);
 
-			await hudWindow.getByTestId("launch-open-project-button").click();
+			await openEditor(hudWindow);
 			const editorWindow = await app.waitForEvent("window", {
 				predicate: (w) => w.url().includes("windowType=editor"),
 				timeout: 15_000,
 			});
 			await editorWindow.waitForLoadState("domcontentloaded");
 			await expect(editorWindow.getByText("Loading video...")).not.toBeVisible({ timeout: 20_000 });
-			await expect(editorWindow.getByTestId("testId-export-button")).toBeVisible();
+			// testId-export-button lives inside the export panel and only renders while
+			// that panel is open. The rail button that opens it is what being loaded
+			// looks like.
+			await expect(editorWindow.getByTestId("testId-export-panel-button")).toBeVisible({
+				timeout: 20_000,
+			});
 		} finally {
 			await closeApp(app);
 			if (testVideoInRecordings && fs.existsSync(testVideoInRecordings)) {
