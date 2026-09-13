@@ -105,6 +105,10 @@ async function run(videoUrl: string, job: Job, deps: TranscriptDeps): Promise<vo
  * A failed job stays failed until someone passes `restart`. Retrying on every
  * ask would mean the caller never sees the error — the question itself would
  * kick off a fresh attempt and answer "running" forever.
+ *
+ * `restart` on a *running* job is ignored: the old pipeline cannot be cancelled
+ * mid-flight, so honouring it would stack a second full decode-and-Whisper run
+ * beside the first — and each impatient poll could add another.
  */
 export function requestTranscript(
 	videoUrl: string,
@@ -112,7 +116,7 @@ export function requestTranscript(
 	deps: TranscriptDeps = defaultDeps,
 ): TranscriptState {
 	const existing = jobs.get(videoUrl);
-	if (existing && !options.restart) {
+	if (existing && (!options.restart || existing.state.status === "running")) {
 		return existing.state;
 	}
 

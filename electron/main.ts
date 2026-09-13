@@ -23,7 +23,7 @@ import { registerExportPathHandler } from "./mcp/exportPath";
 import { registerImageReader } from "./mcp/imageReader";
 import { registerMcpIpc } from "./mcp/ipc";
 import { configureMcpRecording } from "./mcp/recording";
-import { stopMcpServer } from "./mcp/server";
+import { removeMcpDiscoveryFileSync, stopMcpServer } from "./mcp/server";
 import { registerWalkthroughWriter } from "./mcp/walkthroughWriter";
 import {
 	createCountdownOverlayWindow,
@@ -478,6 +478,10 @@ app.on("activate", () => {
 
 app.on("will-quit", () => {
 	unregisterAllGlobalShortcuts();
+	// The async teardown may not get to finish before the process dies; removing
+	// the discovery file synchronously is the one part that must not be skipped,
+	// or it would keep advertising a token for a server that no longer exists.
+	removeMcpDiscoveryFileSync();
 	void stopMcpServer();
 });
 

@@ -190,6 +190,29 @@ describe("requestTranscript", () => {
 		expect(extract).toHaveBeenCalledTimes(2);
 	});
 
+	it("ignores restart while the job is running, rather than stacking a second one", async () => {
+		const extraction = deferred<ReturnType<typeof audio>>();
+		const extract = vi.fn(() => extraction.promise);
+		const deps: TranscriptDeps = {
+			extract: extract as TranscriptDeps["extract"],
+			transcribe: (async () => segments()) as unknown as TranscriptDeps["transcribe"],
+		};
+
+		requestTranscript("file:///a.webm", {}, deps);
+		// An impatient poll with restart must not start a parallel pipeline —
+		// the running one cannot be cancelled, so it would simply run beside it.
+		const state = requestTranscript("file:///a.webm", { restart: true }, deps);
+
+		expect(state.status).toBe("running");
+		expect(extract).toHaveBeenCalledTimes(1);
+
+		// Once the job has settled, restart works as documented.
+		extraction.resolve(audio());
+		await settle();
+		requestTranscript("file:///a.webm", { restart: true }, deps);
+		expect(extract).toHaveBeenCalledTimes(2);
+	});
+
 	it("keeps a separate job per recording", async () => {
 		const deps: TranscriptDeps = {
 			extract: (async () => audio()) as TranscriptDeps["extract"],

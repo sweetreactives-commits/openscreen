@@ -96,6 +96,16 @@ describe("summarizeCursorEvents", () => {
 		expect(summary.clicksTruncated).toBe(true);
 	});
 
+	it("does not claim truncation when the clicks exactly fill the cap", () => {
+		const telemetry = Array.from({ length: 5 }, (_, i) =>
+			point(i * 100, 0.5, 0.5, "click" as const),
+		);
+		const summary = summarizeCursorEvents(telemetry, { maxClicks: 5 });
+		expect(summary.clicks).toHaveLength(5);
+		// Every click is in the list; nothing was left out.
+		expect(summary.clicksTruncated).toBe(false);
+	});
+
 	it("honours a custom idle threshold", () => {
 		const telemetry = [point(0, 0.1, 0.1), ...still(33, 20, 0.5, 0.5), point(1_000, 0.9, 0.9)];
 		expect(summarizeCursorEvents(telemetry, { minIdleMs: 5_000 }).idleSpans).toEqual([]);

@@ -10,27 +10,14 @@ function getAudioCtx(): AudioContext {
 
 /**
  * Offloads peak computation to a Web Worker (zero-copy via Transferable).
- * On abort, the worker is terminated and the promise rejects with AbortError.
+ * Deliberately not abortable: the decode is shared between callers, so one
+ * caller walking away must not tear the worker out from under the others.
  */
-function computePeaksInWorker(
-	audioBuffer: AudioBuffer,
-	signal?: AbortSignal,
-): Promise<Float32Array> {
+function computePeaksInWorker(audioBuffer: AudioBuffer): Promise<Float32Array> {
 	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(new DOMException("Aborted", "AbortError"));
-			return;
-		}
-
 		const worker = new Worker(new URL("./audioPeaksWorker.ts", import.meta.url), {
 			type: "module",
 		});
-
-		const onAbort = () => {
-			worker.terminate();
-			reject(new DOMException("Aborted", "AbortError"));
-		};
-		signal?.addEventListener("abort", onAbort, { once: true });
 
 		// slice() creates an owned copy so the transfer is safe and the
 		// AudioBuffer remains valid if anything else holds a reference.
@@ -40,13 +27,11 @@ function computePeaksInWorker(
 		}
 
 		worker.onmessage = (e: MessageEvent<Float32Array>) => {
-			signal?.removeEventListener("abort", onAbort);
 			worker.terminate();
 			resolve(e.data);
 		};
 
 		worker.onerror = (e) => {
-			signal?.removeEventListener("abort", onAbort);
 			worker.terminate();
 			reject(e);
 		};
@@ -62,16 +47,56 @@ function computePeaksInWorker(
 // so it survives the timeline unmounting when the waveform is toggled off.
 const peaksCache = new Map<string, Float32Array>();
 
+// Decodes still under way, so a second caller joins the first rather than
+// loading and decoding the same file beside it.
+const peaksInFlight = new Map<string, Promise<Float32Array | null>>();
+
 /** Peaks already decoded for this source, without starting a decode. */
 export function getCachedAudioPeaks(videoUrl?: string): Float32Array | null {
 	return videoUrl ? (peaksCache.get(videoUrl) ?? null) : null;
 }
 
+/** Rejects with AbortError on abort, leaving `work` itself to run on. */
+function raceAbort<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+	if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+	return new Promise((resolve, reject) => {
+		const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+		signal.addEventListener("abort", onAbort, { once: true });
+		work.then(
+			(value) => {
+				signal.removeEventListener("abort", onAbort);
+				resolve(value);
+			},
+			(error) => {
+				signal.removeEventListener("abort", onAbort);
+				reject(error);
+			},
+		);
+	});
+}
+
+/** The shared decode itself. Never rejects: failure to decode means no peaks. */
+async function decodeAndCache(videoUrl: string): Promise<Float32Array | null> {
+	try {
+		const { data: arrayBuffer } = await loadFileAsArrayBuffer(videoUrl);
+		const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
+		const peaks = await computePeaksInWorker(audioBuffer);
+		peaksCache.set(videoUrl, peaks);
+		return peaks;
+	} catch (err) {
+		// No audio track or unsupported format: degrade quietly, but log so an
+		// unexpectedly-missing waveform is diagnosable.
+		console.warn("decodeAudioPeaks: could not decode audio:", err);
+		return null;
+	}
+}
+
 /**
  * Decodes audio from `videoUrl` into paired [min, max] peaks (length = 2 * N
  * blocks), or `null` when there is no audio track or the format is unsupported.
- * Cached by URL; concurrent callers each decode at most once thanks to the cache
- * check, and a repeat call after the first is free.
+ * Cached by URL, and concurrent callers share one in-flight decode. An abort
+ * detaches only the caller that aborted — the decode runs to completion for
+ * whoever else is waiting, and lands in the cache either way.
  */
 export async function decodeAudioPeaks(
 	videoUrl: string,
@@ -80,19 +105,13 @@ export async function decodeAudioPeaks(
 	const cached = peaksCache.get(videoUrl);
 	if (cached) return cached;
 
-	try {
-		const { data: arrayBuffer } = await loadFileAsArrayBuffer(videoUrl);
-		const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
-		const peaks = await computePeaksInWorker(audioBuffer, signal);
-		peaksCache.set(videoUrl, peaks);
-		return peaks;
-	} catch (err) {
-		if (err instanceof DOMException && err.name === "AbortError") throw err;
-		// No audio track or unsupported format: degrade quietly, but log so an
-		// unexpectedly-missing waveform is diagnosable.
-		console.warn("decodeAudioPeaks: could not decode audio:", err);
-		return null;
+	let inFlight = peaksInFlight.get(videoUrl);
+	if (!inFlight) {
+		inFlight = decodeAndCache(videoUrl).finally(() => peaksInFlight.delete(videoUrl));
+		peaksInFlight.set(videoUrl, inFlight);
 	}
+
+	return signal ? raceAbort(inFlight, signal) : inFlight;
 }
 
 /**

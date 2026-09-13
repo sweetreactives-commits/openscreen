@@ -1,4 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
+import { rmSync } from "node:fs";
 import fs from "node:fs/promises";
 import { createServer, type Server as HttpServer } from "node:http";
 import path from "node:path";
@@ -31,6 +32,13 @@ const FRAME_TIMEOUT_MS = 45_000;
 
 /** A guide decodes one frame per step, so it needs far longer than a single grab. */
 const WALKTHROUGH_TIMEOUT_MS = 300_000;
+
+/**
+ * The first ask decodes the recording's whole audio track into PCM, which
+ * scales with its length — an hour of audio can outlast the default timeout
+ * that suits state reads. Later asks hit the cache and return at once.
+ */
+const AUDIO_PROFILE_TIMEOUT_MS = 120_000;
 
 /**
  * Compares the bearer token without leaking how much of it matched.
@@ -79,17 +87,39 @@ function discoveryFilePath(): string {
  *
  * The port is chosen by the OS, so it cannot be hardcoded in the user's
  * `.mcp.json`; and the token must not be either, since it changes every start.
+ *
+ * The file holds the bearer token, so it is owner-only: on a multi-user Linux
+ * machine the default umask would otherwise let any local account read it and
+ * walk straight past the token check.
  */
 async function writeDiscoveryFile(current: McpServerInfo): Promise<void> {
-	await fs.writeFile(
-		discoveryFilePath(),
-		JSON.stringify({ ...current, pid: process.pid }, null, 2),
-		"utf-8",
-	);
+	const filePath = discoveryFilePath();
+	await fs.writeFile(filePath, JSON.stringify({ ...current, pid: process.pid }, null, 2), {
+		encoding: "utf-8",
+		mode: 0o600,
+	});
+	// `mode` applies only when the file is created; tighten one left behind by an
+	// earlier version too. On Windows this maps to the read-only flag and is a no-op.
+	await fs.chmod(filePath, 0o600);
 }
 
 async function removeDiscoveryFile(): Promise<void> {
 	await fs.rm(discoveryFilePath(), { force: true });
+}
+
+/**
+ * Removes the discovery file without touching the event loop, for `will-quit`.
+ *
+ * Async teardown racing app shutdown may never get to run, and the process
+ * dying takes the HTTP server with it anyway — the file pointing at a port and
+ * token that no longer exist is the only thing that can outlive us.
+ */
+export function removeMcpDiscoveryFileSync(): void {
+	try {
+		rmSync(discoveryFilePath(), { force: true });
+	} catch {
+		// Best effort: a stale file also self-invalidates through its dead pid.
+	}
 }
 
 /**
@@ -99,8 +129,12 @@ async function removeDiscoveryFile(): Promise<void> {
  * life in recorder mode — so it comes back as an error result carrying the
  * reason rather than as a thrown exception.
  */
-async function readFromEditor(command: McpCommand, args?: Record<string, unknown>) {
-	const response = await callEditor<unknown>(command, args);
+async function readFromEditor(
+	command: McpCommand,
+	args?: Record<string, unknown>,
+	timeoutMs?: number,
+) {
+	const response = await callEditor<unknown>(command, args, timeoutMs);
 
 	if (!response.ok) {
 		return {
@@ -183,7 +217,8 @@ function buildMcpServer(): McpServer {
 			}),
 			annotations: { readOnlyHint: true },
 		},
-		async (args) => readFromEditor("get_audio_profile", args),
+		// Decoding the full track on the first ask outgrows the default timeout.
+		async (args) => readFromEditor("get_audio_profile", args, AUDIO_PROFILE_TIMEOUT_MS),
 	);
 
 	server.registerTool(

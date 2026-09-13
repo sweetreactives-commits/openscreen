@@ -76,6 +76,7 @@ export function summarizeCursorEvents(
 	const clicks: CursorClick[] = [];
 	const idleSpans: IdleSpan[] = [];
 
+	let clicksTruncated = false;
 	let stillSince: number | null = null;
 	let previous: CursorTelemetryPoint | null = null;
 
@@ -88,6 +89,10 @@ export function summarizeCursorEvents(
 					cy: round(point.cy),
 					type: point.interactionType,
 				});
+			} else {
+				// Only a click actually left out makes the list truncated; a recording
+				// with exactly the cap's worth is complete.
+				clicksTruncated = true;
 			}
 		}
 
@@ -123,7 +128,7 @@ export function summarizeCursorEvents(
 	return {
 		sampleCount: telemetry.length,
 		clicks,
-		clicksTruncated: clicks.length >= maxClicks,
+		clicksTruncated,
 		idleSpans,
 		totalIdleMs: idleSpans.reduce((sum, span) => sum + span.durationMs, 0),
 	};

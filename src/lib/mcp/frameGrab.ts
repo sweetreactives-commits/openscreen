@@ -94,7 +94,9 @@ export async function grabFrame(
 			throw new Error("Video reported no dimensions");
 		}
 
-		const scale = Math.min(1, maxWidth / sourceWidth);
+		// The cap is on the longest edge, as the tool promises — dividing by the
+		// width alone would let a portrait recording come back far taller than it.
+		const scale = Math.min(1, maxWidth / Math.max(sourceWidth, sourceHeight));
 		const width = Math.max(1, Math.round(sourceWidth * scale));
 		const height = Math.max(1, Math.round(sourceHeight * scale));
 
