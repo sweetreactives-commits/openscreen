@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "Добавлено {{count}} предложение масштабирования на основе курсора",
 		"addedZoomSuggestionsPlural": "Добавлено {{count}} предложений масштабирования на основе курсора"
+	},
+	"proposals": {
+		"pending": "Предложений от ИИ-агента: {{count}} — ждут вашего решения",
+		"acceptAll": "Принять все",
+		"discardAll": "Отклонить все"
 	}
 }

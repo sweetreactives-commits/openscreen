@@ -30,7 +30,13 @@ import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
 import { formatShortcut } from "@/utils/platformUtils";
 import { BLUR_REGIONS_ENABLED } from "../featureFlags";
-import type { AnnotationRegion, SpeedRegion, TrimRegion, ZoomRegion } from "../types";
+import {
+	type AnnotationRegion,
+	isProposedRegion,
+	type SpeedRegion,
+	type TrimRegion,
+	type ZoomRegion,
+} from "../types";
 import BackgroundWaveform from "./BackgroundWaveform";
 import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
@@ -112,6 +118,7 @@ interface TimelineRenderItem {
 	zoomCustomScale?: number;
 	speedValue?: number;
 	isAutoFocus?: boolean;
+	isProposed?: boolean;
 	variant: "zoom" | "trim" | "annotation" | "speed" | "blur";
 }
 
@@ -787,6 +794,7 @@ function Timeline({
 						zoomDepth={item.zoomDepth}
 						zoomCustomScale={item.zoomCustomScale}
 						isAutoFocus={item.isAutoFocus}
+						isProposed={item.isProposed}
 						variant="zoom"
 					>
 						{item.label}
@@ -817,6 +825,7 @@ function Timeline({
 						span={item.span}
 						isSelected={item.id === selectedTrimId}
 						onSelect={() => onSelectTrim?.(item.id)}
+						isProposed={item.isProposed}
 						variant="trim"
 					>
 						{item.label}
@@ -837,6 +846,7 @@ function Timeline({
 						span={item.span}
 						isSelected={item.id === selectedAnnotationId}
 						onSelect={() => onSelectAnnotation?.(item.id)}
+						isProposed={item.isProposed}
 						variant="annotation"
 					>
 						{item.label}
@@ -854,6 +864,7 @@ function Timeline({
 							span={item.span}
 							isSelected={item.id === selectedBlurId}
 							onSelect={() => onSelectBlur?.(item.id)}
+							isProposed={item.isProposed}
 							variant={item.variant}
 						>
 							{item.label}
@@ -871,6 +882,7 @@ function Timeline({
 						span={item.span}
 						isSelected={item.id === selectedSpeedId}
 						onSelect={() => onSelectSpeed?.(item.id)}
+						isProposed={item.isProposed}
 						variant="speed"
 						speedValue={item.speedValue}
 					>
@@ -1351,6 +1363,7 @@ export default function TimelineEditor({
 			zoomDepth: region.depth,
 			zoomCustomScale: region.customScale,
 			isAutoFocus: region.focusMode === "auto",
+			isProposed: isProposedRegion(region),
 			variant: "zoom",
 		}));
 
@@ -1359,6 +1372,7 @@ export default function TimelineEditor({
 			rowId: TRIM_ROW_ID,
 			span: { start: region.startMs, end: region.endMs },
 			label: t("labels.trimItem", { index: String(index + 1) }),
+			isProposed: isProposedRegion(region),
 			variant: "trim",
 		}));
 
@@ -1379,6 +1393,7 @@ export default function TimelineEditor({
 				rowId: ANNOTATION_ROW_ID,
 				span: { start: region.startMs, end: region.endMs },
 				label,
+				isProposed: isProposedRegion(region),
 				variant: "annotation",
 			};
 		});
@@ -1397,6 +1412,7 @@ export default function TimelineEditor({
 			span: { start: region.startMs, end: region.endMs },
 			label: t("labels.speedItem", { index: String(index + 1) }),
 			speedValue: region.speed,
+			isProposed: isProposedRegion(region),
 			variant: "speed",
 		}));
 

@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "已新增 {{count}} 個基於游標的縮放建議",
 		"addedZoomSuggestionsPlural": "已新增 {{count}} 個基於游標的縮放建議"
+	},
+	"proposals": {
+		"pending": "AI 代理提出了 {{count}} 條建議，等待你確認",
+		"acceptAll": "全部保留",
+		"discardAll": "全部捨棄"
 	}
 }

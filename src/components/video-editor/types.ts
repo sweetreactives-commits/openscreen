@@ -69,7 +69,15 @@ export function rotation3DPerspective(width: number, height: number): number {
  * either kind promotes it to "manual" so it survives. Undefined is treated as
  * "manual" for back-compat.
  */
-export type ZoomRegionSource = "auto" | "agent" | "manual";
+export type RegionSource = "auto" | "agent" | "manual";
+
+/** @deprecated Use {@link RegionSource}; kept so existing imports keep working. */
+export type ZoomRegionSource = RegionSource;
+
+/** True for regions an agent proposed and nobody has accepted or edited yet. */
+export function isProposedRegion(region: { source?: RegionSource }): boolean {
+	return region.source === "agent";
+}
 
 export interface ZoomRegion {
 	id: string;
@@ -222,6 +230,7 @@ export interface TrimRegion {
 	id: string;
 	startMs: number;
 	endMs: number;
+	source?: RegionSource;
 }
 
 export type AnnotationType = "text" | "image" | "figure" | "blur";
@@ -308,6 +317,8 @@ export interface AnnotationRegion {
 	zIndex: number;
 	/** When set, layout/style edits on one region can sync to all auto-caption siblings. */
 	annotationSource?: "auto-caption";
+	/** Who created this. Distinct from `annotationSource`, which is about captions. */
+	source?: RegionSource;
 	figureData?: FigureData;
 	blurData?: BlurData;
 }
@@ -390,6 +401,7 @@ export interface SpeedRegion {
 	startMs: number;
 	endMs: number;
 	speed: PlaybackSpeed;
+	source?: RegionSource;
 }
 
 export const SPEED_OPTIONS: Array<{ speed: PlaybackSpeed; label: string }> = [

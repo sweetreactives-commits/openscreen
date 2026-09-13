@@ -40,6 +40,7 @@ import {
 	MIN_BLUR_INTENSITY,
 	MIN_CURSOR_SIZE,
 	MIN_PLAYBACK_SPEED,
+	type RegionSource,
 	type SpeedRegion,
 	type TrimRegion,
 	type WebcamLayoutPreset,
@@ -116,6 +117,11 @@ export interface EditorProjectData {
 	media?: ProjectMedia;
 	editor: ProjectEditorState;
 	videoPath?: string;
+}
+
+/** Unknown or missing origins read as "manual", which is how old projects load. */
+function normalizeRegionSource(value: unknown): RegionSource {
+	return value === "auto" || value === "agent" ? value : "manual";
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -282,8 +288,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
 						focusMode: region.focusMode === "auto" ? "auto" : "manual",
-						source:
-							region.source === "auto" || region.source === "agent" ? region.source : "manual",
+						source: normalizeRegionSource(region.source),
 						...(validPreset ? { rotationPreset: validPreset } : {}),
 					};
 				})
@@ -301,6 +306,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						id: region.id,
 						startMs,
 						endMs,
+						source: normalizeRegionSource(region.source),
 					};
 				})
 		: [];
@@ -326,6 +332,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						startMs,
 						endMs,
 						speed,
+						source: normalizeRegionSource(region.source),
 					};
 				})
 		: [];
@@ -361,6 +368,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						imageContent: typeof region.imageContent === "string" ? region.imageContent : undefined,
 						annotationSource:
 							region.annotationSource === "auto-caption" ? ("auto-caption" as const) : undefined,
+						source: normalizeRegionSource(region.source),
 						position: {
 							x: clamp(
 								isFiniteNumber(region.position?.x)

@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "Added {{count}} cursor-based zoom suggestion",
 		"addedZoomSuggestionsPlural": "Added {{count}} cursor-based zoom suggestions"
+	},
+	"proposals": {
+		"pending": "{{count}} proposals from an AI agent, waiting for you",
+		"acceptAll": "Keep all",
+		"discardAll": "Discard all"
 	}
 }

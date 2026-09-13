@@ -52,6 +52,7 @@ import {
 } from "@/lib/exporter";
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ExportRunner } from "@/lib/mcp/exportJob";
+import { acceptProposals, countProposals, discardProposals } from "@/lib/mcp/proposals";
 import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
@@ -77,6 +78,7 @@ import {
 	DEFAULT_SOURCE_DIMENSIONS,
 } from "./editorDefaults";
 import PlaybackControls from "./PlaybackControls";
+import { ProposalReviewBar } from "./ProposalReviewBar";
 import {
 	createProjectData,
 	createProjectSnapshot,
@@ -1064,6 +1066,9 @@ export default function VideoEditor() {
 								...region,
 								startMs: Math.round(span.start),
 								endMs: Math.round(span.end),
+								// Adjusting a proposal is accepting it: it must not be
+								// swept away by "discard proposals" afterwards.
+								source: "manual" as const,
 							}
 						: region,
 				),
@@ -1219,6 +1224,9 @@ export default function VideoEditor() {
 								...region,
 								startMs: Math.round(span.start),
 								endMs: Math.round(span.end),
+								// Adjusting a proposal is accepting it: it must not be
+								// swept away by "discard proposals" afterwards.
+								source: "manual" as const,
 							}
 						: region,
 				),
@@ -1318,6 +1326,9 @@ export default function VideoEditor() {
 								...region,
 								startMs: Math.round(span.start),
 								endMs: Math.round(span.end),
+								// Adjusting a proposal is accepting it: it must not be
+								// swept away by "discard proposals" afterwards.
+								source: "manual" as const,
 							}
 						: region,
 				);
@@ -2124,6 +2135,18 @@ export default function VideoEditor() {
 		handleExport(settings);
 	}, [videoPath, exportFormat, buildExportSettings, handleExport]);
 
+	// An agent's edits arrive marked as proposals; these are the two bulk answers.
+	// Both go through history, so either is one undo away.
+	const proposalCount = useMemo(() => countProposals(editorState), [editorState]);
+
+	const handleAcceptProposals = useCallback(() => {
+		pushState((prev) => acceptProposals(prev));
+	}, [pushState]);
+
+	const handleDiscardProposals = useCallback(() => {
+		pushState((prev) => discardProposals(prev));
+	}, [pushState]);
+
 	// Renders to a file for an agent. The destination is resolved in the main
 	// process against the user's export folder — the agent supplies only a name.
 	const runExportForAgent = useCallback<ExportRunner>(
@@ -2833,6 +2856,11 @@ export default function VideoEditor() {
 						{/* Full-width timeline */}
 						<Panel defaultSize={33} maxSize={54} minSize={24} className="min-h-[210px]">
 							<div className="editor-timeline-panel h-full overflow-hidden flex flex-col">
+								<ProposalReviewBar
+									count={proposalCount}
+									onAccept={handleAcceptProposals}
+									onDiscard={handleDiscardProposals}
+								/>
 								<TimelineEditor
 									videoDuration={duration}
 									currentTime={currentTime}

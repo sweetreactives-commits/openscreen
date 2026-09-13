@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "Đã thêm {{count}} đề xuất thu phóng dựa trên con trỏ",
 		"addedZoomSuggestionsPlural": "Đã thêm {{count}} đề xuất thu phóng dựa trên con trỏ"
+	},
+	"proposals": {
+		"pending": "{{count}} đề xuất từ tác nhân AI, đang chờ bạn quyết định",
+		"acceptAll": "Giữ tất cả",
+		"discardAll": "Bỏ tất cả"
 	}
 }

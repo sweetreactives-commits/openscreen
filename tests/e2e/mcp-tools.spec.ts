@@ -432,6 +432,12 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 		expect(regions.zooms[0].source).toBe("agent");
 		expect(regions.annotations[0].text).toBe("Look here");
 
+		// The agent's edits arrive as proposals, not as applied facts: the review
+		// bar appears and the regions render dashed until the user answers.
+		await expect(editorWindow.getByText(/proposals from an AI agent/)).toBeVisible({
+			timeout: 10_000,
+		});
+
 		// An image annotation is given as a path and read on this side, so the
 		// agent never ships base64 over the wire.
 		const imagePath = path.join(userDataDir, "recordings", "mcp-badge.png");
@@ -563,8 +569,18 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 		expect(badStepResult.isError).toBe(true);
 		expect(badStepResult.content[0].text).toContain("outside the recording");
 
-		// The whole batch collapses into a single undo for the user: one press
-		// takes back the image batch, the next takes back the zoom-and-text batch.
+		// Keeping them settles every proposal at once, and the bar goes away.
+		await editorWindow.getByRole("button", { name: "Keep all" }).click();
+		await expect(editorWindow.getByText(/proposals from an AI agent/)).not.toBeVisible({
+			timeout: 10_000,
+		});
+		const kept = await callTool(endpoint, "get_project");
+		const keptZooms = (kept.regions as { zooms: Array<{ source: string }> }).zooms;
+		expect(keptZooms.every((zoom) => zoom.source === "manual")).toBe(true);
+
+		// Every batch is one undo step, and so is answering the proposals: three
+		// presses walk back "keep all", the image batch, and the zoom-and-text batch.
+		await editorWindow.keyboard.press("Control+z");
 		await editorWindow.keyboard.press("Control+z");
 		await editorWindow.keyboard.press("Control+z");
 		const undone = await callTool(endpoint, "get_project");

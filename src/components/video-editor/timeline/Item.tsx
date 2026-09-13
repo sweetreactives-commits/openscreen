@@ -17,6 +17,8 @@ interface ItemProps {
 	zoomCustomScale?: number;
 	speedValue?: number;
 	isAutoFocus?: boolean;
+	/** An agent's proposal the user has neither accepted nor edited. */
+	isProposed?: boolean;
 	variant?: "zoom" | "trim" | "annotation" | "speed" | "blur";
 }
 
@@ -50,6 +52,7 @@ export default function Item({
 	zoomCustomScale,
 	speedValue,
 	isAutoFocus = false,
+	isProposed = false,
 	variant = "zoom",
 	children,
 }: ItemProps) {
@@ -98,6 +101,7 @@ export default function Item({
 					className={cn(
 						glassClass,
 						"w-full h-full overflow-hidden flex items-center justify-center gap-1.5 cursor-grab active:cursor-grabbing relative",
+						isProposed && glassStyles.proposed,
 						isSelected && glassStyles.selected,
 					)}
 					style={{ height: 30, color: "#fff", minWidth: 24 }}

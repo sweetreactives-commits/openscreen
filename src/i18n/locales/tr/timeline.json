@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "{{count}} imleç tabanlı yakınlaştırma önerisi eklendi",
 		"addedZoomSuggestionsPlural": "{{count}} imleç tabanlı yakınlaştırma önerisi eklendi"
+	},
+	"proposals": {
+		"pending": "Yapay zekâ aracısından {{count}} öneri, kararınızı bekliyor",
+		"acceptAll": "Tümünü tut",
+		"discardAll": "Tümünü at"
 	}
 }

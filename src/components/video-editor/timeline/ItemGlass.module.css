@@ -147,3 +147,24 @@
 	border-top-right-radius: 9px;
 	border-bottom-right-radius: 9px;
 }
+
+/*
+ * A region an agent proposed and nobody has accepted yet.
+ *
+ * Dashed rather than a different colour: the colour already says what kind of
+ * region it is, and a proposal has to read as provisional across all four kinds
+ * without inventing four more palettes.
+ */
+.proposed {
+	border-style: dashed;
+	opacity: 0.72;
+}
+
+.proposed:hover {
+	opacity: 0.92;
+}
+
+.proposed.selected {
+	border-style: solid;
+	opacity: 1;
+}

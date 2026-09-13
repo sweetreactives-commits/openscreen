@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "تمت إضافة {{count}} اقتراح تكبير بناءً على المؤشر",
 		"addedZoomSuggestionsPlural": "تمت إضافة {{count}} اقتراحات تكبير بناءً على المؤشر"
+	},
+	"proposals": {
+		"pending": "{{count}} اقتراحات من وكيل ذكاء اصطناعي، بانتظار قرارك",
+		"acceptAll": "الإبقاء على الكل",
+		"discardAll": "تجاهل الكل"
 	}
 }

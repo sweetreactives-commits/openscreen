@@ -220,6 +220,7 @@ function applyOne(
 			const current = state.zoomRegions[index];
 			const next: ZoomRegion = {
 				...current,
+				source: "manual",
 				startMs: command.startMs ?? current.startMs,
 				endMs: command.endMs ?? current.endMs,
 				...(command.scale !== undefined
@@ -249,6 +250,7 @@ function applyOne(
 				id,
 				startMs: Math.round(command.startMs),
 				endMs: Math.round(command.endMs),
+				source: "agent",
 			};
 			return { ...state, trimRegions: [...state.trimRegions, region] };
 		}
@@ -267,6 +269,7 @@ function applyOne(
 				startMs: Math.round(command.startMs),
 				endMs: Math.round(command.endMs),
 				speed: clampPlaybackSpeed(command.speed),
+				source: "agent",
 			};
 			return { ...state, speedRegions: [...state.speedRegions, region] };
 		}
@@ -298,6 +301,7 @@ function applyOne(
 					...(command.animation ? { textAnimation: command.animation } : {}),
 				},
 				zIndex,
+				source: "agent",
 			};
 			return { ...state, annotationRegions: [...state.annotationRegions, region] };
 		}
@@ -316,6 +320,8 @@ function applyOne(
 
 			const next: AnnotationRegion = {
 				...current,
+				// An edit aimed at a specific region is a deliberate change, not a proposal.
+				source: "manual",
 				startMs: command.startMs ?? current.startMs,
 				endMs: command.endMs ?? current.endMs,
 				...(command.text !== undefined ? { content: command.text, textContent: command.text } : {}),
@@ -358,6 +364,7 @@ function applyOne(
 				size: command.size ?? DEFAULT_ANNOTATION_SIZE,
 				style: DEFAULT_ANNOTATION_STYLE,
 				zIndex,
+				source: "agent",
 			};
 			return { ...state, annotationRegions: [...state.annotationRegions, region] };
 		}

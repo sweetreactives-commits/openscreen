@@ -122,11 +122,16 @@ describe("applyCommands", () => {
 	});
 
 	describe("trims and speed", () => {
-		it("adds a removed range as a trim region", () => {
+		it("adds a removed range as a trim region, marked as the agent's proposal", () => {
 			const result = ok(run([{ op: "remove_range", startMs: 2_000, endMs: 4_000 }]));
 			expect(result.patch.trimRegions).toEqual([
-				{ id: result.createdIds[0], startMs: 2_000, endMs: 4_000 },
+				{ id: result.createdIds[0], startMs: 2_000, endMs: 4_000, source: "agent" },
 			]);
+		});
+
+		it("marks a speed change as a proposal too", () => {
+			const result = ok(run([{ op: "set_speed", startMs: 0, endMs: 1_000, speed: 2 }]));
+			expect(result.patch.speedRegions?.[0].source).toBe("agent");
 		});
 
 		it("clamps speed to what the editor supports", () => {
@@ -148,6 +153,7 @@ describe("applyCommands", () => {
 			expect(annotation?.type).toBe("text");
 			expect(annotation?.textContent).toBe("Click Export");
 			expect(annotation?.zIndex).toBe(1);
+			expect(annotation?.source).toBe("agent");
 		});
 
 		it("stacks each new annotation above the last", () => {
@@ -170,6 +176,8 @@ describe("applyCommands", () => {
 				run([{ op: "update_text", id: added.createdIds[0], text: "after" }], state),
 			);
 			expect(updated.patch.annotationRegions?.[0].textContent).toBe("after");
+			// An edit aimed at one region accepts it; it is no longer a proposal.
+			expect(updated.patch.annotationRegions?.[0].source).toBe("manual");
 		});
 	});
 

@@ -55,5 +55,10 @@
 	"success": {
 		"addedZoomSuggestions": "커서 기반 줌 제안 {{count}}개가 추가되었습니다",
 		"addedZoomSuggestionsPlural": "커서 기반 줌 제안 {{count}}개가 추가되었습니다"
+	},
+	"proposals": {
+		"pending": "AI 에이전트의 제안 {{count}}건이 확인을 기다리고 있습니다",
+		"acceptAll": "모두 유지",
+		"discardAll": "모두 버리기"
 	}
 }
