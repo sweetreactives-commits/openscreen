@@ -107,6 +107,7 @@ import {
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
 	type PlaybackSpeed,
+	type RegionSource,
 	type Rotation3DPreset,
 	type SpeedRegion,
 	type TrimRegion,
@@ -176,6 +177,16 @@ function buildExportDiagnosticMessage(diagnostics: ExportDiagnostics) {
 
 function buildSaveDiagnosticMessage(formatLabel: "GIF" | "Video", reason?: string) {
 	return `${formatLabel} export save failed${reason ? `\nReason: ${reason}` : ""}`;
+}
+
+/**
+ * A region the user has just edited is theirs, not an agent's proposal any more.
+ *
+ * Without this, someone who fixed up a proposed caption and then chose "discard
+ * proposals" would lose their own correction along with the rest.
+ */
+function owned<T extends { source?: RegionSource }>(region: T): T {
+	return region.source === "agent" ? { ...region, source: "manual" } : region;
 }
 
 const CAPTION_WORD_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -1398,11 +1409,11 @@ export default function VideoEditor() {
 				annotationRegions: prev.annotationRegions.map((region) => {
 					if (region.id !== id) return region;
 					if (region.type === "text") {
-						return { ...region, content, textContent: content };
+						return owned({ ...region, content, textContent: content });
 					} else if (region.type === "image") {
-						return { ...region, content, imageContent: content };
+						return owned({ ...region, content, imageContent: content });
 					}
-					return { ...region, content };
+					return owned({ ...region, content });
 				}),
 			}));
 		},
@@ -1414,7 +1425,7 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) => {
 					if (region.id !== id) return region;
-					const updatedRegion = { ...region, type };
+					const updatedRegion = owned({ ...region, type });
 					if (type === "text") {
 						updatedRegion.content = region.textContent || "Enter text...";
 					} else if (type === "image") {
@@ -1454,9 +1465,11 @@ export default function VideoEditor() {
 				return {
 					annotationRegions: prev.annotationRegions.map((region) => {
 						if (syncAutoCaptions && region.annotationSource === "auto-caption") {
-							return { ...region, style: { ...region.style, ...style } };
+							return owned({ ...region, style: { ...region.style, ...style } });
 						}
-						return region.id === id ? { ...region, style: { ...region.style, ...style } } : region;
+						return region.id === id
+							? owned({ ...region, style: { ...region.style, ...style } })
+							: region;
 					}),
 				};
 			});
@@ -1468,7 +1481,7 @@ export default function VideoEditor() {
 		(id: string, figureData: FigureData) => {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
-					region.id === id ? { ...region, figureData } : region,
+					region.id === id ? owned({ ...region, figureData }) : region,
 				),
 			}));
 		},
@@ -1528,9 +1541,9 @@ export default function VideoEditor() {
 				return {
 					annotationRegions: prev.annotationRegions.map((region) => {
 						if (syncAutoCaptions && region.annotationSource === "auto-caption") {
-							return { ...region, position };
+							return owned({ ...region, position });
 						}
-						return region.id === id ? { ...region, position } : region;
+						return region.id === id ? owned({ ...region, position }) : region;
 					}),
 				};
 			});
@@ -1546,9 +1559,9 @@ export default function VideoEditor() {
 				return {
 					annotationRegions: prev.annotationRegions.map((region) => {
 						if (syncAutoCaptions && region.annotationSource === "auto-caption") {
-							return { ...region, size };
+							return owned({ ...region, size });
 						}
-						return region.id === id ? { ...region, size } : region;
+						return region.id === id ? owned({ ...region, size }) : region;
 					}),
 				};
 			});

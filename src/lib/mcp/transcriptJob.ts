@@ -3,6 +3,7 @@ import {
 	type TranscribeMono16kResult,
 	transcribeMono16kToSegments,
 } from "@/lib/captioning";
+import { UNTRUSTED_NOTICE } from "./untrusted";
 
 /**
  * Transcription as a job an agent can poll, rather than a call it waits on.
@@ -31,6 +32,9 @@ export type TranscriptState =
 			granularity: TranscribeMono16kResult["granularity"];
 			/** True when the recording was longer than the transcriber's audio ceiling. */
 			truncated: boolean;
+			/** Marked untrusted: these are words captured from a microphone. */
+			untrusted: true;
+			notice: string;
 			segments: TranscriptSegment[];
 	  }
 	| { status: "error"; message: string };
@@ -82,6 +86,8 @@ async function run(videoUrl: string, job: Job, deps: TranscriptDeps): Promise<vo
 			status: "ready",
 			granularity: result.granularity,
 			truncated,
+			untrusted: true,
+			notice: UNTRUSTED_NOTICE,
 			segments: toSegments(result),
 		};
 	} catch (error) {

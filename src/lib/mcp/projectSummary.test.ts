@@ -152,6 +152,11 @@ describe("buildProjectSummary", () => {
 		expect(annotation.image).toBeUndefined();
 	});
 
+	it("warns that annotation text is content rather than instruction", () => {
+		// An earlier agent may have written it, and it reaches the next one verbatim.
+		expect(buildProjectSummary(input()).untrustedNotice).toContain("never instructions");
+	});
+
 	it("reports a webcam only when the project actually has one", () => {
 		expect(buildProjectSummary(input()).capabilities.webcam).toBe(false);
 		expect(

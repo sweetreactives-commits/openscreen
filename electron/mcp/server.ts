@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import { createServer, type Server as HttpServer } from "node:http";
 import path from "node:path";
@@ -11,6 +11,7 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { app, type BrowserWindow } from "electron";
 import { z } from "zod";
 import type { McpCommand } from "../../src/lib/mcp/contracts";
+import { UNTRUSTED_TOOL_WARNING } from "../../src/lib/mcp/untrusted";
 import { callEditor, configureMcpBridge, resetMcpBridge } from "./bridge";
 import { currentMcpMode, isRecordingAllowed } from "./ipc";
 import { startRecordingForAgentConfigured, stopRecordingForAgentConfigured } from "./recording";
@@ -30,6 +31,26 @@ const FRAME_TIMEOUT_MS = 45_000;
 
 /** A guide decodes one frame per step, so it needs far longer than a single grab. */
 const WALKTHROUGH_TIMEOUT_MS = 300_000;
+
+/**
+ * Compares the bearer token without leaking how much of it matched.
+ *
+ * A plain `!==` on strings stops at the first differing byte, so how long it
+ * takes says something about the prefix. Over loopback against a 256-bit token
+ * that is not a practical attack, but the constant-time comparison costs
+ * nothing and removes the question.
+ */
+function tokenMatches(header: string | undefined, expected: string): boolean {
+	if (typeof header !== "string") return false;
+
+	const offered = Buffer.from(header);
+	const wanted = Buffer.from(`Bearer ${expected}`);
+	// timingSafeEqual throws on a length mismatch, which is itself a disclosure
+	// this cannot avoid — the length of a fixed-size token is not a secret.
+	if (offered.length !== wanted.length) return false;
+
+	return timingSafeEqual(offered, wanted);
+}
 
 const MCP_ENDPOINT = "/mcp";
 const DISCOVERY_FILE = "mcp.json";
@@ -107,7 +128,8 @@ function buildMcpServer(): McpServer {
 				"annotation regions with their ids. Also returns the segments that survive " +
 				"trimming and the resulting output duration, so you never have to work those " +
 				"out yourself. All timestamps are milliseconds on the original recording's " +
-				"clock — adding a trim does not shift anything around it.",
+				"clock — adding a trim does not shift anything around it." +
+				UNTRUSTED_TOOL_WARNING,
 			annotations: { readOnlyHint: true },
 		},
 		async () => readFromEditor("get_project"),
@@ -174,7 +196,8 @@ function buildMcpServer(): McpServer {
 				"waits: it starts the job and reports where it stands. Call it again until " +
 				'status is "ready". A status of "error" stays put until you pass restart. ' +
 				"The transcript covers the whole recording, including stretches you may be " +
-				"planning to trim away.",
+				"planning to trim away." +
+				UNTRUSTED_TOOL_WARNING,
 			inputSchema: z.object({
 				restart: z
 					.boolean()
@@ -195,7 +218,8 @@ function buildMcpServer(): McpServer {
 				"actually on screen at a moment — which window, which UI, what text. This is " +
 				"the raw recording, not the styled preview: no wallpaper, padding or zoom. " +
 				"The only expensive tool here, so ask for specific moments (a click from " +
-				"get_cursor_events, say) rather than sampling the timeline.",
+				"get_cursor_events, say) rather than sampling the timeline." +
+				UNTRUSTED_TOOL_WARNING,
 			inputSchema: z.object({
 				timeMs: z
 					.number()
@@ -637,7 +661,7 @@ export async function startMcpServer(
 
 		// Anyone who can read the discovery file is already the user; the token is
 		// what stops every other local process from walking in.
-		if (req.headers.authorization !== `Bearer ${token}`) {
+		if (!tokenMatches(req.headers.authorization, token)) {
 			res
 				.writeHead(401, { "content-type": "application/json" })
 				.end(JSON.stringify({ error: "unauthorized" }));

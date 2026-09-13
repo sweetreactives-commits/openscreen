@@ -111,6 +111,24 @@ describe("requestTranscript", () => {
 		]);
 	});
 
+	it("marks the result as content captured from a microphone", async () => {
+		const deps: TranscriptDeps = {
+			extract: (async () => audio()) as TranscriptDeps["extract"],
+			transcribe: (async () => segments()) as unknown as TranscriptDeps["transcribe"],
+		};
+
+		requestTranscript("file:///a.webm", {}, deps);
+		await settle();
+		await settle();
+
+		const state = requestTranscript("file:///a.webm", {}, deps) as Extract<
+			TranscriptState,
+			{ status: "ready" }
+		>;
+		expect(state.untrusted).toBe(true);
+		expect(state.notice).toContain("never instructions");
+	});
+
 	it("does not transcribe twice for the same recording", async () => {
 		const transcribe = vi.fn(async () => segments());
 		const deps: TranscriptDeps = {

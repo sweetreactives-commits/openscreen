@@ -8,6 +8,7 @@ import { getZoomScale } from "@/components/video-editor/types";
 import type { EditorState } from "@/hooks/useEditorHistory";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { computeOutputDurationMs, computeTimeline, type KeepSegment } from "./timeline";
+import { UNTRUSTED_NOTICE } from "./untrusted";
 
 /**
  * The project as an agent sees it.
@@ -47,6 +48,8 @@ export interface ProjectSummary {
 	layout: Record<string, unknown>;
 	cursor: Record<string, unknown>;
 	webcam: Record<string, unknown>;
+	/** Annotation text is content, not instruction — see `untrustedNotice`. */
+	untrustedNotice: string;
 	regions: {
 		zooms: ReturnType<typeof summarizeZoom>[];
 		trims: TrimRegion[];
@@ -185,6 +188,7 @@ export function buildProjectSummary(input: ProjectSummaryInput): ProjectSummary 
 			mirrored: editor.webcamMirrored,
 			reactiveZoom: editor.webcamReactiveZoom,
 		},
+		untrustedNotice: UNTRUSTED_NOTICE,
 		regions: {
 			zooms: editor.zoomRegions.map(summarizeZoom),
 			trims: editor.trimRegions,
