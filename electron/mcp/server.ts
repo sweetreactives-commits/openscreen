@@ -27,6 +27,9 @@ import { currentMcpMode } from "./ipc";
 /** Decoding a frame means loading and seeking a video, well past a state read. */
 const FRAME_TIMEOUT_MS = 45_000;
 
+/** A guide decodes one frame per step, so it needs far longer than a single grab. */
+const WALKTHROUGH_TIMEOUT_MS = 300_000;
+
 const MCP_ENDPOINT = "/mcp";
 const DISCOVERY_FILE = "mcp.json";
 
@@ -238,6 +241,7 @@ function buildMcpServer(): McpServer {
 		registerEditTool(server);
 		// Exporting writes a file, so it belongs with editing rather than reading.
 		registerExportTool(server);
+		registerWalkthroughTool(server);
 	}
 
 	return server;
@@ -407,6 +411,64 @@ function registerExportTool(server: McpServer): void {
 					},
 				],
 				structuredContent: state as Record<string, unknown>,
+			};
+		},
+	);
+}
+
+function registerWalkthroughTool(server: McpServer): void {
+	server.registerTool(
+		"export_walkthrough",
+		{
+			title: "Write a step-by-step guide from the recording",
+			description:
+				"Turns the recording into a written walkthrough: a markdown document with a " +
+				"screenshot pulled from the video at each step you name. You write the steps " +
+				"— read get_transcript for what was said and get_cursor_events for where the " +
+				"clicks were, then decide what each one is doing. Saved to the user's export " +
+				"folder; you choose the file name, not the folder, and an existing file is " +
+				"never overwritten. Times are milliseconds on the source recording's clock.",
+			inputSchema: z.object({
+				fileName: z.string().describe("Plain file name ending in .md, with no folders in it."),
+				title: z.string().optional().describe("Heading for the document."),
+				steps: z
+					.array(
+						z.object({
+							timeMs: z.number().describe("The moment this step happens."),
+							title: z.string().describe("What the step does, as a heading."),
+							body: z.string().optional().describe("Any explanation under the heading."),
+						}),
+					)
+					.describe("The steps, in order. Up to 100."),
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+		},
+		async (args) => {
+			// Each step decodes a frame, so a long guide takes a while.
+			const response = await callEditor<
+				| { ok: true; path: string; steps: number; screenshots: number }
+				| { ok: false; message: string }
+			>("export_walkthrough", args, WALKTHROUGH_TIMEOUT_MS);
+
+			if (!response.ok) {
+				return { isError: true, content: [{ type: "text" as const, text: response.message }] };
+			}
+			if (!response.data.ok) {
+				return {
+					isError: true,
+					content: [{ type: "text" as const, text: response.data.message }],
+				};
+			}
+
+			const { path, steps, screenshots } = response.data;
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `Wrote ${steps} steps with ${screenshots} screenshots to ${path}`,
+					},
+				],
+				structuredContent: { path, steps, screenshots },
 			};
 		},
 	);

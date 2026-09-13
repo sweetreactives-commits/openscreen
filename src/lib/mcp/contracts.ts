@@ -21,7 +21,8 @@ export type McpCommand =
 	| "get_frame"
 	| "get_transcript"
 	| "apply_commands"
-	| "export_video";
+	| "export_video"
+	| "export_walkthrough";
 
 export interface McpCommandRequest {
 	id: string;

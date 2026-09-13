@@ -295,7 +295,14 @@ interface Window {
 		resolveMcpExportPath: (
 			fileName: string,
 			exportFolder: string | null,
+			allowed?: Array<"mp4" | "gif" | "md">,
 		) => Promise<import("./mcp/exportPath").ResolvedExportPath>;
+		writeMcpWalkthrough: (
+			docPath: string,
+			markdown: string,
+			imageFolder: string,
+			images: Array<{ fileName: string; base64: string }>,
+		) => Promise<import("./mcp/walkthroughWriter").WalkthroughWriteResult>;
 		getMcpStatus: () => Promise<import("./mcp/ipc").McpStatus>;
 		setMcpMode: (mode: "off" | "read-only" | "full") => Promise<import("./mcp/ipc").McpStatus>;
 		onMcpCommand: (

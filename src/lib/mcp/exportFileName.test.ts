@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeExportFileName } from "./exportFileName";
+import { DOCUMENT_EXTENSIONS, sanitizeExportFileName } from "./exportFileName";
 
 describe("sanitizeExportFileName", () => {
 	it("accepts ordinary export names", () => {
@@ -51,6 +51,12 @@ describe("sanitizeExportFileName", () => {
 		expect(sanitizeExportFileName("")).toBeNull();
 		expect(sanitizeExportFileName("   ")).toBeNull();
 		expect(sanitizeExportFileName(`${"a".repeat(200)}.gif`)).toBeNull();
+	});
+
+	it("takes markdown only when the caller asks for a document", () => {
+		expect(sanitizeExportFileName("guide.md")).toBeNull();
+		expect(sanitizeExportFileName("guide.md", DOCUMENT_EXTENSIONS)).toBe("guide.md");
+		expect(sanitizeExportFileName("guide.gif", DOCUMENT_EXTENSIONS)).toBeNull();
 	});
 
 	it("rejects anything that is not a string", () => {

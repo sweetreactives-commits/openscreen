@@ -24,7 +24,16 @@ function hasForbiddenCharacter(name: string): boolean {
 	return false;
 }
 
-export function sanitizeExportFileName(fileName: unknown): string | null {
+/** Formats the app actually produces. A walkthrough is written, not rendered. */
+export type AllowedExtension = "mp4" | "gif" | "md";
+
+export const RENDER_EXTENSIONS: readonly AllowedExtension[] = ["mp4", "gif"];
+export const DOCUMENT_EXTENSIONS: readonly AllowedExtension[] = ["md"];
+
+export function sanitizeExportFileName(
+	fileName: unknown,
+	allowed: readonly AllowedExtension[] = RENDER_EXTENSIONS,
+): string | null {
 	if (typeof fileName !== "string") return null;
 
 	const trimmed = fileName.trim();
@@ -33,7 +42,8 @@ export function sanitizeExportFileName(fileName: unknown): string | null {
 	if (trimmed.includes("/") || trimmed.includes("\\")) return null;
 	if (trimmed.includes("..")) return null;
 	if (hasForbiddenCharacter(trimmed)) return null;
-	if (!/\.(mp4|gif)$/i.test(trimmed)) return null;
+	const extension = trimmed.split(".").pop()?.toLowerCase() ?? "";
+	if (!allowed.includes(extension as AllowedExtension)) return null;
 
 	return trimmed;
 }

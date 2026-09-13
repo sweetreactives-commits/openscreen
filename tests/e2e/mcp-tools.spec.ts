@@ -518,6 +518,51 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 		expect(traversalResult.isError).toBe(true);
 		expect(traversalResult.content[0].text).toContain("plain file name");
 
+		// A written walkthrough: the agent supplies the words, we supply the frames
+		// and the file.
+		const guide = await callTool(endpoint, "export_walkthrough", {
+			fileName: "mcp-guide.md",
+			title: "Sample walkthrough",
+			steps: [
+				{ timeMs: 100, title: "Open the thing", body: "It is on the left." },
+				{ timeMs: 900, title: "Click export" },
+			],
+		});
+		expect(guide.steps).toBe(2);
+		expect(guide.screenshots).toBe(2);
+
+		const guidePath = guide.path as string;
+		const guideText = fs.readFileSync(guidePath, "utf-8");
+		expect(guideText).toContain("# Sample walkthrough");
+		expect(guideText).toContain("## 1. Open the thing");
+		expect(guideText).toContain("It is on the left.");
+		expect(guideText).toContain("![Click export](mcp-guide-images/step-02.jpg)");
+
+		const shot = path.join(path.dirname(guidePath), "mcp-guide-images", "step-01.jpg");
+		expect(fs.existsSync(shot), `expected a screenshot at ${shot}`).toBe(true);
+		// A real JPEG, not an empty file.
+		expect(fs.readFileSync(shot).subarray(0, 3).toString("hex")).toBe("ffd8ff");
+
+		fs.rmSync(path.join(path.dirname(guidePath), "mcp-guide-images"), { recursive: true });
+		fs.unlinkSync(guidePath);
+
+		// A step outside the recording is refused before any frame is decoded.
+		const badStep = await callMcp(
+			endpoint,
+			"tools/call",
+			{
+				name: "export_walkthrough",
+				arguments: {
+					fileName: "never-written.md",
+					steps: [{ timeMs: 99_000_000, title: "Way past the end" }],
+				},
+			},
+			"export_walkthrough",
+		);
+		const badStepResult = badStep.result as { isError?: boolean; content: Array<{ text: string }> };
+		expect(badStepResult.isError).toBe(true);
+		expect(badStepResult.content[0].text).toContain("outside the recording");
+
 		// The whole batch collapses into a single undo for the user: one press
 		// takes back the image batch, the next takes back the zoom-and-text batch.
 		await editorWindow.keyboard.press("Control+z");

@@ -1,7 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ipcMain } from "electron";
-import { sanitizeExportFileName } from "../../src/lib/mcp/exportFileName";
+import {
+	type AllowedExtension,
+	RENDER_EXTENSIONS,
+	sanitizeExportFileName,
+} from "../../src/lib/mcp/exportFileName";
 
 /**
  * Where an agent's export is allowed to land.
@@ -43,14 +47,15 @@ export async function resolveExportPath(
 	fileName: unknown,
 	exportFolder: unknown,
 	fallbackDirectory: string,
+	allowed: readonly AllowedExtension[] = RENDER_EXTENSIONS,
 ): Promise<ResolvedExportPath> {
-	const safeName = sanitizeExportFileName(fileName);
+	const safeName = sanitizeExportFileName(fileName, allowed);
 	if (!safeName) {
 		return {
 			success: false,
 			message:
-				"Give a plain file name ending in .mp4 or .gif — not a path. The folder is the " +
-				"user's export folder and is not yours to choose.",
+				`Give a plain file name ending in ${allowed.map((e) => `.${e}`).join(" or ")} — ` +
+				"not a path. The folder is the user's export folder and is not yours to choose.",
 		};
 	}
 
@@ -77,7 +82,9 @@ export async function resolveExportPath(
 }
 
 export function registerExportPathHandler(fallbackDirectory: string): void {
-	ipcMain.handle(MCP_RESOLVE_EXPORT_PATH, (_event, fileName: unknown, exportFolder: unknown) =>
-		resolveExportPath(fileName, exportFolder, fallbackDirectory),
+	ipcMain.handle(
+		MCP_RESOLVE_EXPORT_PATH,
+		(_event, fileName: unknown, exportFolder: unknown, allowed?: AllowedExtension[]) =>
+			resolveExportPath(fileName, exportFolder, fallbackDirectory, allowed ?? RENDER_EXTENSIONS),
 	);
 }

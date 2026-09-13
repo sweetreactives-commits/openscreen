@@ -11,6 +11,13 @@ import { grabFrame } from "@/lib/mcp/frameGrab";
 import { resolveImageCommands } from "@/lib/mcp/imageAnnotation";
 import { buildProjectSummary } from "@/lib/mcp/projectSummary";
 import { requestTranscript } from "@/lib/mcp/transcriptJob";
+import {
+	buildWalkthrough,
+	imageFolderName,
+	lastPathSegment,
+	validateSteps,
+	type WalkthroughStep,
+} from "@/lib/mcp/walkthrough";
 import type { ProjectMedia } from "@/lib/recordingSession";
 
 /**
@@ -150,6 +157,60 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						};
 					}
 					return requestExport(resolved.path, format, current.runExport);
+				}
+
+				case "export_walkthrough": {
+					if (!current.videoUrl) throw new Error("No video is loaded");
+
+					const steps = args.steps as WalkthroughStep[];
+					const invalid = validateSteps(steps, current.durationMs);
+					if (invalid) return { ok: false, message: invalid };
+
+					const fileName = typeof args.fileName === "string" ? args.fileName : "";
+					const resolved = await window.electronAPI.resolveMcpExportPath(
+						fileName,
+						current.exportFolder,
+						["md"],
+					);
+					if (!resolved.success || !resolved.path) {
+						return { ok: false, message: resolved.message ?? "Could not resolve a path." };
+					}
+
+					// A frame that will not decode costs its step a screenshot, not the
+					// whole document — the words are the part worth keeping.
+					const frames = await Promise.all(
+						steps.map(async (step) => {
+							try {
+								const frame = await grabFrame(current.videoUrl as string, step.timeMs, {
+									maxWidth: 960,
+								});
+								return frame.base64;
+							} catch {
+								return null;
+							}
+						}),
+					);
+
+					const docFileName = lastPathSegment(resolved.path);
+					const title =
+						typeof args.title === "string" && args.title.trim() ? args.title : "Walkthrough";
+					const built = buildWalkthrough(title, steps, frames, docFileName);
+					const written = await window.electronAPI.writeMcpWalkthrough(
+						resolved.path,
+						built.markdown,
+						imageFolderName(docFileName),
+						built.images,
+					);
+
+					if (!written.success) {
+						return { ok: false, message: written.message ?? "Could not write the walkthrough." };
+					}
+					return {
+						ok: true,
+						path: written.path,
+						steps: steps.length,
+						screenshots: written.imageCount ?? 0,
+					};
 				}
 
 				case "get_transcript": {
