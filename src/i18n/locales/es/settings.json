@@ -243,6 +243,8 @@
 		"startFailed": "No se pudo iniciar: {{message}}",
 		"stateFull": "Activado. Lectura y edición.",
 		"allowEdits": "Permitir ediciones",
-		"allowEditsHint": "El agente podrá añadir zooms, cortes y textos, y cambiar el aspecto. Cada tanda de ediciones es un solo paso de deshacer."
+		"allowEditsHint": "El agente podrá añadir zooms, cortes y textos, y cambiar el aspecto. Cada tanda de ediciones es un solo paso de deshacer.",
+		"allowRecording": "Permitir iniciar grabaciones",
+		"allowRecordingHint": "El agente podrá pedir grabar tu pantalla. Se te pide aprobación cada vez, y no puede grabar mientras el editor tenga trabajo sin guardar."
 	}
 }

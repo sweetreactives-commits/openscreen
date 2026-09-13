@@ -243,6 +243,8 @@
 		"startFailed": "Démarrage impossible : {{message}}",
 		"stateFull": "Activé. Lecture et modification.",
 		"allowEdits": "Autoriser les modifications",
-		"allowEditsHint": "L’agent pourra ajouter des zooms, des coupes et des textes, et changer l’apparence. Chaque lot de modifications compte comme une seule annulation."
+		"allowEditsHint": "L’agent pourra ajouter des zooms, des coupes et des textes, et changer l’apparence. Chaque lot de modifications compte comme une seule annulation.",
+		"allowRecording": "Autoriser le lancement d’enregistrements",
+		"allowRecordingHint": "L’agent pourra demander à enregistrer votre écran. Votre accord est demandé à chaque fois, et rien ne démarre tant que l’éditeur a du travail non enregistré."
 	}
 }

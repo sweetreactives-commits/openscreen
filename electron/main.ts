@@ -21,6 +21,7 @@ import { mainT, setMainLocale } from "./i18n";
 import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
 import { registerExportPathHandler } from "./mcp/exportPath";
 import { registerMcpIpc } from "./mcp/ipc";
+import { configureMcpRecording } from "./mcp/recording";
 import { stopMcpServer } from "./mcp/server";
 import { registerWalkthroughWriter } from "./mcp/walkthroughWriter";
 import {
@@ -88,6 +89,9 @@ let sourceSelectorWindow: BrowserWindow | null = null;
 let countdownOverlayWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let selectedSourceName = "";
+// Mirrors what the recorder reports, so the MCP endpoint can refuse to start a
+// second capture without asking the renderer.
+let isRecording = false;
 const isMac = process.platform === "darwin";
 const trayIconSize = isMac ? 16 : 24;
 
@@ -487,6 +491,12 @@ app.whenReady().then(async () => {
 	// Reads the stored mode and starts the endpoint only if the user turned it on.
 	// See docs/architecture/mcp-server.md for why it is off by default.
 	registerExportPathHandler(RECORDINGS_DIR);
+	configureMcpRecording({
+		getMainWindow: () => mainWindow,
+		hasUnsavedChanges: () => editorHasUnsavedChanges,
+		isRecording: () => isRecording,
+		switchToRecorder: switchToHudWrapper,
+	});
 	registerWalkthroughWriter();
 	await registerMcpIpc(() =>
 		mainWindow && !mainWindow.isDestroyed() && isEditorWindow(mainWindow) ? mainWindow : null,
@@ -580,6 +590,7 @@ app.whenReady().then(async () => {
 		() => sourceSelectorWindow,
 		() => countdownOverlayWindow,
 		(recording: boolean, sourceName: string) => {
+			isRecording = recording;
 			selectedSourceName = sourceName;
 			if (!tray) createTray();
 			updateTrayMenu(recording);

@@ -20,10 +20,19 @@ export type McpMode = "off" | "read-only" | "full";
 
 export interface McpSettings {
 	mode: McpMode;
+	/**
+	 * Whether an agent may start a screen recording.
+	 *
+	 * Separate from `mode` rather than a fourth step above `full`, because it is a
+	 * different question: letting an agent retouch a video you already made says
+	 * nothing about letting it point a camera at your screen. Someone may well
+	 * want one and not the other.
+	 */
+	allowRecording: boolean;
 }
 
 /** Off until the user says otherwise: this opens a port. */
-export const DEFAULT_MCP_SETTINGS: McpSettings = { mode: "off" };
+export const DEFAULT_MCP_SETTINGS: McpSettings = { mode: "off", allowRecording: false };
 
 const VALID_MODES: readonly McpMode[] = ["off", "read-only", "full"];
 
@@ -33,8 +42,9 @@ function settingsFile(): string {
 
 function normalize(raw: unknown): McpSettings {
 	if (!raw || typeof raw !== "object") return DEFAULT_MCP_SETTINGS;
-	const mode = (raw as { mode?: unknown }).mode;
-	return VALID_MODES.includes(mode as McpMode) ? { mode: mode as McpMode } : DEFAULT_MCP_SETTINGS;
+	const { mode, allowRecording } = raw as { mode?: unknown; allowRecording?: unknown };
+	if (!VALID_MODES.includes(mode as McpMode)) return DEFAULT_MCP_SETTINGS;
+	return { mode: mode as McpMode, allowRecording: allowRecording === true };
 }
 
 /** Never throws: a missing or corrupt file means the endpoint stays off. */

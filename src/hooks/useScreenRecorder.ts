@@ -678,6 +678,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 	useEffect(() => {
 		let cleanup: (() => void) | undefined;
+		let cleanupAgentStart: (() => void) | undefined;
 
 		if (window.electronAPI?.onStopRecordingFromTray) {
 			cleanup = window.electronAPI.onStopRecordingFromTray(() => {
@@ -685,9 +686,19 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			});
 		}
 
+		// An agent's start arrives only after the main process has asked the user and
+		// been told yes. It goes through the same countdown the record button uses,
+		// so the capture is still visibly announced and still cancellable.
+		if (window.electronAPI?.onStartRecordingFromAgent) {
+			cleanupAgentStart = window.electronAPI.onStartRecordingFromAgent(() => {
+				void startRecordCountdownRef.current();
+			});
+		}
+
 		return () => {
 			const activeRunId = countdownRunId.current;
 			if (cleanup) cleanup();
+			if (cleanupAgentStart) cleanupAgentStart();
 			countdownRunId.current += 1;
 			void safeHideCountdownOverlay(activeRunId);
 			allowAutoFinalize.current = false;
@@ -1036,6 +1047,12 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			throw error;
 		}
 	};
+
+	// Kept in a ref because the agent-start listener is registered above, before
+	// this function exists.
+	const startRecordCountdownRef = useRef<() => Promise<void>>(async () => {
+		// Replaced on the first render; a start arriving before then is a no-op.
+	});
 
 	const startRecordCountdown = async () => {
 		if (countdownActive || recording) {
@@ -1523,6 +1540,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			console.error("Failed to pause recording:", error);
 		}
 	};
+
+	startRecordCountdownRef.current = startRecordCountdown;
 
 	const toggleRecording = () => {
 		if (recording) {

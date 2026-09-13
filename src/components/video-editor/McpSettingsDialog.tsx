@@ -60,8 +60,19 @@ export function McpSettingsDialog() {
 		}
 	}, [connectCommand, t]);
 
+	const setAllowRecording = useCallback(async (allowed: boolean) => {
+		if (!window.electronAPI?.setMcpAllowRecording) return;
+		setBusy(true);
+		try {
+			setStatus(await window.electronAPI.setMcpAllowRecording(allowed));
+		} finally {
+			setBusy(false);
+		}
+	}, []);
+
 	const running = status?.running ?? false;
 	const canEdit = status?.mode === "full";
+	const canRecord = status?.allowRecording === true;
 
 	return (
 		<>
@@ -121,6 +132,18 @@ export function McpSettingsDialog() {
 							<p className="text-xs text-red-400">
 								{t("mcp.startFailed", { message: status.error })}
 							</p>
+						)}
+
+						{running && (
+							<div className="flex items-center justify-between rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
+								<div className="pr-3">
+									<div className="text-sm font-medium text-slate-100">
+										{t("mcp.allowRecording")}
+									</div>
+									<div className="text-xs text-slate-500">{t("mcp.allowRecordingHint")}</div>
+								</div>
+								<Switch checked={canRecord} disabled={busy} onCheckedChange={setAllowRecording} />
+							</div>
 						)}
 
 						{running && connectCommand && (

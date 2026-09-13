@@ -88,6 +88,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getRecordedVideoPath: () => {
 		return ipcRenderer.invoke("get-recorded-video-path");
 	},
+	onStartRecordingFromAgent: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("start-recording-from-agent", listener);
+		return () => ipcRenderer.removeListener("start-recording-from-agent", listener);
+	},
 	setRecordingState: (
 		recording: boolean,
 		recordingId?: number,
@@ -305,6 +310,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		images: Array<{ fileName: string; base64: string }>,
 	) => ipcRenderer.invoke("mcp:write-walkthrough", docPath, markdown, imageFolder, images),
 	getMcpStatus: () => ipcRenderer.invoke("mcp:get-status"),
+	setMcpAllowRecording: (allowed: boolean) =>
+		ipcRenderer.invoke("mcp:set-allow-recording", allowed),
 	setMcpMode: (mode: "off" | "read-only" | "full") => ipcRenderer.invoke("mcp:set-mode", mode),
 	onMcpCommand: (callback: (request: McpCommandRequest) => Promise<unknown>) => {
 		const listener = async (_event: unknown, request: McpCommandRequest) => {

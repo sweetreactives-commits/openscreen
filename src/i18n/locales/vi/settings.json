@@ -232,7 +232,9 @@
 		"startFailed": "Không khởi động được: {{message}}",
 		"stateFull": "Bật. Đọc và chỉnh sửa.",
 		"allowEdits": "Cho phép chỉnh sửa",
-		"allowEditsHint": "Tác nhân có thể thêm thu phóng, cắt bỏ, chú thích và đổi giao diện. Mỗi loạt chỉnh sửa là một bước hoàn tác."
+		"allowEditsHint": "Tác nhân có thể thêm thu phóng, cắt bỏ, chú thích và đổi giao diện. Mỗi loạt chỉnh sửa là một bước hoàn tác.",
+		"allowRecording": "Cho phép bắt đầu ghi màn hình",
+		"allowRecordingHint": "Tác nhân có thể xin ghi màn hình của bạn. Mỗi lần đều hỏi bạn xác nhận, và không thể ghi khi trình chỉnh sửa còn việc chưa lưu."
 	},
 	"textAnimation": {
 		"title": "Hoạt ảnh văn bản",

@@ -243,6 +243,8 @@
 		"startFailed": "Could not start: {{message}}",
 		"stateFull": "On. Reading and editing.",
 		"allowEdits": "Allow edits",
-		"allowEditsHint": "The agent can add zooms, cuts, captions and change the look. Each batch of edits is one undo step."
+		"allowEditsHint": "The agent can add zooms, cuts, captions and change the look. Each batch of edits is one undo step.",
+		"allowRecording": "Allow starting recordings",
+		"allowRecordingHint": "The agent can ask to record your screen. You are asked to approve every time, and it cannot record while the editor has unsaved work."
 	}
 }

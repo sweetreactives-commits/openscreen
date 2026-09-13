@@ -12,7 +12,8 @@ import { app, type BrowserWindow } from "electron";
 import { z } from "zod";
 import type { McpCommand } from "../../src/lib/mcp/contracts";
 import { callEditor, configureMcpBridge, resetMcpBridge } from "./bridge";
-import { currentMcpMode } from "./ipc";
+import { currentMcpMode, isRecordingAllowed } from "./ipc";
+import { startRecordingForAgentConfigured, stopRecordingForAgentConfigured } from "./recording";
 
 /**
  * Local MCP endpoint, so an agent the user already runs (Claude Code, Claude
@@ -244,6 +245,12 @@ function buildMcpServer(): McpServer {
 		registerWalkthroughTool(server);
 	}
 
+	// Recording is consented to separately, so it appears on its own terms rather
+	// than riding along with editing.
+	if (isRecordingAllowed()) {
+		registerRecordingTools(server);
+	}
+
 	return server;
 }
 
@@ -412,6 +419,65 @@ function registerExportTool(server: McpServer): void {
 				],
 				structuredContent: state as Record<string, unknown>,
 			};
+		},
+	);
+}
+
+function registerRecordingTools(server: McpServer): void {
+	server.registerTool(
+		"start_recording",
+		{
+			title: "Start a screen recording",
+			description:
+				"Asks OpenScreen to start recording. The user is shown a dialog and must " +
+				"approve it — every time, with no way for you to skip or suppress it — and " +
+				"the app's own countdown runs before capture begins. Expect this to be " +
+				"refused: it is refused outright unless the user has separately allowed " +
+				"agents to record, and while the editor holds unsaved work, since starting " +
+				"a recording closes the editor. Tell the user what you are about to record " +
+				"before calling this, so the dialog is not a surprise.",
+			inputSchema: z.object({}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+		},
+		async () => {
+			const outcome = await startRecordingForAgentConfigured();
+			if (!outcome.ok) {
+				return {
+					isError: true,
+					content: [{ type: "text" as const, text: outcome.message ?? "Recording refused." }],
+				};
+			}
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: "The user approved. Recording begins after the countdown.",
+					},
+				],
+			};
+		},
+	);
+
+	server.registerTool(
+		"stop_recording",
+		{
+			title: "Stop the recording",
+			description:
+				"Ends a recording in progress. Needs no approval — stopping can only be what " +
+				"the user wants — and lands the result in the editor, where get_project can " +
+				"read it.",
+			inputSchema: z.object({}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+		},
+		async () => {
+			const outcome = stopRecordingForAgentConfigured();
+			if (!outcome.ok) {
+				return {
+					isError: true,
+					content: [{ type: "text" as const, text: outcome.message ?? "Nothing is recording." }],
+				};
+			}
+			return { content: [{ type: "text" as const, text: "Stopping the recording." }] };
 		},
 	);
 }

@@ -223,7 +223,9 @@
 		"startFailed": "Não foi possível iniciar: {{message}}",
 		"stateFull": "Ligado. Leitura e edição.",
 		"allowEdits": "Permitir edições",
-		"allowEditsHint": "O agente poderá adicionar zooms, cortes e legendas e mudar a aparência. Cada lote de edições é um único passo de desfazer."
+		"allowEditsHint": "O agente poderá adicionar zooms, cortes e legendas e mudar a aparência. Cada lote de edições é um único passo de desfazer.",
+		"allowRecording": "Permitir iniciar gravações",
+		"allowRecordingHint": "O agente poderá pedir para gravar sua tela. A aprovação é solicitada todas as vezes, e ele não pode gravar enquanto o editor tiver trabalho não salvo."
 	},
 	"support": {
 		"reportBug": "Relatar Bug",

@@ -151,6 +151,9 @@ test("serves the project, cursor and audio read tools to a connected client", as
 		// Read-only must not even advertise editing, rather than offering a tool
 		// that always refuses.
 		expect(tools).not.toContain("apply_commands");
+		// Recording is consented to separately and is off, so it is absent even in
+		// full mode — let alone here.
+		expect(tools).not.toContain("start_recording");
 
 		// Recorder mode has no editor state at all; that has to read as an
 		// explained refusal rather than an empty project.
@@ -599,5 +602,68 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 		if (testVideoInRecordings && fs.existsSync(testVideoInRecordings)) {
 			fs.unlinkSync(testVideoInRecordings);
 		}
+	}
+});
+
+test("offers recording only once the user allows it, and refuses without approval", async () => {
+	test.setTimeout(180_000);
+
+	const app = await electron.launch({
+		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
+		env: {
+			...process.env,
+			HEADLESS: process.env["HEADLESS"] ?? "true",
+			OPENSCREEN_MCP: "full",
+		},
+	});
+
+	try {
+		const hudWindow = await app.firstWindow({ timeout: 60_000 });
+		await hudWindow.waitForLoadState("domcontentloaded");
+
+		const userDataDir = await app.evaluate(({ app: electronApp }) =>
+			electronApp.getPath("userData"),
+		);
+		const endpoint = JSON.parse(
+			fs.readFileSync(path.join(userDataDir, "mcp.json"), "utf-8"),
+		) as McpEndpoint;
+
+		// Full access to edit and export still does not include recording.
+		await hudWindow.evaluate(() => window.electronAPI.setMcpAllowRecording(false));
+		const withoutConsent = await callMcp(endpoint, "tools/list");
+		const before = (withoutConsent.result as { tools: Array<{ name: string }> }).tools.map(
+			(tool) => tool.name,
+		);
+		expect(before).toContain("apply_commands");
+		expect(before).not.toContain("start_recording");
+
+		// Allowing it makes the tools appear.
+		const status = await hudWindow.evaluate(() => window.electronAPI.setMcpAllowRecording(true));
+		expect(status.allowRecording).toBe(true);
+
+		const withConsent = await callMcp(endpoint, "tools/list");
+		const after = (withConsent.result as { tools: Array<{ name: string }> }).tools.map(
+			(tool) => tool.name,
+		);
+		expect(after).toContain("start_recording");
+		expect(after).toContain("stop_recording");
+
+		// Nothing is recording, so stopping says so rather than pretending.
+		const stopped = await callMcp(
+			endpoint,
+			"tools/call",
+			{ name: "stop_recording", arguments: {} },
+			"stop_recording",
+		);
+		const stopResult = stopped.result as { isError?: boolean; content: Array<{ text: string }> };
+		expect(stopResult.isError).toBe(true);
+		expect(stopResult.content[0].text).toContain("Nothing is recording");
+
+		// start_recording is not called here: it opens a modal dialog that only a
+		// person can answer, which is the whole point of it.
+	} finally {
+		await app.close().catch(() => {
+			// Already gone; the run is over either way.
+		});
 	}
 });

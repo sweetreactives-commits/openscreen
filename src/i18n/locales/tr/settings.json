@@ -232,7 +232,9 @@
 		"startFailed": "Başlatılamadı: {{message}}",
 		"stateFull": "Açık. Okuma ve düzenleme.",
 		"allowEdits": "Düzenlemeye izin ver",
-		"allowEditsHint": "Aracı; yakınlaştırma, kesme ve altyazı ekleyebilir ve görünümü değiştirebilir. Her düzenleme grubu tek bir geri alma adımıdır."
+		"allowEditsHint": "Aracı; yakınlaştırma, kesme ve altyazı ekleyebilir ve görünümü değiştirebilir. Her düzenleme grubu tek bir geri alma adımıdır.",
+		"allowRecording": "Kayıt başlatmaya izin ver",
+		"allowRecordingHint": "Aracı ekranınızı kaydetmeyi isteyebilir. Onayınız her seferinde sorulur ve düzenleyicide kaydedilmemiş iş varken kayıt başlayamaz."
 	},
 	"textAnimation": {
 		"title": "Metin Animasyonu",

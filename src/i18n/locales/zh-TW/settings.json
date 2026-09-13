@@ -233,7 +233,9 @@
 		"startFailed": "無法啟動：{{message}}",
 		"stateFull": "已開啟。可讀取和編輯。",
 		"allowEdits": "允許編輯",
-		"allowEditsHint": "代理可以新增縮放、剪切和字幕，並變更外觀。每一批編輯算作一次復原。"
+		"allowEditsHint": "代理可以新增縮放、剪切和字幕，並變更外觀。每一批編輯算作一次復原。",
+		"allowRecording": "允許發起錄製",
+		"allowRecordingHint": "代理可以請求錄製你的螢幕。每次都會徵求你的同意，並且編輯器中有未儲存內容時無法錄製。"
 	},
 	"textAnimation": {
 		"title": "文字動畫",

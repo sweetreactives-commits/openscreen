@@ -243,6 +243,8 @@
 		"startFailed": "Avvio non riuscito: {{message}}",
 		"stateFull": "Attivo. Lettura e modifica.",
 		"allowEdits": "Consenti modifiche",
-		"allowEditsHint": "L’agente potrà aggiungere zoom, tagli e testi e cambiare l’aspetto. Ogni gruppo di modifiche è un solo passo di annullamento."
+		"allowEditsHint": "L’agente potrà aggiungere zoom, tagli e testi e cambiare l’aspetto. Ogni gruppo di modifiche è un solo passo di annullamento.",
+		"allowRecording": "Consenti l’avvio di registrazioni",
+		"allowRecordingHint": "L’agente potrà chiedere di registrare il tuo schermo. L’approvazione viene richiesta ogni volta e non può registrare finché l’editor ha lavoro non salvato."
 	}
 }

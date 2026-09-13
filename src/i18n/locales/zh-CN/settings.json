@@ -232,7 +232,9 @@
 		"startFailed": "无法启动：{{message}}",
 		"stateFull": "已开启。可读取和编辑。",
 		"allowEdits": "允许编辑",
-		"allowEditsHint": "代理可以添加缩放、剪切和字幕，并更改外观。每一批编辑算作一次撤销。"
+		"allowEditsHint": "代理可以添加缩放、剪切和字幕，并更改外观。每一批编辑算作一次撤销。",
+		"allowRecording": "允许发起录制",
+		"allowRecordingHint": "代理可以请求录制你的屏幕。每次都会征求你的同意，并且编辑器中有未保存内容时无法录制。"
 	},
 	"textAnimation": {
 		"title": "文本动画",
