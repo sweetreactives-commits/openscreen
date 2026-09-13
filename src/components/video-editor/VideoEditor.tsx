@@ -238,6 +238,12 @@ export default function VideoEditor() {
 	currentTimeRef.current = currentTime;
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
+	// The saved-state baseline is captured from an async effect, by which time user
+	// preferences have already been applied to the editor. Reading the constant
+	// there would compare the user's padding and aspect ratio against the defaults
+	// and call an untouched recording unsaved.
+	const editorStateRef = useRef(editorState);
+	editorStateRef.current = editorState;
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
 	const [isPreviewingZoom, setIsPreviewingZoom] = useState(false);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
@@ -541,7 +547,7 @@ export default function VideoEditor() {
 									? { cursorCaptureMode: session.cursorCaptureMode }
 									: {}),
 							},
-							INITIAL_EDITOR_STATE,
+							editorStateRef.current,
 						),
 					);
 					return;
@@ -554,7 +560,7 @@ export default function VideoEditor() {
 					setRecordingCursorCaptureMode(null);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(
-						createProjectSnapshot({ screenVideoPath: result.path }, INITIAL_EDITOR_STATE),
+						createProjectSnapshot({ screenVideoPath: result.path }, editorStateRef.current),
 					);
 				}
 				// No video/project/session, so leave videoPath null and let the
