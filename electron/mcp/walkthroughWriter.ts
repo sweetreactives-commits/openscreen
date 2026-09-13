@@ -64,6 +64,13 @@ export async function writeWalkthrough(
 		await fs.writeFile(docPath, markdown, "utf-8");
 		return { success: true, path: docPath, imageCount: images.length };
 	} catch (error) {
+		// The screenshots are useless without the document that references them, and
+		// the caller cannot clean up a folder it was never told about.
+		if (images.length > 0) {
+			await fs.rm(directory, { recursive: true, force: true }).catch(() => {
+				// Best effort; the write failure is the one worth reporting.
+			});
+		}
 		return { success: false, message: `Could not write the walkthrough: ${String(error)}` };
 	}
 }

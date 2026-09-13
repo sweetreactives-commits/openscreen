@@ -57,7 +57,7 @@
 		"addedZoomSuggestionsPlural": "カーソルに基づくズーム提案を {{count}} 件追加しました"
 	},
 	"proposals": {
-		"pending": "AI エージェントからの提案が {{count}} 件、確認待ちです",
+		"pending": "AI エージェントからの提案: {{count}} 件 — 確認待ちです",
 		"acceptAll": "すべて採用",
 		"discardAll": "すべて破棄"
 	}

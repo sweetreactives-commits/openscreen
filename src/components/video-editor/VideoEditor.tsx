@@ -53,6 +53,7 @@ import {
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ExportRunner } from "@/lib/mcp/exportJob";
 import { acceptProposals, countProposals, discardProposals } from "@/lib/mcp/proposals";
+import { lastPathSegment } from "@/lib/mcp/walkthrough";
 import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
@@ -1269,7 +1270,7 @@ export default function VideoEditor() {
 			if (!selectedSpeedId) return;
 			pushState((prev) => ({
 				speedRegions: prev.speedRegions.map((region) =>
-					region.id === selectedSpeedId ? { ...region, speed } : region,
+					region.id === selectedSpeedId ? owned({ ...region, speed }) : region,
 				),
 			}));
 		},
@@ -1787,7 +1788,7 @@ export default function VideoEditor() {
 			}
 			// Named from the path actually being written, so the fallback that keeps an
 			// unsaved export in memory suggests the same name the user just saw.
-			const targetFileName = targetPath.split(/[/]/).pop() || `export-${Date.now()}`;
+			const targetFileName = lastPathSegment(targetPath) || `export-${Date.now()}`;
 
 			setIsExporting(true);
 			setExportProgress(null);

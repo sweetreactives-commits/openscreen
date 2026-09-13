@@ -689,6 +689,14 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		// An agent's start arrives only after the main process has asked the user and
 		// been told yes. It goes through the same countdown the record button uses,
 		// so the capture is still visibly announced and still cancellable.
+		// A start approved while this window was still loading never reached the
+		// listener below, so ask whether one is waiting.
+		if (window.electronAPI?.claimPendingRecordingStart) {
+			void window.electronAPI.claimPendingRecordingStart().then((pending) => {
+				if (pending) void startRecordCountdownRef.current();
+			});
+		}
+
 		if (window.electronAPI?.onStartRecordingFromAgent) {
 			cleanupAgentStart = window.electronAPI.onStartRecordingFromAgent(() => {
 				void startRecordCountdownRef.current();

@@ -57,7 +57,7 @@
 		"addedZoomSuggestionsPlural": "Added {{count}} cursor-based zoom suggestions"
 	},
 	"proposals": {
-		"pending": "{{count}} proposals from an AI agent, waiting for you",
+		"pending": "Proposals from an AI agent: {{count}} — waiting for you",
 		"acceptAll": "Keep all",
 		"discardAll": "Discard all"
 	}

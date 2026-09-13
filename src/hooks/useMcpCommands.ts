@@ -120,7 +120,7 @@ export function useMcpCommands(sources: McpCommandSources): void {
 					// half of it written.
 					const commands = (await resolveImageCommands(
 						raw,
-						window.electronAPI.readBinaryFile,
+						window.electronAPI.readMcpImage,
 					)) as unknown as EditorCommand[];
 					const outcome = applyCommands(current.editor, commands, current.durationMs);
 					if (!outcome.ok) {
@@ -144,6 +144,16 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						if (state) return state;
 						return { status: "error", message: "Give a fileName to start an export." };
 					}
+					// A gif rendered into a .mp4 opens in nothing. The name is explicit and
+					// the format has a default, so the name wins the disagreement.
+					const named = fileName.toLowerCase().endsWith(".mp4") ? "mp4" : "gif";
+					if (args.format !== undefined && named !== format) {
+						return {
+							status: "error",
+							message: `"${fileName}" asks for ${named} but format says ${format}. Name the file to match the format you want.`,
+						};
+					}
+
 					// Settle the destination before starting: a bad name or an existing
 					// file should be refused now, not discovered on a later poll.
 					const resolved = await window.electronAPI.resolveMcpExportPath(
@@ -156,7 +166,7 @@ export function useMcpCommands(sources: McpCommandSources): void {
 							message: resolved.message ?? "Could not resolve a path for the export.",
 						};
 					}
-					return requestExport(resolved.path, format, current.runExport);
+					return requestExport(resolved.path, named, current.runExport);
 				}
 
 				case "export_walkthrough": {

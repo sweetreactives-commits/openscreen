@@ -57,7 +57,7 @@
 		"addedZoomSuggestionsPlural": "已添加 {{count}} 个基于光标的缩放建议"
 	},
 	"proposals": {
-		"pending": "AI 代理提出了 {{count}} 条建议，等待你确认",
+		"pending": "AI 代理的建议：{{count}} 条 — 等待你确认",
 		"acceptAll": "全部保留",
 		"discardAll": "全部丢弃"
 	}

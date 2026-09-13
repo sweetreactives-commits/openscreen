@@ -57,7 +57,7 @@
 		"addedZoomSuggestionsPlural": "{{count}} imleç tabanlı yakınlaştırma önerisi eklendi"
 	},
 	"proposals": {
-		"pending": "Yapay zekâ aracısından {{count}} öneri, kararınızı bekliyor",
+		"pending": "Yapay zekâ aracısından öneriler: {{count}} — kararınızı bekliyor",
 		"acceptAll": "Tümünü tut",
 		"discardAll": "Tümünü at"
 	}

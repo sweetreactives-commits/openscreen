@@ -4,7 +4,9 @@ const isRecordingAllowed = vi.fn(() => true);
 vi.mock("./ipc", () => ({ isRecordingAllowed: () => isRecordingAllowed() }));
 vi.mock("electron", () => ({ dialog: { showMessageBox: vi.fn() } }));
 
-const { startRecordingForAgent, stopRecordingForAgent } = await import("./recording");
+const { claimPendingRecordingStart, startRecordingForAgent, stopRecordingForAgent } = await import(
+	"./recording"
+);
 
 /** Stands in for a BrowserWindow; only these two members are used. */
 function fakeWindow() {
@@ -140,7 +142,29 @@ describe("stopRecordingForAgent", () => {
 		expect(stopRecordingForAgent(options).ok).toBe(true);
 	});
 
-	it("says so when nothing is recording", () => {
-		expect(stopRecordingForAgent(deps().options).ok).toBe(false);
+	it("says so when nothing is recording, with a code that means that", () => {
+		const outcome = stopRecordingForAgent(deps().options);
+		expect(outcome.ok).toBe(false);
+		// Not "already-recording", which is the opposite situation.
+		expect(outcome.refusal).toBe("not-recording");
+	});
+});
+
+describe("pending start handoff", () => {
+	it("leaves an approved start for a recorder that was built too late to hear it", async () => {
+		await startRecordingForAgent(deps().options);
+		expect(claimPendingRecordingStart()).toBe(true);
+	});
+
+	it("is claimable only once", async () => {
+		await startRecordingForAgent(deps().options);
+		expect(claimPendingRecordingStart()).toBe(true);
+		expect(claimPendingRecordingStart()).toBe(false);
+	});
+
+	it("leaves nothing when the user declined", async () => {
+		claimPendingRecordingStart();
+		await startRecordingForAgent(deps({ confirm: async () => false }).options);
+		expect(claimPendingRecordingStart()).toBe(false);
 	});
 });

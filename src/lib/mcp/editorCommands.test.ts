@@ -302,6 +302,15 @@ describe("applyCommands", () => {
 			expect(annotation?.imageContent).toBe("data:image/png;base64,QUFB");
 		});
 
+		it("puts the image where the preview and the exporter look for it", () => {
+			// Both read `content`; writing only `imageContent` leaves the annotation on
+			// the timeline and invisible in the video.
+			const result = ok(
+				run([{ op: "add_image", startMs: 0, endMs: 1_000, dataUrl: "data:image/png;base64,QUFB" }]),
+			);
+			expect(result.patch.annotationRegions?.[0].content).toBe("data:image/png;base64,QUFB");
+		});
+
 		it("refuses anything that is not an image", () => {
 			const outcome = failed(
 				run([{ op: "add_image", startMs: 0, endMs: 1_000, dataUrl: "https://example.com/a.png" }]),

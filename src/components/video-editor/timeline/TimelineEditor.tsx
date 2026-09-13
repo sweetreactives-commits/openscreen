@@ -1403,6 +1403,7 @@ export default function TimelineEditor({
 			rowId: BLUR_ROW_ID,
 			span: { start: region.startMs, end: region.endMs },
 			label: t("labels.blurItem", { index: String(index + 1) }),
+			isProposed: isProposedRegion(region),
 			variant: "blur",
 		}));
 

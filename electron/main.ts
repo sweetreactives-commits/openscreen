@@ -20,6 +20,7 @@ import {
 import { mainT, setMainLocale } from "./i18n";
 import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
 import { registerExportPathHandler } from "./mcp/exportPath";
+import { registerImageReader } from "./mcp/imageReader";
 import { registerMcpIpc } from "./mcp/ipc";
 import { configureMcpRecording } from "./mcp/recording";
 import { stopMcpServer } from "./mcp/server";
@@ -498,6 +499,7 @@ app.whenReady().then(async () => {
 		switchToRecorder: switchToHudWrapper,
 	});
 	registerWalkthroughWriter();
+	registerImageReader();
 	await registerMcpIpc(() =>
 		mainWindow && !mainWindow.isDestroyed() && isEditorWindow(mainWindow) ? mainWindow : null,
 	);

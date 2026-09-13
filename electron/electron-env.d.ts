@@ -303,9 +303,11 @@ interface Window {
 			imageFolder: string,
 			images: Array<{ fileName: string; base64: string }>,
 		) => Promise<import("./mcp/walkthroughWriter").WalkthroughWriteResult>;
+		readMcpImage: (filePath: string) => Promise<import("./mcp/imageReader").ImageReadResult>;
 		getMcpStatus: () => Promise<import("./mcp/ipc").McpStatus>;
 		setMcpAllowRecording: (allowed: boolean) => Promise<import("./mcp/ipc").McpStatus>;
 		setMcpMode: (mode: "off" | "read-only" | "full") => Promise<import("./mcp/ipc").McpStatus>;
+		claimPendingRecordingStart: () => Promise<boolean>;
 		onStartRecordingFromAgent: (callback: () => void) => () => void;
 		onMcpCommand: (
 			callback: (request: import("../src/lib/mcp/contracts").McpCommandRequest) => Promise<unknown>,

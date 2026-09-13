@@ -458,7 +458,7 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 
 		// The agent's edits arrive as proposals, not as applied facts: the review
 		// bar appears and the regions render dashed until the user answers.
-		await expect(editorWindow.getByText(/proposals from an AI agent/)).toBeVisible({
+		await expect(editorWindow.getByText(/Proposals from an AI agent/)).toBeVisible({
 			timeout: 10_000,
 		});
 
@@ -595,7 +595,7 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 
 		// Keeping them settles every proposal at once, and the bar goes away.
 		await editorWindow.getByRole("button", { name: "Keep all" }).click();
-		await expect(editorWindow.getByText(/proposals from an AI agent/)).not.toBeVisible({
+		await expect(editorWindow.getByText(/Proposals from an AI agent/)).not.toBeVisible({
 			timeout: 10_000,
 		});
 		const kept = await callTool(endpoint, "get_project");

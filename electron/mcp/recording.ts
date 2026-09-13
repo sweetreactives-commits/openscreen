@@ -22,12 +22,37 @@ import { isRecordingAllowed } from "./ipc";
 
 export const START_RECORDING_CHANNEL = "start-recording-from-agent";
 export const STOP_RECORDING_CHANNEL = "stop-recording-from-tray";
+/** The recorder asks this on mount, to catch a start it was created too late to hear. */
+export const CLAIM_PENDING_START = "mcp:claim-pending-recording-start";
+
+/**
+ * An approved start that may have arrived before the recorder could listen.
+ *
+ * Switching to the recorder destroys the editor and builds a fresh window, whose
+ * renderer registers its listener only once it has loaded. Sending into that gap
+ * drops the message: the user approves, the agent is told yes, and nothing
+ * happens. So the approval is also left here, and the recorder claims it when it
+ * comes up.
+ */
+let pendingStartAt: number | null = null;
+
+/** Long enough to cover a window load, short enough not to fire into a later session. */
+const PENDING_START_TTL_MS = 30_000;
+
+/** Returns true once for a start approved in the last few seconds. */
+export function claimPendingRecordingStart(): boolean {
+	if (pendingStartAt === null) return false;
+	const fresh = Date.now() - pendingStartAt < PENDING_START_TTL_MS;
+	pendingStartAt = null;
+	return fresh;
+}
 
 export type RecordingRefusal =
 	| "not-allowed"
 	| "declined"
 	| "unsaved-changes"
 	| "already-recording"
+	| "not-recording"
 	| "no-window";
 
 export interface RecordingOutcome {
@@ -45,6 +70,7 @@ export const REFUSAL_MESSAGES: Record<RecordingRefusal, string> = {
 		"The editor has unsaved changes, and starting a recording closes it. Ask the user " +
 		"to save or discard first.",
 	"already-recording": "A recording is already in progress.",
+	"not-recording": "Nothing is recording.",
 	"no-window": "OpenScreen has no window to record from.",
 };
 
@@ -106,10 +132,14 @@ export async function startRecordingForAgent(deps: RecordingDeps): Promise<Recor
 	// Re-check: the dialog is modal but the world can still move while it is open.
 	if (deps.isRecording()) return refuse("already-recording");
 
+	// Left for the recorder to claim, in case it is created after this point and
+	// misses the event below.
+	pendingStartAt = Date.now();
 	deps.switchToRecorder();
 
 	// The recorder window replaces the editor, so the message goes to whatever is
-	// current once the swap has happened.
+	// current once the swap has happened. It reaches a recorder that was already
+	// up; a freshly built one claims the pending start instead.
 	const recorder = deps.getMainWindow();
 	if (!recorder || recorder.isDestroyed()) return refuse("no-window");
 
@@ -118,9 +148,7 @@ export async function startRecordingForAgent(deps: RecordingDeps): Promise<Recor
 }
 
 export function stopRecordingForAgent(deps: Pick<RecordingDeps, "getMainWindow" | "isRecording">) {
-	if (!deps.isRecording()) {
-		return { ok: false, refusal: "already-recording" as const, message: "Nothing is recording." };
-	}
+	if (!deps.isRecording()) return refuse("not-recording");
 
 	const window = deps.getMainWindow();
 	if (!window || window.isDestroyed()) return refuse("no-window");

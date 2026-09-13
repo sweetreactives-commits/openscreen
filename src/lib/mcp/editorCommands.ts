@@ -408,7 +408,10 @@ function applyOne(
 				startMs: Math.round(command.startMs),
 				endMs: Math.round(command.endMs),
 				type: "image",
-				content: "",
+				// Both fields: the preview and the exporter read `content`, while the
+				// editor's own image handling reads `imageContent`. Writing only one
+				// leaves the annotation on the timeline and invisible everywhere else.
+				content: command.dataUrl,
 				imageContent: command.dataUrl,
 				position: command.position ?? DEFAULT_ANNOTATION_POSITION,
 				size: command.size ?? DEFAULT_ANNOTATION_SIZE,

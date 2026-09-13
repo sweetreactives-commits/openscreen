@@ -1,5 +1,6 @@
 import type { BrowserWindow } from "electron";
 import { ipcMain } from "electron";
+import { CLAIM_PENDING_START, claimPendingRecordingStart } from "./recording";
 import { getMcpServerInfo, startMcpServer, stopMcpServer } from "./server";
 import { loadMcpSettings, type McpMode, saveMcpSettings } from "./settings";
 
@@ -78,6 +79,7 @@ export async function registerMcpIpc(getEditorWindow: () => BrowserWindow | null
 	resolveEditorWindow = getEditorWindow;
 
 	ipcMain.handle("mcp:get-status", () => status());
+	ipcMain.handle(CLAIM_PENDING_START, () => claimPendingRecordingStart());
 
 	ipcMain.handle("mcp:set-mode", async (_event, mode: McpMode) => {
 		const next: McpMode = mode === "read-only" || mode === "full" ? mode : "off";
