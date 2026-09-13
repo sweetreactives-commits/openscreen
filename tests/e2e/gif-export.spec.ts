@@ -14,6 +14,10 @@ async function exportFromLoadedVideo(format: "gif" | "mp4"): Promise<Buffer> {
 	const outputPath = path.join(os.tmpdir(), `test-${format}-export-${Date.now()}.${format}`);
 	let testVideoInRecordings = "";
 
+	// Its own profile, like the native checklist spec: without it this shares a
+	// userData directory with every other spec and they trip over each other when
+	// the suite runs as a whole.
+	const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "openscreen-gif-e2e-"));
 	const app = await electron.launch({
 		args: [
 			MAIN_JS,
@@ -21,8 +25,10 @@ async function exportFromLoadedVideo(format: "gif" | "mp4"): Promise<Buffer> {
 			"--no-sandbox",
 			// Force software WebGL in headless CI to avoid GPU framebuffer errors.
 			"--enable-unsafe-swiftshader",
+			`--user-data-dir=${userDataDir}`,
 		],
 		env: {
+			ELECTRON_USER_DATA_DIR: userDataDir,
 			...process.env,
 			// Set HEADLESS=false to show windows while debugging.
 			HEADLESS: process.env["HEADLESS"] ?? "true",

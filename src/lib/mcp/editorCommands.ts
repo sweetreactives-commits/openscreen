@@ -6,10 +6,15 @@ import {
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
+	DEFAULT_BLUR_DATA,
 	DEFAULT_ZOOM_DEPTH,
+	MAX_BLUR_BLOCK_SIZE,
+	MAX_BLUR_INTENSITY,
 	MAX_CURSOR_CLICK_BOUNCE,
 	MAX_CURSOR_SIZE,
 	MAX_ZOOM_SCALE,
+	MIN_BLUR_BLOCK_SIZE,
+	MIN_BLUR_INTENSITY,
 	MIN_CURSOR_SIZE,
 	MIN_ZOOM_SCALE,
 	type SpeedRegion,
@@ -106,6 +111,15 @@ export type EditorCommand =
 			shadowIntensity?: number;
 			wallpaper?: string;
 	  }
+	| ({
+			op: "add_blur";
+			style?: "blur" | "mosaic";
+			shape?: "rectangle" | "oval";
+			/** How strong, 1 to 100. Mapped onto the editor's own range. */
+			strength?: number;
+			position?: { x: number; y: number };
+			size?: { width: number; height: number };
+	  } & TimeSpan)
 	| ({
 			op: "add_image";
 			/** Already-encoded image; the caller gives a path and the renderer reads it. */
@@ -340,6 +354,42 @@ function applyOne(
 			const annotationRegions = [...state.annotationRegions];
 			annotationRegions[index] = next;
 			return { ...state, annotationRegions };
+		}
+
+		case "add_blur": {
+			const invalid = validateSpan(command, durationMs, "A blur region");
+			if (invalid) return invalid;
+
+			const type = command.style === "blur" ? "blur" : "mosaic";
+			const shape = command.shape === "oval" ? "oval" : "rectangle";
+			// One 1–100 dial for the agent, mapped onto whichever of the editor's two
+			// ranges applies: a gaussian radius or a mosaic block size.
+			const strength = clamp(command.strength ?? 50, 1, 100) / 100;
+			const intensity = Math.round(
+				MIN_BLUR_INTENSITY + strength * (MAX_BLUR_INTENSITY - MIN_BLUR_INTENSITY),
+			);
+			const blockSize = Math.round(
+				MIN_BLUR_BLOCK_SIZE + strength * (MAX_BLUR_BLOCK_SIZE - MIN_BLUR_BLOCK_SIZE),
+			);
+
+			const id = newId("annotation");
+			createdIds.push(id);
+			const zIndex =
+				state.annotationRegions.reduce((max, region) => Math.max(max, region.zIndex), 0) + 1;
+			const region: AnnotationRegion = {
+				id,
+				startMs: Math.round(command.startMs),
+				endMs: Math.round(command.endMs),
+				type: "blur",
+				content: "",
+				position: command.position ?? DEFAULT_ANNOTATION_POSITION,
+				size: command.size ?? DEFAULT_ANNOTATION_SIZE,
+				style: DEFAULT_ANNOTATION_STYLE,
+				zIndex,
+				source: "agent",
+				blurData: { ...DEFAULT_BLUR_DATA, type, shape, intensity, blockSize },
+			};
+			return { ...state, annotationRegions: [...state.annotationRegions, region] };
 		}
 
 		case "add_image": {

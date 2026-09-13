@@ -310,6 +310,47 @@ describe("applyCommands", () => {
 		});
 	});
 
+	describe("blur regions", () => {
+		it("hides part of the frame with a mosaic by default", () => {
+			const result = ok(run([{ op: "add_blur", startMs: 0, endMs: 1_000 }]));
+			const annotation = result.patch.annotationRegions?.[0];
+
+			expect(annotation?.type).toBe("blur");
+			expect(annotation?.blurData?.type).toBe("mosaic");
+			expect(annotation?.blurData?.shape).toBe("rectangle");
+			expect(annotation?.source).toBe("agent");
+		});
+
+		it("takes a gaussian blur and an oval when asked", () => {
+			const result = ok(
+				run([{ op: "add_blur", startMs: 0, endMs: 1_000, style: "blur", shape: "oval" }]),
+			);
+			expect(result.patch.annotationRegions?.[0].blurData?.type).toBe("blur");
+			expect(result.patch.annotationRegions?.[0].blurData?.shape).toBe("oval");
+		});
+
+		it("maps one strength dial onto both of the editor's ranges", () => {
+			const weak = ok(run([{ op: "add_blur", startMs: 0, endMs: 1_000, strength: 1 }]));
+			const strong = ok(run([{ op: "add_blur", startMs: 0, endMs: 1_000, strength: 100 }]));
+
+			expect(weak.patch.annotationRegions?.[0].blurData?.intensity).toBe(2);
+			expect(weak.patch.annotationRegions?.[0].blurData?.blockSize).toBe(4);
+			expect(strong.patch.annotationRegions?.[0].blurData?.intensity).toBe(40);
+			expect(strong.patch.annotationRegions?.[0].blurData?.blockSize).toBe(48);
+		});
+
+		it("clamps a strength outside the dial", () => {
+			const result = ok(run([{ op: "add_blur", startMs: 0, endMs: 1_000, strength: 900 }]));
+			expect(result.patch.annotationRegions?.[0].blurData?.intensity).toBe(40);
+		});
+
+		it("rejects a span outside the recording", () => {
+			expect(failed(run([{ op: "add_blur", startMs: 0, endMs: 99_000 }])).code).toBe(
+				"invalid-range",
+			);
+		});
+	});
+
 	describe("batches", () => {
 		it("applies several commands as one patch", () => {
 			const result = ok(

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron, expect, test } from "@playwright/test";
@@ -111,9 +112,19 @@ async function waitForOpenProject(
 test("serves the project, cursor and audio read tools to a connected client", async () => {
 	test.setTimeout(180_000);
 
+	// Its own profile per launch: these specs write recordings, settings and the
+	// MCP discovery file into userData, and sharing one directory makes them
+	// interfere when the suite runs as a whole rather than a file at a time.
+	const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "openscreen-mcp-e2e-"));
 	const app = await electron.launch({
-		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
+		args: [
+			MAIN_JS,
+			"--no-sandbox",
+			"--enable-unsafe-swiftshader",
+			`--user-data-dir=${userDataDir}`,
+		],
 		env: {
+			ELECTRON_USER_DATA_DIR: userDataDir,
 			...process.env,
 			HEADLESS: process.env["HEADLESS"] ?? "true",
 			OPENSCREEN_MCP: "1",
@@ -349,9 +360,19 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 	// A real GIF render is CPU-bound; give it room.
 	test.setTimeout(300_000);
 
+	// Its own profile per launch: these specs write recordings, settings and the
+	// MCP discovery file into userData, and sharing one directory makes them
+	// interfere when the suite runs as a whole rather than a file at a time.
+	const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "openscreen-mcp-e2e-"));
 	const app = await electron.launch({
-		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
+		args: [
+			MAIN_JS,
+			"--no-sandbox",
+			"--enable-unsafe-swiftshader",
+			`--user-data-dir=${userDataDir}`,
+		],
 		env: {
+			ELECTRON_USER_DATA_DIR: userDataDir,
 			...process.env,
 			HEADLESS: process.env["HEADLESS"] ?? "true",
 			OPENSCREEN_MCP: "full",
@@ -608,17 +629,29 @@ test("edits and exports only in full mode, one undo step per batch", async () =>
 test("offers recording only once the user allows it, and refuses without approval", async () => {
 	test.setTimeout(180_000);
 
+	// Its own profile per launch: these specs write recordings, settings and the
+	// MCP discovery file into userData, and sharing one directory makes them
+	// interfere when the suite runs as a whole rather than a file at a time.
+	const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "openscreen-mcp-e2e-"));
 	const app = await electron.launch({
-		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
+		args: [
+			MAIN_JS,
+			"--no-sandbox",
+			"--enable-unsafe-swiftshader",
+			`--user-data-dir=${userDataDir}`,
+		],
 		env: {
+			ELECTRON_USER_DATA_DIR: userDataDir,
 			...process.env,
 			HEADLESS: process.env["HEADLESS"] ?? "true",
 			OPENSCREEN_MCP: "full",
 		},
 	});
 
+	let hudWindow: Awaited<ReturnType<typeof app.firstWindow>> | null = null;
+
 	try {
-		const hudWindow = await app.firstWindow({ timeout: 60_000 });
+		hudWindow = await app.firstWindow({ timeout: 60_000 });
 		await hudWindow.waitForLoadState("domcontentloaded");
 
 		const userDataDir = await app.evaluate(({ app: electronApp }) =>
@@ -662,6 +695,13 @@ test("offers recording only once the user allows it, and refuses without approva
 		// start_recording is not called here: it opens a modal dialog that only a
 		// person can answer, which is the whole point of it.
 	} finally {
+		// The consent is written to userData and outlives the app, by design. Put it
+		// back, or every later run starts with recording already allowed.
+		await hudWindow
+			?.evaluate(() => window.electronAPI.setMcpAllowRecording(false))
+			.catch(() => {
+				// Window already gone; the setting stays as the next run finds it.
+			});
 		await app.close().catch(() => {
 			// Already gone; the run is over either way.
 		});

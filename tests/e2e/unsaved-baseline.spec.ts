@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron, expect, test } from "@playwright/test";
@@ -22,9 +23,21 @@ const TEST_VIDEO = path.join(__dirname, "../fixtures/sample.webm");
 test("a freshly opened recording is not dirty when preferences differ from defaults", async () => {
 	test.setTimeout(180_000);
 
+	// Its own profile: this spec seeds user preferences, which would otherwise
+	// reach whatever else runs against the same userData directory.
+	const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "openscreen-mcp-e2e-"));
 	const app = await electron.launch({
-		args: [MAIN_JS, "--no-sandbox", "--enable-unsafe-swiftshader"],
-		env: { ...process.env, HEADLESS: process.env["HEADLESS"] ?? "true" },
+		args: [
+			MAIN_JS,
+			"--no-sandbox",
+			"--enable-unsafe-swiftshader",
+			`--user-data-dir=${userDataDir}`,
+		],
+		env: {
+			ELECTRON_USER_DATA_DIR: userDataDir,
+			...process.env,
+			HEADLESS: process.env["HEADLESS"] ?? "true",
+		},
 	});
 
 	let testVideoInRecordings = "";

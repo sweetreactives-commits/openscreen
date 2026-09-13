@@ -317,6 +317,24 @@ const commandSchema = z.discriminatedUnion("op", [
 			.optional(),
 	}),
 	z.object({
+		op: z.literal("add_blur"),
+		...span,
+		style: z
+			.enum(["blur", "mosaic"])
+			.optional()
+			.describe("Mosaic by default; a gaussian blur can still hint at what was there."),
+		shape: z.enum(["rectangle", "oval"]).optional(),
+		strength: z.number().optional().describe("How strongly to obscure, 1 to 100. Default 50."),
+		position: z
+			.object({ x: z.number(), y: z.number() })
+			.optional()
+			.describe("Centre of the region as a percentage of the frame. Default 50/50."),
+		size: z
+			.object({ width: z.number(), height: z.number() })
+			.optional()
+			.describe("Size as a percentage of the frame. Default 30 by 20."),
+	}),
+	z.object({
 		op: z.literal("add_image"),
 		...span,
 		path: z
