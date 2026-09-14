@@ -8,6 +8,7 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { cardFrameCount, drawCardFrame } from "@/lib/cardFrame";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
@@ -21,11 +22,14 @@ import type {
 	GifFrameRate,
 	GifSizePreset,
 } from "./types";
+import type { ExportCard } from "./videoExporter";
 
 const GIF_WORKER_URL = new URL("gif.js/dist/gif.worker.js", import.meta.url).toString();
 
 interface GifExporterConfig {
 	videoUrl: string;
+	/** Card clips flanking the recording, already split by the caller. */
+	cards?: { before: ExportCard[]; after: ExportCard[] };
 	webcamVideoUrl?: string;
 	width: number;
 	height: number;
@@ -203,14 +207,60 @@ export class GifExporter {
 			});
 
 			// Effective duration and frame count, excluding trim regions
-			const { effectiveDuration, totalFrames } = this.streamingDecoder.getExportMetrics(
-				this.config.frameRate,
-				this.config.trimRegions,
-				this.config.speedRegions,
-			);
+			const { effectiveDuration, totalFrames: recordingFrames } =
+				this.streamingDecoder.getExportMetrics(
+					this.config.frameRate,
+					this.config.trimRegions,
+					this.config.speedRegions,
+				);
+
+			let frameIndex = 0;
 
 			// gif.js wants frame delay in ms
 			const frameDelay = Math.round(1000 / this.config.frameRate);
+
+			const cardsBefore = this.config.cards?.before ?? [];
+			const cardsAfter = this.config.cards?.after ?? [];
+			const countCardFrames = (cards: ExportCard[]) =>
+				cards.reduce(
+					(sum, card) => sum + cardFrameCount(card.durationMs, this.config.frameRate),
+					0,
+				);
+			// Progress has to count the cards too, or it would report past 100%.
+			const totalFrames =
+				recordingFrames + countCardFrames(cardsBefore) + countCardFrames(cardsAfter);
+
+			/** Draws a card once and adds those pixels for as long as it lasts. */
+			const emitCards = async (cards: ExportCard[]) => {
+				if (cards.length === 0) return;
+
+				const cardCanvas = document.createElement("canvas");
+				cardCanvas.width = this.config.width;
+				cardCanvas.height = this.config.height;
+				const cardCtx = cardCanvas.getContext("2d");
+				if (!cardCtx) throw new Error("Could not get a 2D context to draw a card clip");
+
+				for (const card of cards) {
+					if (this.cancelled) return;
+					drawCardFrame(cardCtx, {
+						width: cardCanvas.width,
+						height: cardCanvas.height,
+						title: card.title,
+					});
+
+					const frames = cardFrameCount(card.durationMs, this.config.frameRate);
+					for (let i = 0; i < frames && !this.cancelled; i++) {
+						this.gif?.addFrame(cardCanvas, { delay: frameDelay, copy: true });
+						frameIndex++;
+						this.config.onProgress?.({
+							currentFrame: frameIndex,
+							totalFrames,
+							percentage: (frameIndex / totalFrames) * 100,
+							estimatedTimeRemaining: 0,
+						});
+					}
+				}
+			};
 
 			console.log("[GifExporter] Original duration:", videoInfo.duration, "s");
 			console.log("[GifExporter] Effective duration:", effectiveDuration, "s");
@@ -220,7 +270,6 @@ export class GifExporter {
 			console.log("[GifExporter] Loop:", this.config.loop ? "infinite" : "once");
 			console.log("[GifExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
-			let frameIndex = 0;
 			webcamFrameQueue = this.config.webcamVideoUrl ? new TimestampedVideoFrameQueue() : null;
 			let stopWebcamDecode = false;
 			let webcamDecodeError: Error | null = null;
@@ -258,6 +307,8 @@ export class GifExporter {
 								});
 						})()
 					: null;
+
+			await emitCards(cardsBefore);
 
 			// Stream decode and process frames, no seeking
 			await this.streamingDecoder.decodeAll(
@@ -307,6 +358,8 @@ export class GifExporter {
 			if (this.cancelled) {
 				return { success: false, error: "Export cancelled" };
 			}
+
+			await emitCards(cardsAfter);
 
 			stopWebcamDecode = true;
 			webcamFrameQueue?.destroy();

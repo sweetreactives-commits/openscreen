@@ -71,6 +71,7 @@ import {
 	getNativeAspectRatioValue,
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
+import { type ClipEntry, isCardEntry, recordingIndex } from "./clips";
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
 import {
@@ -86,6 +87,7 @@ import {
 	deriveNextId,
 	fromFileUrl,
 	hasProjectUnsavedChanges,
+	normalizeCardDurationMs,
 	type ProjectEditorState,
 	resolveProjectEditor,
 	resolveProjectMedia,
@@ -204,6 +206,7 @@ export default function VideoEditor() {
 	} = useEditorHistory(INITIAL_EDITOR_STATE);
 
 	const {
+		clips,
 		zoomRegions,
 		autoZoomEnabled,
 		autoFocusAll,
@@ -428,6 +431,7 @@ export default function VideoEditor() {
 				borderRadius: normalizedEditor.borderRadius,
 				padding: normalizedEditor.padding,
 				cropRegion: normalizedEditor.cropRegion,
+				clips: normalizedEditor.clips,
 				zoomRegions: normalizedEditor.zoomRegions,
 				autoZoomEnabled: normalizedEditor.autoZoomEnabled,
 				autoFocusAll: normalizedEditor.autoFocusAll,
@@ -1877,6 +1881,7 @@ export default function VideoEditor() {
 						loop: settings.gifConfig.loop,
 						sizePreset: settings.gifConfig.sizePreset,
 						wallpaper,
+						cards: exportCards,
 						zoomRegions,
 						trimRegions,
 						speedRegions,
@@ -1982,6 +1987,7 @@ export default function VideoEditor() {
 						bitrate,
 						codec: "avc1.640033",
 						wallpaper,
+						cards: exportCards,
 						zoomRegions,
 						trimRegions,
 						speedRegions,
@@ -2140,6 +2146,25 @@ export default function VideoEditor() {
 	);
 
 	/** Export settings for a format, from whatever the panel is currently set to. */
+	// The exporter is told only "these stills come first, these come last" — it has
+	// no business knowing about the project's clip model. Splitting at the recording
+	// is what turns one into the other.
+	const exportCards = useMemo(() => {
+		const at = recordingIndex(clips);
+		const toCard = (clip: ClipEntry) => ({
+			durationMs: normalizeCardDurationMs(clip.durationMs),
+			title: clip.title,
+		});
+		if (at === -1) return { before: [], after: clips.filter(isCardEntry).map(toCard) };
+		return {
+			before: clips.slice(0, at).filter(isCardEntry).map(toCard),
+			after: clips
+				.slice(at + 1)
+				.filter(isCardEntry)
+				.map(toCard),
+		};
+	}, [clips]);
+
 	const buildExportSettings = useCallback(
 		(format: ExportFormat): ExportSettings | null => {
 			const video = videoPlaybackRef.current?.video;

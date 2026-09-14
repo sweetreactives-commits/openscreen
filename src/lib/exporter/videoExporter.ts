@@ -7,6 +7,7 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { cardFrameCount, drawCardFrame } from "@/lib/cardFrame";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
@@ -20,8 +21,20 @@ import type { ExportConfig, ExportProgress, ExportResult } from "./types";
 const ENCODER_STALL_TIMEOUT_MS = 15_000;
 const ENCODER_FLUSH_TIMEOUT_MS = 20_000;
 
+/** A card clip as the exporter needs it: how long, and what it says. */
+export interface ExportCard {
+	durationMs: number;
+	title?: string;
+}
+
 export interface VideoExporterConfig extends ExportConfig {
 	videoUrl: string;
+	/**
+	 * Card clips flanking the recording, already split by the caller. The exporter
+	 * deliberately knows nothing about the project's clip model — only that some
+	 * still frames come before the recording and some after.
+	 */
+	cards?: { before: ExportCard[]; after: ExportCard[] };
 	webcamVideoUrl?: string;
 	wallpaper: string;
 	zoomRegions: ZoomRegion[];
@@ -103,6 +116,10 @@ export function getSourceCopyFastPathBlockers(
 		blockers.push(
 			`output-size ${config.width}x${config.height} differs from source ${videoInfo.width}x${videoInfo.height}`,
 		);
+	}
+	if (config.cards?.before.length || config.cards?.after.length) {
+		// Copying the source through would drop the cards entirely.
+		blockers.push("the project has card clips");
 	}
 	if (config.webcamVideoUrl) blockers.push("webcam overlay is enabled");
 	if (hasActiveTimeRegions(config.trimRegions)) blockers.push("trim regions are present");
@@ -285,11 +302,22 @@ export class VideoExporter {
 			this.muxer = muxer;
 			await muxer.initialize();
 
-			const { totalFrames } = streamingDecoder.getExportMetrics(
+			const { totalFrames: recordingFrames } = streamingDecoder.getExportMetrics(
 				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
+
+			const cardsBefore = this.config.cards?.before ?? [];
+			const cardsAfter = this.config.cards?.after ?? [];
+			const countCardFrames = (cards: ExportCard[]) =>
+				cards.reduce(
+					(sum, card) => sum + cardFrameCount(card.durationMs, this.config.frameRate),
+					0,
+				);
+			// Progress has to count the cards too, or it would report past 100%.
+			const totalFrames =
+				recordingFrames + countCardFrames(cardsBefore) + countCardFrames(cardsAfter);
 
 			const frameDuration = 1_000_000 / this.config.frameRate;
 			let frameIndex = 0;
@@ -297,6 +325,104 @@ export class VideoExporter {
 				encoderPreference === "prefer-software"
 					? Math.min(this.MAX_ENCODE_QUEUE, 32)
 					: this.MAX_ENCODE_QUEUE;
+
+			/**
+			 * Encodes whatever is on a canvas as the next output frame.
+			 *
+			 * Shared by the recording and by card clips: the encoder only ever sees a
+			 * canvas and a running frame number, so a still card and a decoded video
+			 * frame travel the same path and cannot drift apart.
+			 */
+			const encodeCanvas = async (canvas: HTMLCanvasElement) => {
+				if (this.fatalEncoderError) {
+					throw this.fatalEncoderError;
+				}
+				const timestamp = frameIndex * frameDuration;
+
+				let exportFrame: VideoFrame;
+
+				// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
+				// silently, producing empty frames, so we force a CPU readback instead.
+				if (platform === "linux") {
+					const canvasCtx = canvas.getContext("2d")!;
+					const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+					exportFrame = new VideoFrame(imageData.data.buffer, {
+						format: "RGBA",
+						codedWidth: canvas.width,
+						codedHeight: canvas.height,
+						timestamp,
+						duration: frameDuration,
+						colorSpace: {
+							primaries: "bt709",
+							transfer: "iec61966-2-1",
+							matrix: "rgb",
+							fullRange: true,
+						},
+					});
+				} else {
+					exportFrame = new VideoFrame(canvas, { timestamp, duration: frameDuration });
+				}
+
+				while (this.encoder && this.encoder.encodeQueueSize >= maxEncodeQueue && !this.cancelled) {
+					if (Date.now() - this.lastEncoderOutputAt > ENCODER_STALL_TIMEOUT_MS) {
+						exportFrame.close();
+						throw new Error(
+							encoderPreference === "prefer-hardware"
+								? "The hardware video encoder stopped responding. Retrying with a safer encoder."
+								: "The video encoder stopped responding during export.",
+						);
+					}
+					await new Promise((resolve) => setTimeout(resolve, 5));
+				}
+
+				if (this.encoder && this.encoder.state === "configured") {
+					this.encodeQueue++;
+					this.encoder.encode(exportFrame, { keyFrame: frameIndex % 150 === 0 });
+				} else {
+					console.warn(`[Frame ${frameIndex}] Encoder not ready! State: ${this.encoder?.state}`);
+				}
+
+				exportFrame.close();
+				frameIndex++;
+
+				this.reportProgress({
+					currentFrame: frameIndex,
+					totalFrames,
+					percentage: (frameIndex / totalFrames) * 100,
+					estimatedTimeRemaining: 0,
+				});
+			};
+
+			/**
+			 * Renders a card once and encodes those same pixels for as long as it lasts.
+			 *
+			 * A card is a still, so redrawing it per frame would buy nothing; and it
+			 * goes through `encodeCanvas` like any other frame, which is what keeps the
+			 * output timestamps continuous across the join.
+			 */
+			const emitCards = async (cards: ExportCard[]) => {
+				if (cards.length === 0) return;
+
+				const cardCanvas = document.createElement("canvas");
+				cardCanvas.width = this.config.width;
+				cardCanvas.height = this.config.height;
+				const cardCtx = cardCanvas.getContext("2d");
+				if (!cardCtx) throw new Error("Could not get a 2D context to draw a card clip");
+
+				for (const card of cards) {
+					if (this.cancelled) return;
+					drawCardFrame(cardCtx, {
+						width: cardCanvas.width,
+						height: cardCanvas.height,
+						title: card.title,
+					});
+
+					const frames = cardFrameCount(card.durationMs, this.config.frameRate);
+					for (let i = 0; i < frames && !this.cancelled; i++) {
+						await encodeCanvas(cardCanvas);
+					}
+				}
+			};
 
 			webcamFrameQueue = this.config.webcamVideoUrl ? new TimestampedVideoFrameQueue() : null;
 			webcamDecodePromise =
@@ -334,6 +460,8 @@ export class VideoExporter {
 						})()
 					: null;
 
+			await emitCards(cardsBefore);
+
 			await streamingDecoder.decodeAll(
 				this.config.frameRate,
 				this.config.trimRegions,
@@ -349,7 +477,6 @@ export class VideoExporter {
 							throw this.fatalEncoderError;
 						}
 
-						const timestamp = frameIndex * frameDuration;
 						webcamFrame = webcamFrameQueue
 							? await webcamFrameQueue.frameAt(sourceTimestampMs)
 							: null;
@@ -357,69 +484,8 @@ export class VideoExporter {
 							return;
 						}
 
-						const sourceTimestampUs = sourceTimestampMs * 1000;
-						await renderer.renderFrame(videoFrame, sourceTimestampUs, webcamFrame);
-
-						const canvas = renderer.getCanvas();
-
-						let exportFrame: VideoFrame;
-
-						// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
-						// silently, producing empty frames, so we force a CPU readback instead.
-						if (platform === "linux") {
-							const canvasCtx = canvas.getContext("2d")!;
-							const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-							exportFrame = new VideoFrame(imageData.data.buffer, {
-								format: "RGBA",
-								codedWidth: canvas.width,
-								codedHeight: canvas.height,
-								timestamp,
-								duration: frameDuration,
-								colorSpace: {
-									primaries: "bt709",
-									transfer: "iec61966-2-1",
-									matrix: "rgb",
-									fullRange: true,
-								},
-							});
-						} else {
-							exportFrame = new VideoFrame(canvas, { timestamp, duration: frameDuration });
-						}
-
-						while (
-							this.encoder &&
-							this.encoder.encodeQueueSize >= maxEncodeQueue &&
-							!this.cancelled
-						) {
-							if (Date.now() - this.lastEncoderOutputAt > ENCODER_STALL_TIMEOUT_MS) {
-								exportFrame.close();
-								throw new Error(
-									encoderPreference === "prefer-hardware"
-										? "The hardware video encoder stopped responding. Retrying with a safer encoder."
-										: "The video encoder stopped responding during export.",
-								);
-							}
-							await new Promise((resolve) => setTimeout(resolve, 5));
-						}
-
-						if (this.encoder && this.encoder.state === "configured") {
-							this.encodeQueue++;
-							this.encoder.encode(exportFrame, { keyFrame: frameIndex % 150 === 0 });
-						} else {
-							console.warn(
-								`[Frame ${frameIndex}] Encoder not ready! State: ${this.encoder?.state}`,
-							);
-						}
-
-						exportFrame.close();
-						frameIndex++;
-
-						this.reportProgress({
-							currentFrame: frameIndex,
-							totalFrames,
-							percentage: (frameIndex / totalFrames) * 100,
-							estimatedTimeRemaining: 0,
-						});
+						await renderer.renderFrame(videoFrame, sourceTimestampMs * 1000, webcamFrame);
+						await encodeCanvas(renderer.getCanvas());
 					} finally {
 						videoFrame.close();
 						webcamFrame?.close();
@@ -435,6 +501,8 @@ export class VideoExporter {
 			if (this.fatalEncoderError) {
 				throw this.fatalEncoderError;
 			}
+
+			await emitCards(cardsAfter);
 
 			stopWebcamDecode = true;
 			webcamFrameQueue?.destroy();
