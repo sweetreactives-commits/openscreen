@@ -60,5 +60,16 @@
 		"pending": "AI エージェントからの提案: {{count}} 件 — 確認待ちです",
 		"acceptAll": "すべて採用",
 		"discardAll": "すべて破棄"
+	},
+	"clips": {
+		"addIntro": "冒頭にカードを追加",
+		"addOutro": "末尾にカードを追加",
+		"recording": "録画",
+		"untitled": "無題のカード",
+		"title": "テキスト",
+		"duration": "長さ — {{seconds}} 秒",
+		"remove": "カードを削除",
+		"moveEarlier": "前へ移動",
+		"moveLater": "後ろへ移動"
 	}
 }

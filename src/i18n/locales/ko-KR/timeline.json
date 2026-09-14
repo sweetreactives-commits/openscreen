@@ -60,5 +60,16 @@
 		"pending": "AI 에이전트의 제안: {{count}}건 — 확인을 기다리고 있습니다",
 		"acceptAll": "모두 유지",
 		"discardAll": "모두 버리기"
+	},
+	"clips": {
+		"addIntro": "인트로 추가",
+		"addOutro": "아웃트로 추가",
+		"recording": "녹화",
+		"untitled": "제목 없는 카드",
+		"title": "텍스트",
+		"duration": "길이 — {{seconds}}초",
+		"remove": "카드 삭제",
+		"moveEarlier": "앞으로 이동",
+		"moveLater": "뒤로 이동"
 	}
 }

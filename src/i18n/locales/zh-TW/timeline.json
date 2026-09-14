@@ -60,5 +60,16 @@
 		"pending": "AI 代理的建議：{{count}} 條 — 等待你確認",
 		"acceptAll": "全部保留",
 		"discardAll": "全部捨棄"
+	},
+	"clips": {
+		"addIntro": "新增片頭",
+		"addOutro": "新增片尾",
+		"recording": "錄製",
+		"untitled": "未命名卡片",
+		"title": "文字",
+		"duration": "長度 — {{seconds}} 秒",
+		"remove": "刪除卡片",
+		"moveEarlier": "前移",
+		"moveLater": "後移"
 	}
 }

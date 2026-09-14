@@ -60,5 +60,16 @@
 		"pending": "اقتراحات من وكيل ذكاء اصطناعي: {{count}} — بانتظار قرارك",
 		"acceptAll": "الإبقاء على الكل",
 		"discardAll": "تجاهل الكل"
+	},
+	"clips": {
+		"addIntro": "إضافة مقدمة",
+		"addOutro": "إضافة خاتمة",
+		"recording": "التسجيل",
+		"untitled": "بطاقة بلا عنوان",
+		"title": "النص",
+		"duration": "المدة — {{seconds}} ث",
+		"remove": "حذف البطاقة",
+		"moveEarlier": "تحريك للأمام",
+		"moveLater": "تحريك للخلف"
 	}
 }

@@ -71,7 +71,17 @@ import {
 	getNativeAspectRatioValue,
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
-import { type ClipEntry, isCardEntry, recordingIndex } from "./clips";
+import { ClipStrip } from "./ClipStrip";
+import {
+	addIntroCard,
+	addOutroCard,
+	type ClipEntry,
+	isCardEntry,
+	moveClip,
+	recordingIndex,
+	removeCard,
+	updateCard,
+} from "./clips";
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
 import {
@@ -291,6 +301,10 @@ export default function VideoEditor() {
 	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
 	// Unsaved-changes confirmation for New Project / Load Project / Back to Recording.
 	// The window-close flow uses showCloseConfirmDialog above.
+	// Which card the strip has open. Selection is not undoable, like every other
+	// selection in the editor.
+	const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
 	const [confirmDialogVariant, setConfirmDialogVariant] = useState<
 		"newProject" | "loadProject" | "newRecording" | null
 	>(null);
@@ -1804,6 +1818,25 @@ export default function VideoEditor() {
 		}
 	}, [unsavedExport, handleExportSaved]);
 
+	// The exporter is told only "these stills come first, these come last" — it has
+	// no business knowing about the project's clip model. Splitting at the recording
+	// is what turns one into the other.
+	const exportCards = useMemo(() => {
+		const at = recordingIndex(clips);
+		const toCard = (clip: ClipEntry) => ({
+			durationMs: normalizeCardDurationMs(clip.durationMs),
+			title: clip.title,
+		});
+		if (at === -1) return { before: [], after: clips.filter(isCardEntry).map(toCard) };
+		return {
+			before: clips.slice(0, at).filter(isCardEntry).map(toCard),
+			after: clips
+				.slice(at + 1)
+				.filter(isCardEntry)
+				.map(toCard),
+		};
+	}, [clips]);
+
 	const handleExport = useCallback(
 		async (settings: ExportSettings, targetPathOverride?: string) => {
 			// handleExport reports through toasts and component state, which a
@@ -2142,28 +2175,56 @@ export default function VideoEditor() {
 			cursorClipToBounds,
 			cursorTheme,
 			t,
+			exportCards,
 		],
 	);
 
 	/** Export settings for a format, from whatever the panel is currently set to. */
-	// The exporter is told only "these stills come first, these come last" — it has
-	// no business knowing about the project's clip model. Splitting at the recording
-	// is what turns one into the other.
-	const exportCards = useMemo(() => {
-		const at = recordingIndex(clips);
-		const toCard = (clip: ClipEntry) => ({
-			durationMs: normalizeCardDurationMs(clip.durationMs),
-			title: clip.title,
-		});
-		if (at === -1) return { before: [], after: clips.filter(isCardEntry).map(toCard) };
-		return {
-			before: clips.slice(0, at).filter(isCardEntry).map(toCard),
-			after: clips
-				.slice(at + 1)
-				.filter(isCardEntry)
-				.map(toCard),
-		};
-	}, [clips]);
+	// The new list is built once and the id read back out of it, rather than
+	// predicted separately: two calls to nextCardId could disagree.
+	const addCardAndSelect = useCallback(
+		(build: (clips: ClipEntry[]) => ClipEntry[]) => {
+			const next = build(clips);
+			pushState({ clips: next });
+			const added = next.find((clip) => !clips.some((existing) => existing.id === clip.id));
+			if (added) setSelectedCardId(added.id);
+		},
+		[clips, pushState],
+	);
+
+	const handleAddIntroCard = useCallback(
+		() => addCardAndSelect((current) => addIntroCard(current)),
+		[addCardAndSelect],
+	);
+
+	const handleAddOutroCard = useCallback(
+		() => addCardAndSelect((current) => addOutroCard(current)),
+		[addCardAndSelect],
+	);
+
+	const handleRemoveCard = useCallback(
+		(id: string) => {
+			pushState((prev) => ({ clips: removeCard(prev.clips, id) }));
+			setSelectedCardId((current) => (current === id ? null : current));
+		},
+		[pushState],
+	);
+
+	const handleMoveClip = useCallback(
+		(id: string, toIndex: number) => {
+			pushState((prev) => ({ clips: moveClip(prev.clips, id, toIndex) }));
+		},
+		[pushState],
+	);
+
+	// Typing a title and dragging the duration are live series: one undo step for
+	// the whole edit, committed when the field is let go.
+	const handleUpdateCard = useCallback(
+		(id: string, patch: { title?: string; durationMs?: number }) => {
+			updateState((prev) => ({ clips: updateCard(prev.clips, id, patch) }));
+		},
+		[updateState],
+	);
 
 	const buildExportSettings = useCallback(
 		(format: ExportFormat): ExportSettings | null => {
@@ -2952,6 +3013,17 @@ export default function VideoEditor() {
 									count={proposalCount}
 									onAccept={handleAcceptProposals}
 									onDiscard={handleDiscardProposals}
+								/>
+								<ClipStrip
+									clips={clips}
+									selectedCardId={selectedCardId}
+									onSelectCard={setSelectedCardId}
+									onAddIntro={handleAddIntroCard}
+									onAddOutro={handleAddOutroCard}
+									onRemoveCard={handleRemoveCard}
+									onMoveClip={handleMoveClip}
+									onUpdateCard={handleUpdateCard}
+									onCommitCard={commitState}
 								/>
 								<TimelineEditor
 									videoDuration={duration}

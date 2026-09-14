@@ -60,5 +60,16 @@
 		"pending": "Proposte da un agente IA: {{count}} — in attesa della tua decisione",
 		"acceptAll": "Tieni tutte",
 		"discardAll": "Scarta tutte"
+	},
+	"clips": {
+		"addIntro": "Aggiungi intro",
+		"addOutro": "Aggiungi finale",
+		"recording": "Registrazione",
+		"untitled": "Scheda senza titolo",
+		"title": "Testo",
+		"duration": "Durata — {{seconds}} s",
+		"remove": "Rimuovi scheda",
+		"moveEarlier": "Sposta prima",
+		"moveLater": "Sposta dopo"
 	}
 }

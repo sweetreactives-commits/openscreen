@@ -60,5 +60,16 @@
 		"pending": "Propostas de um agente de IA: {{count}} — aguardando sua decisão",
 		"acceptAll": "Manter todas",
 		"discardAll": "Descartar todas"
+	},
+	"clips": {
+		"addIntro": "Adicionar abertura",
+		"addOutro": "Adicionar encerramento",
+		"recording": "Gravação",
+		"untitled": "Cartão sem título",
+		"title": "Texto",
+		"duration": "Duração — {{seconds}} s",
+		"remove": "Remover cartão",
+		"moveEarlier": "Mover para antes",
+		"moveLater": "Mover para depois"
 	}
 }

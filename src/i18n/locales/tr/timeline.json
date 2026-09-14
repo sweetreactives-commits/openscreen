@@ -60,5 +60,16 @@
 		"pending": "Yapay zekâ aracısından öneriler: {{count}} — kararınızı bekliyor",
 		"acceptAll": "Tümünü tut",
 		"discardAll": "Tümünü at"
+	},
+	"clips": {
+		"addIntro": "Açılış ekle",
+		"addOutro": "Kapanış ekle",
+		"recording": "Kayıt",
+		"untitled": "Başlıksız kart",
+		"title": "Metin",
+		"duration": "Süre — {{seconds}} sn",
+		"remove": "Kartı kaldır",
+		"moveEarlier": "Öne al",
+		"moveLater": "Sona al"
 	}
 }

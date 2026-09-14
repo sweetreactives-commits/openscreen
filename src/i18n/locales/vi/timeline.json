@@ -60,5 +60,16 @@
 		"pending": "Đề xuất từ tác nhân AI: {{count}} — đang chờ bạn quyết định",
 		"acceptAll": "Giữ tất cả",
 		"discardAll": "Bỏ tất cả"
+	},
+	"clips": {
+		"addIntro": "Thêm mở đầu",
+		"addOutro": "Thêm kết thúc",
+		"recording": "Bản ghi",
+		"untitled": "Thẻ chưa đặt tên",
+		"title": "Văn bản",
+		"duration": "Thời lượng — {{seconds}} giây",
+		"remove": "Xoá thẻ",
+		"moveEarlier": "Chuyển lên trước",
+		"moveLater": "Chuyển xuống sau"
 	}
 }

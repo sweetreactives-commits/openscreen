@@ -60,5 +60,16 @@
 		"pending": "Proposals from an AI agent: {{count}} — waiting for you",
 		"acceptAll": "Keep all",
 		"discardAll": "Discard all"
+	},
+	"clips": {
+		"addIntro": "Add intro",
+		"addOutro": "Add outro",
+		"recording": "Recording",
+		"untitled": "Untitled card",
+		"title": "Title",
+		"duration": "Duration — {{seconds}} s",
+		"remove": "Remove card",
+		"moveEarlier": "Move earlier",
+		"moveLater": "Move later"
 	}
 }
