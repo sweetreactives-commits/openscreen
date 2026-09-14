@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { projectMediaList } from "@/lib/recordingSession";
 import { computeSequence } from "@/lib/sequence";
+import { addIntroCard, addOutroCard, INITIAL_CLIPS, moveClip, updateCard } from "./clips";
 import { DEFAULT_CURSOR_SETTINGS } from "./editorDefaults";
 import {
 	CLIP_EDITOR_KEYS,
@@ -15,10 +16,12 @@ import {
 	normalizeProjectEditor,
 	PROJECT_VERSION,
 	type ProjectClipData,
+	resolveProjectClips,
 	resolveProjectEditor,
 	resolveProjectMedia,
 	sequenceInputsFromClips,
 	splitEditorState,
+	TOP_LEVEL_EDITOR_KEYS,
 	validateProjectData,
 } from "./projectPersistence";
 import { MAX_CURSOR_CLICK_BOUNCE, MAX_CURSOR_SIZE, MIN_CURSOR_SIZE } from "./types";
@@ -436,7 +439,13 @@ describe("project format v4: clips", () => {
 
 		expect(clipKeys.sort()).toEqual([...CLIP_EDITOR_KEYS].sort());
 		expect(clipKeys.filter((key) => sequenceKeys.includes(key))).toEqual([]);
-		expect([...clipKeys, ...sequenceKeys].sort()).toEqual(Object.keys(editor).sort());
+
+		// Three destinations, and every key must reach exactly one of them: the
+		// clip, the shared settings, or the top level of the file.
+		expect([...clipKeys, ...sequenceKeys, ...TOP_LEVEL_EDITOR_KEYS].sort()).toEqual(
+			Object.keys(editor).sort(),
+		);
+		expect(sequenceKeys.filter((key) => TOP_LEVEL_EDITOR_KEYS.includes(key as never))).toEqual([]);
 	});
 
 	it("keeps the clip id stable, or every save would look like a change", () => {
@@ -576,5 +585,89 @@ describe("card clips", () => {
 		// This is what the main process vets, and a card has no file to vet.
 		expect(projectMediaList(project)).toEqual([media]);
 		expect(resolveProjectMedia(project)).toEqual(media);
+	});
+});
+
+describe("cards through save and load", () => {
+	const media = { screenVideoPath: "/tmp/screen.webm" };
+
+	it("keeps an intro and an outro across a round trip", () => {
+		const editor = normalizeProjectEditor({
+			clips: addOutroCard(addIntroCard(INITIAL_CLIPS, { title: "Hello", durationMs: 2_000 }), {
+				title: "Thanks",
+			}),
+			trimRegions: [{ id: "trim-1", startMs: 0, endMs: 500 }],
+		});
+
+		const saved = createProjectData(media, editor);
+		expect(saved.clips?.map((clip) => clip.id)).toEqual(["card-1", "clip-1", "card-2"]);
+		// Only the recording carries the edits; the cards carry text and a length.
+		expect(saved.clips?.[0]).toMatchObject({ media: null, title: "Hello", durationMs: 2_000 });
+		expect(saved.clips?.[0].editor).toBeUndefined();
+		expect(saved.clips?.[1].editor?.trimRegions).toHaveLength(1);
+
+		const reloaded = resolveProjectEditor(saved);
+		expect(reloaded.clips).toEqual(editor.clips);
+		expect(reloaded.trimRegions).toHaveLength(1);
+	});
+
+	it("finds the recording's edits even when a card comes first", () => {
+		const editor = normalizeProjectEditor({
+			clips: addIntroCard(INITIAL_CLIPS, { title: "Hello" }),
+			zoomRegions: [
+				{ id: "zoom-1", startMs: 0, endMs: 1_000, depth: 2, focus: { cx: 0.5, cy: 0.5 } },
+			],
+		});
+
+		// clips[0] is the card, so reading the first clip's edits would lose the zoom.
+		const reloaded = resolveProjectEditor(createProjectData(media, editor));
+		expect(reloaded.zoomRegions).toHaveLength(1);
+	});
+
+	it("keeps clips out of the saved editor object, where they would be duplicated", () => {
+		const saved = createProjectData(media, normalizeProjectEditor({}));
+		expect(saved.editor).not.toHaveProperty("clips");
+		expect(saved.clips).toHaveLength(1);
+	});
+
+	it("puts the recording back if a file somehow has only cards", () => {
+		const clips = resolveProjectClips({
+			version: 4,
+			clips: [{ id: "card-1", media: null, durationMs: 1_000 }],
+		} as never);
+
+		expect(clips.some((clip) => clip.kind === "recording")).toBe(true);
+	});
+
+	it("does not report a saved project as dirty just for having cards", () => {
+		const editor = normalizeProjectEditor({
+			clips: addIntroCard(INITIAL_CLIPS, { title: "Hello" }),
+		});
+		const first = createProjectSnapshot(media, editor);
+		const second = createProjectSnapshot(media, editor);
+		expect(hasProjectUnsavedChanges(second, first)).toBe(false);
+	});
+
+	it("notices a card being added, renamed or reordered", () => {
+		const base = normalizeProjectEditor({});
+		const baseline = createProjectSnapshot(media, base);
+
+		const withCard = normalizeProjectEditor({
+			clips: addIntroCard(INITIAL_CLIPS, { title: "Hello" }),
+		});
+		const added = createProjectSnapshot(media, withCard);
+		expect(hasProjectUnsavedChanges(added, baseline)).toBe(true);
+
+		const renamed = createProjectSnapshot(
+			media,
+			normalizeProjectEditor({ clips: updateCard(withCard.clips, "card-1", { title: "Hi" }) }),
+		);
+		expect(hasProjectUnsavedChanges(renamed, added)).toBe(true);
+
+		const moved = createProjectSnapshot(
+			media,
+			normalizeProjectEditor({ clips: moveClip(withCard.clips, "card-1", 1) }),
+		);
+		expect(hasProjectUnsavedChanges(moved, added)).toBe(true);
 	});
 });

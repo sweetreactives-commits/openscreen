@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { type ClipEntry, INITIAL_CLIPS } from "@/components/video-editor/clips";
 import {
 	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
@@ -26,6 +27,12 @@ import type { AspectRatio } from "@/utils/aspectRatioUtils";
 // Undoable state. Selection IDs are excluded, since undoing a selection change
 // would feel surprising.
 export interface EditorState {
+	/**
+	 * The project's clips, in order. Only cards live here in full; the recording's
+	 * own edits are the flat fields below, which is why nothing that reads
+	 * `trimRegions` or `zoomRegions` had to learn about clips.
+	 */
+	clips: ClipEntry[];
 	zoomRegions: ZoomRegion[];
 	/** Magic-wand auto-zoom toggle. When on, fresh recordings get suggested zooms. */
 	autoZoomEnabled: boolean;
@@ -62,6 +69,7 @@ export interface EditorState {
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
+	clips: INITIAL_CLIPS,
 	zoomRegions: [],
 	autoZoomEnabled: true,
 	autoFocusAll: false,

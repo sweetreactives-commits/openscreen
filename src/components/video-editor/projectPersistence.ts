@@ -4,9 +4,10 @@ import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { projectMediaList } from "@/lib/recordingSession";
-import { type SequenceClipInput, SINGLE_CLIP_ID } from "@/lib/sequence";
+import type { SequenceClipInput } from "@/lib/sequence";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
+import { type ClipEntry, INITIAL_CLIPS } from "./clips";
 import {
 	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
@@ -97,7 +98,13 @@ export const CLIP_EDITOR_KEYS = [
 ] as const;
 
 export type ClipEditorState = Pick<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
-export type SequenceEditorState = Omit<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
+/** Held at the top level of the saved file rather than inside `editor`. */
+export const TOP_LEVEL_EDITOR_KEYS = ["clips"] as const;
+
+export type SequenceEditorState = Omit<
+	ProjectEditorState,
+	(typeof CLIP_EDITOR_KEYS)[number] | (typeof TOP_LEVEL_EDITOR_KEYS)[number]
+>;
 
 /**
  * One clip in the project, with the edits that address it.
@@ -114,7 +121,10 @@ export interface ProjectClipData {
 	media: ProjectMedia | null;
 	/** Cards only. A recording's length comes from its file, not from the project. */
 	durationMs?: number;
-	editor: ClipEditorState;
+	/** Cards only: the line shown on it. */
+	title?: string;
+	/** Absent on a card, which has nothing to trim, zoom or annotate. */
+	editor?: ClipEditorState;
 }
 
 /** True for a clip with no recording behind it — a title card, intro or outro. */
@@ -135,6 +145,8 @@ export function normalizeCardDurationMs(value: unknown): number {
 }
 
 export interface ProjectEditorState {
+	/** The project's clips in order. Saved at the top level, not inside `editor`. */
+	clips: ClipEntry[];
 	wallpaper: string;
 	shadowIntensity: number;
 	showBlur: boolean;
@@ -195,6 +207,9 @@ export function splitEditorState(editor: ProjectEditorState): {
 
 	for (const key of CLIP_EDITOR_KEYS) {
 		clip[key] = editor[key];
+		delete sequence[key];
+	}
+	for (const key of TOP_LEVEL_EDITOR_KEYS) {
 		delete sequence[key];
 	}
 
@@ -351,10 +366,66 @@ export function resolveProjectMedia(
  * settings that belong to the whole video; older files already have them in one
  * object.
  */
+/**
+ * The clip list as the editor holds it. Anything older than v4 is one recording.
+ *
+ * A file with no recording at all would leave the editor with nowhere to put the
+ * video it has open, so the recording is put back if the file somehow lacks one.
+ */
+export function resolveProjectClips(candidate: Partial<EditorProjectData>): ClipEntry[] {
+	const stored = candidate.clips;
+	if (!Array.isArray(stored) || stored.length === 0) return [...INITIAL_CLIPS];
+
+	const clips: ClipEntry[] = stored.map((clip) =>
+		isCardClip(clip)
+			? {
+					id: String(clip.id),
+					kind: "card",
+					durationMs: normalizeCardDurationMs(clip.durationMs),
+					...(typeof clip.title === "string" ? { title: clip.title } : {}),
+				}
+			: { id: String(clip.id), kind: "recording" },
+	);
+
+	return clips.some((clip) => clip.kind === "recording") ? clips : [...INITIAL_CLIPS, ...clips];
+}
+
 export function resolveProjectEditor(candidate: Partial<EditorProjectData>): ProjectEditorState {
 	const sequence = (candidate.editor ?? {}) as Partial<ProjectEditorState>;
-	const clipEditor = candidate.clips?.[0]?.editor;
-	return normalizeProjectEditor(clipEditor ? { ...sequence, ...clipEditor } : sequence);
+	// The recording's own edits, which is not necessarily the first clip: a project
+	// that opens with an intro card has one before it.
+	const clipEditor = candidate.clips?.find((clip) => !isCardClip(clip))?.editor;
+	const clips = resolveProjectClips(candidate);
+	return normalizeProjectEditor({ ...sequence, ...(clipEditor ?? {}), clips });
+}
+
+/**
+ * Defensive pass over the clip list. A project with no recording in it would
+ * leave the editor's open video with nowhere to sit, so one is put back.
+ */
+function normalizeClipEntries(value: unknown): ClipEntry[] {
+	if (!Array.isArray(value) || value.length === 0) return [...INITIAL_CLIPS];
+
+	const clips: ClipEntry[] = [];
+	for (const entry of value) {
+		if (!entry || typeof entry !== "object") continue;
+		const clip = entry as Partial<ClipEntry>;
+		if (typeof clip.id !== "string" || !clip.id) continue;
+
+		clips.push(
+			clip.kind === "card"
+				? {
+						id: clip.id,
+						kind: "card",
+						durationMs: normalizeCardDurationMs(clip.durationMs),
+						...(typeof clip.title === "string" ? { title: clip.title } : {}),
+					}
+				: { id: clip.id, kind: "recording" },
+		);
+	}
+
+	if (clips.length === 0) return [...INITIAL_CLIPS];
+	return clips.some((clip) => clip.kind === "recording") ? clips : [...INITIAL_CLIPS, ...clips];
 }
 
 export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): ProjectEditorState {
@@ -617,6 +688,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 
 	return {
 		...normalizedCursor,
+		clips: normalizeClipEntries(editor.clips),
 		wallpaper:
 			typeof editor.wallpaper === "string"
 				? normalizeWallpaperValue(editor.wallpaper)
@@ -708,9 +780,22 @@ export function createProjectData(
 	editor: ProjectEditorState,
 ): EditorProjectData {
 	const { clip, sequence } = splitEditorState(editor);
+	const entries = editor.clips?.length ? editor.clips : INITIAL_CLIPS;
+
 	return {
 		version: PROJECT_VERSION,
-		clips: [{ id: SINGLE_CLIP_ID, media, editor: clip }],
+		// The recording's edits are the flat state the editor was working in; a card
+		// has none, only how long it lasts and what it says.
+		clips: entries.map((entry) =>
+			entry.kind === "card"
+				? {
+						id: entry.id,
+						media: null,
+						durationMs: normalizeCardDurationMs(entry.durationMs),
+						...(entry.title === undefined ? {} : { title: entry.title }),
+					}
+				: { id: entry.id, media, editor: clip },
+		),
 		editor: sequence,
 	};
 }
