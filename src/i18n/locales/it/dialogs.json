@@ -61,7 +61,10 @@
 		"discardAndNewProject": "Ignora e nuovo progetto",
 		"detailLoadProject": "Vuoi salvare il progetto prima di caricarne un altro?",
 		"saveAndLoadProject": "Salva e carica progetto",
-		"discardAndLoadProject": "Ignora e carica progetto"
+		"discardAndLoadProject": "Ignora e carica progetto",
+		"detailNewRecording": "Vuoi salvare il progetto prima di iniziare una nuova registrazione?",
+		"saveAndNewRecording": "Salva e registra",
+		"discardAndNewRecording": "Ignora e registra"
 	},
 	"fileDialogs": {
 		"saveGif": "Salva GIF esportata",

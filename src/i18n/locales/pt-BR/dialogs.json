@@ -61,7 +61,10 @@
 		"discardAndNewProject": "Descartar e Novo Projeto",
 		"detailLoadProject": "Deseja salvar seu projeto antes de carregar outro?",
 		"saveAndLoadProject": "Salvar e Carregar Projeto",
-		"discardAndLoadProject": "Descartar e Carregar Projeto"
+		"discardAndLoadProject": "Descartar e Carregar Projeto",
+		"detailNewRecording": "Deseja salvar seu projeto antes de iniciar uma nova gravação?",
+		"saveAndNewRecording": "Salvar e gravar",
+		"discardAndNewRecording": "Descartar e gravar"
 	},
 	"fileDialogs": {
 		"saveGif": "Salvar GIF Exportado",

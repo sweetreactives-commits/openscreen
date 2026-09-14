@@ -286,10 +286,10 @@ export default function VideoEditor() {
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
-	// Unsaved-changes confirmation for New Project / Load Project.
+	// Unsaved-changes confirmation for New Project / Load Project / Back to Recording.
 	// The window-close flow uses showCloseConfirmDialog above.
 	const [confirmDialogVariant, setConfirmDialogVariant] = useState<
-		"newProject" | "loadProject" | null
+		"newProject" | "loadProject" | "newRecording" | null
 	>(null);
 	const playerContainerRef = useRef<HTMLDivElement | null>(null);
 	const cursorTelemetrySourcePath = videoSourcePath ?? (videoPath ? fromFileUrl(videoPath) : null);
@@ -698,7 +698,14 @@ export default function VideoEditor() {
 		await saveProject(true);
 	}, [saveProject]);
 
-	const handleNewRecordingConfirm = useCallback(async () => {
+	/**
+	 * Hands the app back to the recorder.
+	 *
+	 * This tears the editor window down for real: the main process force-closes it,
+	 * which deliberately bypasses the unsaved-changes guard on the window. So every
+	 * caller has to have dealt with unsaved work already — see handleNewRecording.
+	 */
+	const doNewRecording = useCallback(async () => {
 		const result = await window.electronAPI.startNewRecording();
 		if (result.success) {
 			setShowNewRecordingDialog(false);
@@ -707,6 +714,35 @@ export default function VideoEditor() {
 			setError("Failed to start new recording: " + (result.error || "Unknown error"));
 		}
 	}, []);
+
+	/**
+	 * "Back to recording" — asks about unsaved work first.
+	 *
+	 * Without this the editor went straight to the recorder and the force-close
+	 * took every unsaved edit with it, while the confirmation said the session had
+	 * been saved: true of the recorded video, false of the edits on top of it.
+	 */
+	const handleNewRecording = useCallback(() => {
+		if (hasUnsavedChanges) {
+			setConfirmDialogVariant("newRecording");
+			return;
+		}
+		setShowNewRecordingDialog(true);
+	}, [hasUnsavedChanges]);
+
+	const handleNewRecordingConfirmSave = useCallback(async () => {
+		setConfirmDialogVariant(null);
+		const saved = await saveProject(false);
+		// A cancelled save dialog means the user is not ready to leave after all.
+		if (saved) {
+			await doNewRecording();
+		}
+	}, [saveProject, doNewRecording]);
+
+	const handleNewRecordingConfirmDiscard = useCallback(async () => {
+		setConfirmDialogVariant(null);
+		await doNewRecording();
+	}, [doNewRecording]);
 
 	const doLoadProject = useCallback(async () => {
 		const result = await nativeBridgeClient.project.loadProjectFile(getProjectFolder());
@@ -807,6 +843,17 @@ export default function VideoEditor() {
 		setConfirmDialogVariant(null);
 		await doNewProject();
 	}, [doNewProject]);
+
+	// One dialog serves three departures, so the pair of handlers is looked up
+	// rather than picked apart with nested conditionals at the call site.
+	const confirmHandlers = {
+		newProject: { save: handleNewProjectConfirmSave, discard: handleNewProjectConfirmDiscard },
+		loadProject: { save: handleLoadProjectConfirmSave, discard: handleLoadProjectConfirmDiscard },
+		newRecording: {
+			save: handleNewRecordingConfirmSave,
+			discard: handleNewRecordingConfirmDiscard,
+		},
+	}[confirmDialogVariant ?? "newProject"];
 
 	useEffect(() => {
 		const removeNewProjectListener = window.electronAPI.onMenuNewProject(handleNewProject);
@@ -2413,7 +2460,7 @@ export default function VideoEditor() {
 						</button>
 						<button
 							type="button"
-							onClick={handleNewRecordingConfirm}
+							onClick={doNewRecording}
 							className="px-4 py-2 rounded-md bg-[#34B27B] text-white hover:bg-[#34B27B]/90 text-sm font-medium transition-colors"
 						>
 							{t("newRecording.confirm")}
@@ -2528,7 +2575,7 @@ export default function VideoEditor() {
 					</div>
 					<button
 						type="button"
-						onClick={() => setShowNewRecordingDialog(true)}
+						onClick={handleNewRecording}
 						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
 					>
 						<Video size={14} />
@@ -2976,16 +3023,8 @@ export default function VideoEditor() {
 			<UnsavedChangesDialog
 				isOpen={confirmDialogVariant !== null}
 				variant={confirmDialogVariant ?? "newProject"}
-				onSaveAndClose={
-					confirmDialogVariant === "loadProject"
-						? handleLoadProjectConfirmSave
-						: handleNewProjectConfirmSave
-				}
-				onDiscardAndClose={
-					confirmDialogVariant === "loadProject"
-						? handleLoadProjectConfirmDiscard
-						: handleNewProjectConfirmDiscard
-				}
+				onSaveAndClose={confirmHandlers.save}
+				onDiscardAndClose={confirmHandlers.discard}
 				onCancel={() => setConfirmDialogVariant(null)}
 			/>
 		</div>

@@ -8,9 +8,39 @@ import {
 } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
 
+/** What the user was trying to do when the unsaved work got in the way. */
+export type UnsavedChangesVariant = "close" | "newProject" | "loadProject" | "newRecording";
+
+/**
+ * Which strings each variant uses. Written out rather than assembled from the
+ * variant name so the keys stay greppable from the locale files.
+ */
+const COPY: Record<UnsavedChangesVariant, { detail: string; save: string; discard: string }> = {
+	close: {
+		detail: "unsavedChanges.detail",
+		save: "unsavedChanges.saveAndClose",
+		discard: "unsavedChanges.discardAndClose",
+	},
+	newProject: {
+		detail: "unsavedChanges.detailNewProject",
+		save: "unsavedChanges.saveAndNewProject",
+		discard: "unsavedChanges.discardAndNewProject",
+	},
+	loadProject: {
+		detail: "unsavedChanges.detailLoadProject",
+		save: "unsavedChanges.saveAndLoadProject",
+		discard: "unsavedChanges.discardAndLoadProject",
+	},
+	newRecording: {
+		detail: "unsavedChanges.detailNewRecording",
+		save: "unsavedChanges.saveAndNewRecording",
+		discard: "unsavedChanges.discardAndNewRecording",
+	},
+};
+
 interface UnsavedChangesDialogProps {
 	isOpen: boolean;
-	variant?: "close" | "newProject" | "loadProject";
+	variant?: UnsavedChangesVariant;
 	onSaveAndClose: () => void;
 	onDiscardAndClose: () => void;
 	onCancel: () => void;
@@ -26,28 +56,17 @@ export function UnsavedChangesDialog({
 	const td = useScopedT("dialogs");
 	const tc = useScopedT("common");
 
-	const detail =
-		variant === "newProject"
-			? td("unsavedChanges.detailNewProject")
-			: variant === "loadProject"
-				? td("unsavedChanges.detailLoadProject")
-				: td("unsavedChanges.detail");
-	const saveLabel =
-		variant === "newProject"
-			? td("unsavedChanges.saveAndNewProject")
-			: variant === "loadProject"
-				? td("unsavedChanges.saveAndLoadProject")
-				: td("unsavedChanges.saveAndClose");
-	const discardLabel =
-		variant === "newProject"
-			? td("unsavedChanges.discardAndNewProject")
-			: variant === "loadProject"
-				? td("unsavedChanges.discardAndLoadProject")
-				: td("unsavedChanges.discardAndClose");
+	const copy = COPY[variant];
+	const detail = td(copy.detail);
+	const saveLabel = td(copy.save);
+	const discardLabel = td(copy.discard);
 
 	return (
 		<Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-			<DialogContent className="bg-[#09090b] border-white/10 rounded-2xl max-w-sm p-6 gap-0">
+			<DialogContent
+				data-testid="testId-unsaved-changes-dialog"
+				className="bg-[#09090b] border-white/10 rounded-2xl max-w-sm p-6 gap-0"
+			>
 				<DialogHeader className="mb-5">
 					<div className="flex items-center gap-3">
 						<img
