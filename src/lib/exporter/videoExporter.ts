@@ -546,6 +546,8 @@ export class VideoExporter {
 						this.config.speedRegions,
 						videoInfo.duration,
 						audioExportCodec,
+						// The recording's sound starts after the intro cards have played.
+						cardsBefore.reduce((sum, card) => sum + Math.max(0, card.durationMs), 0),
 					);
 				}
 			}

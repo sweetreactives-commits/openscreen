@@ -154,6 +154,41 @@ export function downmixPlanarChannelsForExport(
 	return output;
 }
 
+/** One silent piece of the lead-in: how many frames, and where it starts. */
+export interface SilencePiece {
+	frames: number;
+	timestampUs: number;
+}
+
+/** Encoders take audio in bites, not in one slab. */
+const SILENCE_CHUNK_FRAMES = 1024;
+
+/**
+ * Splits the silence a card's lead-in needs into encoder-sized pieces.
+ *
+ * Pure, because the interesting part is arithmetic and the fixtures in this
+ * repo have no audio track to exercise the real path with.
+ */
+export function planLeadInSilence(
+	durationUs: number,
+	sampleRate: number,
+	chunkFrames: number = SILENCE_CHUNK_FRAMES,
+): SilencePiece[] {
+	if (!(durationUs > 0) || !(sampleRate > 0) || !(chunkFrames > 0)) return [];
+
+	const totalFrames = Math.round((durationUs / 1_000_000) * sampleRate);
+	const pieces: SilencePiece[] = [];
+
+	for (let frame = 0; frame < totalFrames; frame += chunkFrames) {
+		pieces.push({
+			frames: Math.min(chunkFrames, totalFrames - frame),
+			timestampUs: Math.round((frame / sampleRate) * 1_000_000),
+		});
+	}
+
+	return pieces;
+}
+
 export class AudioProcessor {
 	private cancelled = false;
 
@@ -213,6 +248,15 @@ export class AudioProcessor {
 	 * Two modes: no speed regions uses the fast WebCodecs trim-only pipeline; speed
 	 * regions use the pitch-preserving rendered timeline pipeline.
 	 */
+	/**
+	 * How much silence the finished video opens with, in microseconds.
+	 *
+	 * Card clips before the recording add video frames but no sound, so the
+	 * recording's audio has to start that much later or it would play over the
+	 * title card and stay ahead of the picture for the whole video.
+	 */
+	private leadInUs = 0;
+
 	async process(
 		demuxer: WebDemuxer,
 		muxer: VideoMuxer,
@@ -221,7 +265,10 @@ export class AudioProcessor {
 		speedRegions: SpeedRegion[] | undefined,
 		validatedDurationSec: number,
 		exportCodec: ExportAudioCodec,
+		leadInMs = 0,
 	): Promise<void> {
+		this.leadInUs = Math.max(0, Math.round(leadInMs * 1000));
+
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
 			? [...speedRegions]
@@ -364,6 +411,11 @@ export class AudioProcessor {
 
 		encoder.configure(encodeConfig);
 
+		// Real silence rather than a hole in the track: a gap before the first
+		// sample is legal in MP4 but players disagree about how to handle it, and
+		// a card that plays with nothing on the audio track is what we mean anyway.
+		this.encodeSilence(encoder, this.leadInUs, outputSampleRate, outputChannels);
+
 		for (const audioData of decodedFrames) {
 			if (this.cancelled) {
 				audioData.close();
@@ -376,7 +428,7 @@ export class AudioProcessor {
 
 			const adjusted = this.cloneForEncoding(
 				audioData,
-				Math.max(0, adjustedTimestampUs),
+				Math.max(0, adjustedTimestampUs) + this.leadInUs,
 				outputChannels,
 			);
 			audioData.close();
@@ -803,6 +855,29 @@ export class AudioProcessor {
 			timestamp: newTimestamp,
 			data: output.buffer instanceof ArrayBuffer ? output.buffer : output.slice().buffer,
 		});
+	}
+
+	/** Fills `durationUs` at the head of the track with zeroes, in encoder-sized pieces. */
+	private encodeSilence(
+		encoder: AudioEncoder,
+		durationUs: number,
+		sampleRate: number,
+		channels: number,
+	): void {
+		if (channels <= 0) return;
+
+		for (const piece of planLeadInSilence(durationUs, sampleRate)) {
+			const silence = new AudioData({
+				format: "f32-planar",
+				sampleRate,
+				numberOfFrames: piece.frames,
+				numberOfChannels: channels,
+				timestamp: piece.timestampUs,
+				data: new Float32Array(piece.frames * channels),
+			});
+			encoder.encode(silence);
+			silence.close();
+		}
 	}
 
 	private isInTrimRegion(timestampMs: number, trims: TrimRegion[]): boolean {
