@@ -4,7 +4,7 @@ import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { projectMediaList } from "@/lib/recordingSession";
-import { SINGLE_CLIP_ID } from "@/lib/sequence";
+import { type SequenceClipInput, SINGLE_CLIP_ID } from "@/lib/sequence";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
@@ -99,11 +99,39 @@ export const CLIP_EDITOR_KEYS = [
 export type ClipEditorState = Pick<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
 export type SequenceEditorState = Omit<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
 
-/** One recording in the project, with the edits that address it. */
+/**
+ * One clip in the project, with the edits that address it.
+ *
+ * Two kinds. A **recording** carries `media` and takes its length from the video
+ * file, so nothing about its duration is stored. A **card** carries no media at
+ * all — a title slide, an intro or an outro — and so has to say how long it
+ * lasts. Its annotations are ordinary annotations, which is the point: text,
+ * fonts and animations already work, and a card needs no machinery of its own.
+ */
 export interface ProjectClipData {
 	id: string;
-	media: ProjectMedia;
+	/** null on a card clip: there is no recording behind it. */
+	media: ProjectMedia | null;
+	/** Cards only. A recording's length comes from its file, not from the project. */
+	durationMs?: number;
 	editor: ClipEditorState;
+}
+
+/** True for a clip with no recording behind it — a title card, intro or outro. */
+export function isCardClip(clip: Pick<ProjectClipData, "media">): boolean {
+	return clip.media === null || clip.media === undefined;
+}
+
+/** How long a card lasts when the user has not said. */
+export const DEFAULT_CARD_DURATION_MS = 3_000;
+
+/** A card is at least long enough to read, and never long enough to be a mistake. */
+export const MIN_CARD_DURATION_MS = 200;
+export const MAX_CARD_DURATION_MS = 60_000;
+
+export function normalizeCardDurationMs(value: unknown): number {
+	if (!isFiniteNumber(value)) return DEFAULT_CARD_DURATION_MS;
+	return clamp(Math.round(value), MIN_CARD_DURATION_MS, MAX_CARD_DURATION_MS);
 }
 
 export interface ProjectEditorState {
@@ -268,6 +296,34 @@ export function deriveNextId(prefix: string, ids: string[]): number {
 		return Number.isFinite(value) ? Math.max(acc, value) : acc;
 	}, 0);
 	return max + 1;
+}
+
+/**
+ * Turns the project's clips into what the sequence needs to lay them out.
+ *
+ * A card knows its own length; a recording's comes from its video file, which
+ * the project never stores and only the loaded editor knows — hence the lookup
+ * rather than a field. A recording whose duration is not known yet contributes
+ * nothing, which is what the timeline should show while it loads.
+ */
+export function sequenceInputsFromClips(
+	clips: readonly ProjectClipData[],
+	recordingDurationMs: (clip: ProjectClipData) => number,
+): SequenceClipInput[] {
+	return clips.map((clip) => {
+		if (isCardClip(clip)) {
+			// A card has nothing to trim or speed up: it is one still moment.
+			return { id: clip.id, sourceDurationMs: normalizeCardDurationMs(clip.durationMs) };
+		}
+
+		const durationMs = recordingDurationMs(clip);
+		return {
+			id: clip.id,
+			sourceDurationMs: isFiniteNumber(durationMs) ? Math.max(0, durationMs) : 0,
+			trimRegions: clip.editor?.trimRegions,
+			speedRegions: clip.editor?.speedRegions,
+		};
+	});
 }
 
 export function validateProjectData(candidate: unknown): candidate is EditorProjectData {

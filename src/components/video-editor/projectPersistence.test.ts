@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { projectMediaList } from "@/lib/recordingSession";
+import { computeSequence } from "@/lib/sequence";
 import { DEFAULT_CURSOR_SETTINGS } from "./editorDefaults";
 import {
 	CLIP_EDITOR_KEYS,
 	createProjectData,
 	createProjectSnapshot,
+	DEFAULT_CARD_DURATION_MS,
 	hasProjectUnsavedChanges,
+	isCardClip,
+	MAX_CARD_DURATION_MS,
+	MIN_CARD_DURATION_MS,
+	normalizeCardDurationMs,
 	normalizeProjectEditor,
 	PROJECT_VERSION,
+	type ProjectClipData,
 	resolveProjectEditor,
 	resolveProjectMedia,
+	sequenceInputsFromClips,
 	splitEditorState,
 	validateProjectData,
 } from "./projectPersistence";
@@ -475,5 +483,98 @@ describe("project format v4: clips", () => {
 			editor: {},
 		};
 		expect(projectMediaList(broken)).toEqual([media]);
+	});
+});
+
+describe("card clips", () => {
+	const media = { screenVideoPath: "/tmp/screen.webm" };
+	const noRecordings = () => 0;
+
+	const card = (id: string, durationMs?: number): ProjectClipData => ({
+		id,
+		media: null,
+		...(durationMs === undefined ? {} : { durationMs }),
+		editor: {} as never,
+	});
+
+	const recording = (id: string): ProjectClipData => ({
+		id,
+		media,
+		editor: {} as never,
+	});
+
+	it("tells a card apart from a recording", () => {
+		expect(isCardClip(card("intro"))).toBe(true);
+		expect(isCardClip(recording("clip-1"))).toBe(false);
+	});
+
+	it("gives a card its stored length, and a default when it has none", () => {
+		const [stored, defaulted] = sequenceInputsFromClips(
+			[card("intro", 5_000), card("outro")],
+			noRecordings,
+		);
+
+		expect(stored.sourceDurationMs).toBe(5_000);
+		expect(defaulted.sourceDurationMs).toBe(DEFAULT_CARD_DURATION_MS);
+	});
+
+	it("refuses a card length that is absurd rather than trusting the file", () => {
+		expect(normalizeCardDurationMs(-1)).toBe(MIN_CARD_DURATION_MS);
+		expect(normalizeCardDurationMs(10 * 60 * 1000)).toBe(MAX_CARD_DURATION_MS);
+		expect(normalizeCardDurationMs("soon" as never)).toBe(DEFAULT_CARD_DURATION_MS);
+		expect(normalizeCardDurationMs(Number.NaN)).toBe(DEFAULT_CARD_DURATION_MS);
+	});
+
+	it("asks the caller how long a recording is, since the project never stores it", () => {
+		const durations = sequenceInputsFromClips([recording("clip-1")], () => 8_000);
+		expect(durations[0].sourceDurationMs).toBe(8_000);
+	});
+
+	it("treats a recording of unknown length as empty, not as broken", () => {
+		const [input] = sequenceInputsFromClips([recording("clip-1")], () => Number.NaN);
+		expect(input.sourceDurationMs).toBe(0);
+	});
+
+	it("lays an intro card, a recording and an outro card end to end", () => {
+		const clips = [card("intro", 2_000), recording("clip-1"), card("outro", 1_000)];
+		const sequence = computeSequence(sequenceInputsFromClips(clips, () => 10_000));
+
+		expect(sequence.clips.map((c) => [c.outStartMs, c.outEndMs])).toEqual([
+			[0, 2_000],
+			[2_000, 12_000],
+			[12_000, 13_000],
+		]);
+		expect(sequence.durationMs).toBe(13_000);
+	});
+
+	it("carries a recording's trims into the sequence, and a card has none to carry", () => {
+		const edited: ProjectClipData = {
+			id: "clip-1",
+			media,
+			editor: { trimRegions: [{ id: "trim-1", startMs: 0, endMs: 4_000 }] } as never,
+		};
+		const [cardInput, recordingInput] = sequenceInputsFromClips(
+			[card("intro", 1_000), edited],
+			() => 10_000,
+		);
+
+		expect(cardInput.trimRegions).toBeUndefined();
+		expect(recordingInput.trimRegions).toHaveLength(1);
+
+		// The trim shortens the recording, so the whole video is 4s shorter.
+		const sequence = computeSequence([cardInput, recordingInput]);
+		expect(sequence.durationMs).toBe(7_000);
+	});
+
+	it("leaves cards out of the media list, so nothing tries to open them", () => {
+		const project = {
+			version: 4,
+			clips: [card("intro", 1_000), recording("clip-1")],
+			editor: {},
+		};
+
+		// This is what the main process vets, and a card has no file to vet.
+		expect(projectMediaList(project)).toEqual([media]);
+		expect(resolveProjectMedia(project)).toEqual(media);
 	});
 });
