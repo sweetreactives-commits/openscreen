@@ -4,6 +4,7 @@ import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { projectMediaList } from "@/lib/recordingSession";
+import { SINGLE_CLIP_ID } from "@/lib/sequence";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
@@ -645,15 +646,6 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				: DEFAULT_GIF_SETTINGS.sizePreset,
 	};
 }
-
-/**
- * Id of the clip a single-recording project writes.
- *
- * Fixed rather than generated: the unsaved-changes check compares serialised
- * projects, so a fresh id on every save would report the project as dirty the
- * moment it was written.
- */
-export const SINGLE_CLIP_ID = "clip-1";
 
 export function createProjectData(
 	media: ProjectMedia,

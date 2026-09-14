@@ -7,7 +7,8 @@ import type {
 import { getZoomScale } from "@/components/video-editor/types";
 import type { EditorState } from "@/hooks/useEditorHistory";
 import type { ProjectMedia } from "@/lib/recordingSession";
-import { computeOutputDurationMs, computeTimeline, type KeepSegment } from "@/lib/timeline";
+import { computeSequence, SINGLE_CLIP_ID } from "@/lib/sequence";
+import type { KeepSegment } from "@/lib/timeline";
 import { UNTRUSTED_NOTICE } from "./untrusted";
 
 /**
@@ -134,7 +135,20 @@ function summarizeAnnotation(region: AnnotationRegion) {
 
 export function buildProjectSummary(input: ProjectSummaryInput): ProjectSummary {
 	const { editor, media, durationMs } = input;
-	const keepSegments = computeTimeline(durationMs, editor.trimRegions, editor.speedRegions);
+
+	// Asked of the sequence rather than of one recording's timeline. Today the
+	// project holds exactly one clip and the answer is identical either way; once
+	// it holds several, the surviving segments and the output length are questions
+	// only the sequence can answer.
+	const sequence = computeSequence([
+		{
+			id: SINGLE_CLIP_ID,
+			sourceDurationMs: durationMs,
+			trimRegions: editor.trimRegions,
+			speedRegions: editor.speedRegions,
+		},
+	]);
+	const keepSegments = sequence.clips[0]?.segments ?? [];
 
 	return {
 		open: media !== null && durationMs > 0,
@@ -151,9 +165,7 @@ export function buildProjectSummary(input: ProjectSummaryInput): ProjectSummary 
 			note: TIME_DOMAIN_NOTE,
 		},
 		output: {
-			durationMs: Math.round(
-				computeOutputDurationMs(durationMs, editor.trimRegions, editor.speedRegions),
-			),
+			durationMs: Math.round(sequence.durationMs),
 			keepSegments: keepSegments.map(roundSegment),
 		},
 		capabilities: {

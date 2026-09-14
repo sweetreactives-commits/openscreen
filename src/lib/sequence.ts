@@ -20,6 +20,15 @@ import { computeTimeline, type KeepSegment } from "@/lib/timeline";
  * See docs/architecture/multiclip.md for the whole plan this belongs to.
  */
 
+/**
+ * Id of the only clip a single-recording project has.
+ *
+ * Fixed rather than generated, because the unsaved-changes check compares
+ * serialised projects: a fresh id on every save would report a project as dirty
+ * the moment it was written.
+ */
+export const SINGLE_CLIP_ID = "clip-1";
+
 /** What a clip has to expose for the sequence to place it. */
 export interface SequenceClipInput {
 	id: string;
