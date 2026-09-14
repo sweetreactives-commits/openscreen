@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { projectMediaList } from "@/lib/recordingSession";
 import { DEFAULT_CURSOR_SETTINGS } from "./editorDefaults";
 import {
+	CLIP_EDITOR_KEYS,
 	createProjectData,
 	createProjectSnapshot,
 	hasProjectUnsavedChanges,
 	normalizeProjectEditor,
 	PROJECT_VERSION,
+	resolveProjectEditor,
 	resolveProjectMedia,
+	splitEditorState,
 	validateProjectData,
 } from "./projectPersistence";
 import { MAX_CURSOR_CLICK_BOUNCE, MAX_CURSOR_SIZE, MIN_CURSOR_SIZE } from "./types";
@@ -25,7 +29,7 @@ describe("projectPersistence media compatibility", () => {
 		});
 	});
 
-	it("creates version 2 projects with explicit media", () => {
+	it("writes the current format: media lives on a clip, not at the top level", () => {
 		const project = createProjectData(
 			{
 				screenVideoPath: "/tmp/screen.webm",
@@ -58,11 +62,21 @@ describe("projectPersistence media compatibility", () => {
 		);
 
 		expect(project.version).toBe(PROJECT_VERSION);
-		expect(project.media).toEqual({
+		expect(project.clips).toHaveLength(1);
+		expect(project.clips?.[0].media).toEqual({
 			screenVideoPath: "/tmp/screen.webm",
 			webcamVideoPath: "/tmp/webcam.webm",
 		});
+		// The regions went with the clip; the look of the video stayed shared.
+		expect(project.clips?.[0].editor.zoomRegions).toEqual([]);
+		expect(project.editor.wallpaper).toBe("/wallpapers/wallpaper1.jpg");
+		expect(project.editor).not.toHaveProperty("zoomRegions");
+		// And it is still found by everything that asks a project what it points at.
 		expect(validateProjectData(project)).toBe(true);
+		expect(resolveProjectMedia(project)).toEqual({
+			screenVideoPath: "/tmp/screen.webm",
+			webcamVideoPath: "/tmp/webcam.webm",
+		});
 	});
 
 	it("normalizes webcam mask shape values safely", () => {
@@ -358,5 +372,108 @@ describe("wallpaper legacy normalization", () => {
 			wallpaper: "file:///opt/Openscreen/resources/wallpapers/wallpaper99.jpg",
 		});
 		expect(normalized.wallpaper).toBe("/wallpapers/wallpaper1.jpg");
+	});
+});
+
+describe("project format v4: clips", () => {
+	const media = { screenVideoPath: "/tmp/screen.webm" };
+
+	/** A v3 file: media at the top level, every edit in one flat editor object. */
+	const legacyV3 = {
+		version: 3,
+		media,
+		editor: {
+			wallpaper: "/wallpapers/wallpaper2.jpg",
+			padding: 42,
+			zoomRegions: [
+				{ id: "zoom-1", startMs: 0, endMs: 1_000, depth: 2, focus: { cx: 0.5, cy: 0.5 } },
+			],
+			trimRegions: [{ id: "trim-1", startMs: 2_000, endMs: 3_000 }],
+		},
+	};
+
+	it("reads a v3 project as a sequence of one clip, losing nothing", () => {
+		expect(validateProjectData(legacyV3)).toBe(true);
+		expect(resolveProjectMedia(legacyV3)).toEqual(media);
+
+		const editor = resolveProjectEditor(legacyV3);
+		expect(editor.wallpaper).toBe("/wallpapers/wallpaper2.jpg");
+		expect(editor.padding).toBe(42);
+		expect(editor.zoomRegions).toHaveLength(1);
+		expect(editor.trimRegions[0]).toMatchObject({ startMs: 2_000, endMs: 3_000 });
+	});
+
+	it("reads a v1 project, which had only a videoPath", () => {
+		const legacyV1 = { version: 1, videoPath: "/tmp/old.webm", editor: {} };
+		expect(resolveProjectMedia(legacyV1)).toEqual({ screenVideoPath: "/tmp/old.webm" });
+		expect(resolveProjectEditor(legacyV1).zoomRegions).toEqual([]);
+	});
+
+	it("survives a round trip: load a v3 file, save it, load it again", () => {
+		const loaded = resolveProjectEditor(legacyV3);
+		const saved = createProjectData(media, loaded);
+		const reloaded = resolveProjectEditor(saved);
+
+		expect(saved.version).toBe(4);
+		expect(reloaded).toEqual(loaded);
+		expect(resolveProjectMedia(saved)).toEqual(media);
+	});
+
+	it("splits the state so no key is dropped or duplicated", () => {
+		const editor = normalizeProjectEditor({});
+		const { clip, sequence } = splitEditorState(editor);
+
+		const clipKeys = Object.keys(clip);
+		const sequenceKeys = Object.keys(sequence);
+
+		expect(clipKeys.sort()).toEqual([...CLIP_EDITOR_KEYS].sort());
+		expect(clipKeys.filter((key) => sequenceKeys.includes(key))).toEqual([]);
+		expect([...clipKeys, ...sequenceKeys].sort()).toEqual(Object.keys(editor).sort());
+	});
+
+	it("keeps the clip id stable, or every save would look like a change", () => {
+		const editor = normalizeProjectEditor({});
+		const first = createProjectSnapshot(media, editor);
+		const second = createProjectSnapshot(media, editor);
+
+		expect(first).toBe(second);
+		expect(hasProjectUnsavedChanges(second, first)).toBe(false);
+	});
+
+	it("notices a real edit through the new shape", () => {
+		const baseline = createProjectSnapshot(media, normalizeProjectEditor({}));
+		const edited = createProjectSnapshot(
+			media,
+			normalizeProjectEditor({ trimRegions: [{ id: "trim-1", startMs: 0, endMs: 500 }] }),
+		);
+
+		expect(hasProjectUnsavedChanges(edited, baseline)).toBe(true);
+	});
+
+	it("reads media from every clip, so the main process can vet them all", () => {
+		const twoClips = {
+			version: 4,
+			clips: [
+				{ id: "clip-1", media, editor: {} },
+				{ id: "clip-2", media: { screenVideoPath: "/tmp/second.webm" }, editor: {} },
+			],
+			editor: {},
+		};
+
+		expect(projectMediaList(twoClips)).toEqual([media, { screenVideoPath: "/tmp/second.webm" }]);
+		// The editor still opens the first one.
+		expect(resolveProjectMedia(twoClips)).toEqual(media);
+	});
+
+	it("ignores a clip entry that carries no usable path", () => {
+		const broken = {
+			version: 4,
+			clips: [
+				{ id: "clip-1", editor: {} },
+				{ id: "clip-2", media, editor: {} },
+			],
+			editor: {},
+		};
+		expect(projectMediaList(broken)).toEqual([media]);
 	});
 });

@@ -3,7 +3,7 @@ import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
 import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
-import { normalizeProjectMedia } from "@/lib/recordingSession";
+import { projectMediaList } from "@/lib/recordingSession";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
@@ -71,9 +71,39 @@ function normalizeWallpaperValue(value: string): string {
  * 1 → single `videoPath`. 2 → explicit `media`. 3 → cursor look (size, smoothing,
  * motion blur, click bounce/ripple, clipping, visibility) moved into the project;
  * before that only `cursorTheme` was saved and the rest reset on every load.
- * Older projects load fine — `normalizeProjectEditor` fills the gaps with defaults.
+ * 4 → `clips`: the project became a sequence, so media and the edits that address
+ * it moved into a per-clip entry and the look of the finished video stayed at the
+ * top level. See docs/architecture/multiclip.md.
+ *
+ * Older projects load fine — `normalizeProjectEditor` fills the gaps with
+ * defaults, and anything before 4 reads as a sequence of exactly one clip.
  */
-export const PROJECT_VERSION = 3;
+export const PROJECT_VERSION = 4;
+
+/**
+ * The parts of the editor state that address one clip's own recording.
+ *
+ * These are in source time and belong to the clip: move it, and they move with
+ * it. Everything else describes the finished video and is shared by every clip —
+ * a demo whose background changes at a cut looks broken, not edited.
+ */
+export const CLIP_EDITOR_KEYS = [
+	"cropRegion",
+	"zoomRegions",
+	"trimRegions",
+	"speedRegions",
+	"annotationRegions",
+] as const;
+
+export type ClipEditorState = Pick<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
+export type SequenceEditorState = Omit<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
+
+/** One recording in the project, with the edits that address it. */
+export interface ProjectClipData {
+	id: string;
+	media: ProjectMedia;
+	editor: ClipEditorState;
+}
 
 export interface ProjectEditorState {
 	wallpaper: string;
@@ -114,9 +144,32 @@ export interface ProjectEditorState {
 
 export interface EditorProjectData {
 	version: number;
+	/** Since v4. Older files carry `media` or `videoPath` instead. */
+	clips?: ProjectClipData[];
 	media?: ProjectMedia;
-	editor: ProjectEditorState;
+	/**
+	 * From v4 this holds only the settings shared by the whole video; a v3 file's
+	 * flat state still satisfies it, with the per-clip keys simply along for the ride
+	 * until `resolveProjectEditor` sorts them out.
+	 */
+	editor: SequenceEditorState;
 	videoPath?: string;
+}
+
+/** Splits the flat editor state the app works in into its per-clip half and the rest. */
+export function splitEditorState(editor: ProjectEditorState): {
+	clip: ClipEditorState;
+	sequence: SequenceEditorState;
+} {
+	const clip = {} as Record<string, unknown>;
+	const sequence = { ...editor } as Record<string, unknown>;
+
+	for (const key of CLIP_EDITOR_KEYS) {
+		clip[key] = editor[key];
+		delete sequence[key];
+	}
+
+	return { clip: clip as ClipEditorState, sequence: sequence as SequenceEditorState };
 }
 
 /** Unknown or missing origins read as "manual", which is how old projects load. */
@@ -228,16 +281,23 @@ export function validateProjectData(candidate: unknown): candidate is EditorProj
 export function resolveProjectMedia(
 	candidate: Partial<EditorProjectData> | { media?: unknown; videoPath?: unknown },
 ): ProjectMedia | null {
-	const media = normalizeProjectMedia(candidate.media);
-	if (media) {
-		return media;
-	}
+	// The editor still shows one recording at a time, so this answers with the
+	// first clip. Reading every format lives in projectMediaList, which the main
+	// process shares — the two must never disagree about what a project points at.
+	return projectMediaList(candidate)[0] ?? null;
+}
 
-	if (typeof candidate.videoPath === "string" && candidate.videoPath.trim()) {
-		return { screenVideoPath: candidate.videoPath };
-	}
-
-	return null;
+/**
+ * The flat editor state the app works in, assembled from however the file stored it.
+ *
+ * From v4 that means folding the open clip's own edits back together with the
+ * settings that belong to the whole video; older files already have them in one
+ * object.
+ */
+export function resolveProjectEditor(candidate: Partial<EditorProjectData>): ProjectEditorState {
+	const sequence = (candidate.editor ?? {}) as Partial<ProjectEditorState>;
+	const clipEditor = candidate.clips?.[0]?.editor;
+	return normalizeProjectEditor(clipEditor ? { ...sequence, ...clipEditor } : sequence);
 }
 
 export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): ProjectEditorState {
@@ -586,14 +646,24 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 	};
 }
 
+/**
+ * Id of the clip a single-recording project writes.
+ *
+ * Fixed rather than generated: the unsaved-changes check compares serialised
+ * projects, so a fresh id on every save would report the project as dirty the
+ * moment it was written.
+ */
+export const SINGLE_CLIP_ID = "clip-1";
+
 export function createProjectData(
 	media: ProjectMedia,
 	editor: ProjectEditorState,
 ): EditorProjectData {
+	const { clip, sequence } = splitEditorState(editor);
 	return {
 		version: PROJECT_VERSION,
-		media,
-		editor,
+		clips: [{ id: SINGLE_CLIP_ID, media, editor: clip }],
+		editor: sequence,
 	};
 }
 

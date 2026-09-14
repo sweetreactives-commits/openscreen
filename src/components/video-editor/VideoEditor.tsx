@@ -86,8 +86,8 @@ import {
 	deriveNextId,
 	fromFileUrl,
 	hasProjectUnsavedChanges,
-	normalizeProjectEditor,
 	type ProjectEditorState,
+	resolveProjectEditor,
 	resolveProjectMedia,
 	toFileUrl,
 	validateProjectData,
@@ -389,7 +389,7 @@ export default function VideoEditor() {
 			const sourcePath = projectMedia.screenVideoPath;
 			const webcamSourcePath = projectMedia.webcamVideoPath ?? null;
 			const projectCursorCaptureMode = projectMedia.cursorCaptureMode ?? null;
-			const normalizedEditor = normalizeProjectEditor(project.editor);
+			const normalizedEditor = resolveProjectEditor(project);
 			const inferredDurationMs = Math.max(
 				0,
 				...normalizedEditor.zoomRegions.map((region) => region.endMs),

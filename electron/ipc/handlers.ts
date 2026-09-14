@@ -21,9 +21,9 @@ import type { NativeWindowsRecordingRequest } from "../../src/lib/nativeWindowsR
 import {
 	type CursorCaptureMode,
 	normalizeCursorCaptureMode,
-	normalizeProjectMedia,
 	normalizeRecordingSession,
 	type ProjectMedia,
+	projectMediaList,
 	type RecordedVideoAssetInput,
 	type RecordingSession,
 	type StoreRecordedSessionInput,
@@ -300,14 +300,18 @@ async function getApprovedProjectSession(
 		return null;
 	}
 
-	const rawProject = project as { media?: unknown; videoPath?: unknown };
-	const media: ProjectMedia | null =
-		normalizeProjectMedia(rawProject.media) ??
+	const rawProject = project as { videoPath?: unknown };
+	// Every clip the project references, in every format it has ever used. A v1
+	// file's bare videoPath has no `media` object to normalise, so it keeps its
+	// own path-fixing branch.
+	const clips: ProjectMedia[] = projectMediaList(project);
+	const media: ProjectMedia | undefined =
+		clips[0] ??
 		(typeof rawProject.videoPath === "string"
 			? {
 					screenVideoPath: normalizeVideoSourcePath(rawProject.videoPath) ?? rawProject.videoPath,
 				}
-			: null);
+			: undefined);
 
 	if (!media) {
 		return null;
@@ -318,6 +322,21 @@ async function getApprovedProjectSession(
 	const trustedDirs = [RECORDINGS_DIR];
 	if (projectFilePath) {
 		trustedDirs.push(path.dirname(path.resolve(projectFilePath)));
+	}
+
+	// Every clip is checked, not just the one handed back as the session: a
+	// multi-clip project must not smuggle an arbitrary path in behind a first
+	// clip that looks respectable.
+	for (const clip of clips.slice(1)) {
+		if (!(await approveReadableVideoPath(clip.screenVideoPath, trustedDirs))) {
+			throw new Error("Project references an invalid or unsupported screen video path");
+		}
+		if (
+			clip.webcamVideoPath &&
+			!(await approveReadableVideoPath(clip.webcamVideoPath, trustedDirs))
+		) {
+			throw new Error("Project references an invalid or unsupported webcam video path");
+		}
 	}
 
 	const screenVideoPath = await approveReadableVideoPath(media.screenVideoPath, trustedDirs);
