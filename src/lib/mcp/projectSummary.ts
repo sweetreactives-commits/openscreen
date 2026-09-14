@@ -7,7 +7,7 @@ import type {
 import { getZoomScale } from "@/components/video-editor/types";
 import type { EditorState } from "@/hooks/useEditorHistory";
 import type { ProjectMedia } from "@/lib/recordingSession";
-import { computeOutputDurationMs, computeTimeline, type KeepSegment } from "./timeline";
+import { computeOutputDurationMs, computeTimeline, type KeepSegment } from "@/lib/timeline";
 import { UNTRUSTED_NOTICE } from "./untrusted";
 
 /**

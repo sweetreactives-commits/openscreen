@@ -1,6 +1,6 @@
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
-import { computeTimeline } from "@/lib/mcp/timeline";
+import { computeTimeline } from "@/lib/timeline";
 
 const SOURCE_LOAD_TIMEOUT_MS = 60_000;
 const EPSILON_SEC = 0.001;
@@ -636,7 +636,7 @@ export class StreamingVideoDecoder {
 	/**
 	 * The source spans this export will actually render, with their playback speeds.
 	 *
-	 * Delegates to the shared timeline math in `@/lib/mcp/timeline` so the exporter and
+	 * Delegates to the shared timeline math in `@/lib/timeline` so the exporter and
 	 * the MCP layer can never disagree about what a trim means. Works in milliseconds
 	 * there (the project's unit) and converts at this boundary, since the decoder
 	 * reasons in seconds.
