@@ -198,3 +198,51 @@ describe("GifExporter with several recordings (real browser)", () => {
 		expect(Math.max(...progress.map((p) => p.percentage))).toBeLessThanOrEqual(100);
 	});
 });
+
+describe("GifExporter worker cleanup (real browser)", () => {
+	it("ends every gif.js worker once the GIF is done", async () => {
+		// Track the workers gif.js starts, and whether each one is ever terminated.
+		const OriginalWorker = window.Worker;
+		const started: { url: string; terminated: boolean }[] = [];
+		class TrackedWorker extends OriginalWorker {
+			constructor(url: string | URL, options?: WorkerOptions) {
+				super(url, options);
+				const record = { url: String(url), terminated: false };
+				started.push(record);
+				const terminate = this.terminate.bind(this);
+				this.terminate = () => {
+					record.terminated = true;
+					terminate();
+				};
+			}
+		}
+		window.Worker = TrackedWorker as typeof Worker;
+
+		try {
+			const result = await new GifExporter({
+				videoUrl: sampleVideoUrl,
+				width: 320,
+				height: 180,
+				frameRate: 15,
+				loop: true,
+				sizePreset: "medium",
+				wallpaper: "#1a1a2e",
+				zoomRegions: [],
+				showShadow: false,
+				shadowIntensity: 0,
+				showBlur: false,
+				cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+			}).export();
+			expect(result.success, result.error).toBe(true);
+		} finally {
+			window.Worker = OriginalWorker;
+		}
+
+		const gifWorkers = started.filter((worker) => worker.url.includes("gif.worker"));
+		expect(gifWorkers.length, "gif.js started no workers to check").toBeGreaterThan(0);
+		expect(
+			gifWorkers.filter((worker) => !worker.terminated),
+			"workers left running after the export finished",
+		).toEqual([]);
+	});
+});

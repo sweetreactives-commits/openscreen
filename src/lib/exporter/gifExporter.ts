@@ -473,6 +473,26 @@ export class GifExporter {
 			this.renderer = null;
 		}
 
+		if (this.gif) {
+			terminateGifWorkers(this.gif);
+		}
 		this.gif = null;
 	}
+}
+
+/**
+ * Ends every worker gif.js started.
+ *
+ * gif.js returns workers to a free pool when a frame is done and never terminates
+ * that pool — abort() only ends the busy ones, and there is no API for the rest.
+ * Each GIF export therefore left up to eight idle worker threads alive for the life
+ * of the page: an editor session that exported a handful of GIFs carried dozens.
+ */
+function terminateGifWorkers(gif: GIF): void {
+	const pool = gif as unknown as { freeWorkers?: Worker[]; activeWorkers?: Worker[] };
+	for (const worker of [...(pool.freeWorkers ?? []), ...(pool.activeWorkers ?? [])]) {
+		worker.terminate();
+	}
+	if (pool.freeWorkers) pool.freeWorkers.length = 0;
+	if (pool.activeWorkers) pool.activeWorkers.length = 0;
 }
