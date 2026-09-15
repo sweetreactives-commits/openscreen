@@ -75,6 +75,12 @@
 		"editRecording": "Редактировать эту запись (история отмены начнётся заново)",
 		"editingRecording": "Редактируется сейчас",
 		"removeRecording": "Удалить запись",
-		"addVideoFailed": "Не удалось добавить это видео"
+		"addVideoFailed": "Не удалось добавить это видео",
+		"watchSequence": "Смотреть всё видео",
+		"sequenceClose": "Вернуться к правке",
+		"sequenceEditRecording": "Править эту запись",
+		"sequencePlay": "Воспроизвести",
+		"sequencePause": "Пауза",
+		"sequencePreparing": "Готовим видео…"
 	}
 }

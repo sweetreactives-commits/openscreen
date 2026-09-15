@@ -75,6 +75,12 @@
 		"editRecording": "Chỉnh sửa bản ghi này (lịch sử hoàn tác bắt đầu lại)",
 		"editingRecording": "Đang chỉnh sửa",
 		"removeRecording": "Xoá bản ghi",
-		"addVideoFailed": "Không thể thêm video đó"
+		"addVideoFailed": "Không thể thêm video đó",
+		"watchSequence": "Xem toàn bộ video",
+		"sequenceClose": "Quay lại chỉnh sửa",
+		"sequenceEditRecording": "Chỉnh sửa bản ghi này",
+		"sequencePlay": "Phát",
+		"sequencePause": "Tạm dừng",
+		"sequencePreparing": "Đang chuẩn bị video…"
 	}
 }

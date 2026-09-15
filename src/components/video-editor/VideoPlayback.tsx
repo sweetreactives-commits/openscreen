@@ -92,7 +92,7 @@ import {
 	type MotionBlurState,
 } from "./videoPlayback/zoomTransform";
 
-interface VideoPlaybackProps {
+export interface VideoPlaybackProps {
 	videoPath: string;
 	webcamVideoPath?: string;
 	webcamLayoutPreset: WebcamLayoutPreset;
@@ -151,6 +151,14 @@ interface VideoPlaybackProps {
 	// Render the selected zoom at the playhead even while paused, so the editor can
 	// preview the effect without leaving the focus-edit view.
 	isPreviewingZoom?: boolean;
+	/**
+	 * Frame shape to use under the "native" aspect ratio instead of this video's own.
+	 * A sequence shows every clip in the frame the export will write, which is not
+	 * necessarily the shape of the clip on screen.
+	 */
+	nativeAspectRatio?: number;
+	/** Called once the video has a frame to show and the canvas is ready to draw it. */
+	onVideoReady?: () => void;
 }
 
 export interface VideoPlaybackRef {
@@ -277,6 +285,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
 			isPreviewingZoom = false,
+			nativeAspectRatio,
+			onVideoReady,
 		},
 		ref,
 	) => {
@@ -361,6 +371,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const motionBlurStateRef = useRef<MotionBlurState>(createMotionBlurState());
 		const onTimeUpdateRef = useRef(onTimeUpdate);
 		const onPlayStateChangeRef = useRef(onPlayStateChange);
+		const onVideoReadyRef = useRef(onVideoReady);
 		const videoReadyRafRef = useRef<number | null>(null);
 		const smoothedAutoFocusRef = useRef<ZoomFocus | null>(null);
 		const prevTargetProgressRef = useRef(0);
@@ -894,6 +905,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			onPlayStateChangeRef.current = onPlayStateChange;
 		}, [onPlayStateChange]);
+
+		useEffect(() => {
+			onVideoReadyRef.current = onVideoReady;
+		}, [onVideoReady]);
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
@@ -1783,6 +1798,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 		}, [pixiReady, videoReady]);
 
+		useEffect(() => {
+			if (pixiReady && videoReady) onVideoReadyRef.current?.();
+		}, [pixiReady, videoReady]);
+
 		const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
 			const video = e.currentTarget;
 			enableAllPreviewAudioTracks(video);
@@ -1933,11 +1952,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					aspectRatio: formatAspectRatioForCSS(
 						aspectRatio,
 						aspectRatio === "native"
-							? getNativeAspectRatioValue(
-									lockedVideoDimensionsRef.current?.width || DEFAULT_SOURCE_DIMENSIONS.width,
-									lockedVideoDimensionsRef.current?.height || DEFAULT_SOURCE_DIMENSIONS.height,
-									cropRegion,
-								)
+							? (nativeAspectRatio ??
+									getNativeAspectRatioValue(
+										lockedVideoDimensionsRef.current?.width || DEFAULT_SOURCE_DIMENSIONS.width,
+										lockedVideoDimensionsRef.current?.height || DEFAULT_SOURCE_DIMENSIONS.height,
+										cropRegion,
+									))
 							: undefined,
 					),
 				}}

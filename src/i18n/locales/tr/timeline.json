@@ -75,6 +75,12 @@
 		"editRecording": "Bu kaydı düzenle (geri alma geçmişi baştan başlar)",
 		"editingRecording": "Düzenleniyor",
 		"removeRecording": "Kaydı kaldır",
-		"addVideoFailed": "Bu video eklenemedi"
+		"addVideoFailed": "Bu video eklenemedi",
+		"watchSequence": "Videonun tamamını izle",
+		"sequenceClose": "Düzenlemeye dön",
+		"sequenceEditRecording": "Bu kaydı düzenle",
+		"sequencePlay": "Oynat",
+		"sequencePause": "Duraklat",
+		"sequencePreparing": "Video hazırlanıyor…"
 	}
 }

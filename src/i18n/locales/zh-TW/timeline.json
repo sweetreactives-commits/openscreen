@@ -75,6 +75,12 @@
 		"editRecording": "編輯此錄製（復原記錄將重新開始）",
 		"editingRecording": "正在編輯",
 		"removeRecording": "刪除錄製",
-		"addVideoFailed": "無法新增該影片"
+		"addVideoFailed": "無法新增該影片",
+		"watchSequence": "觀看完整影片",
+		"sequenceClose": "返回編輯",
+		"sequenceEditRecording": "編輯此錄製",
+		"sequencePlay": "播放",
+		"sequencePause": "暫停",
+		"sequencePreparing": "正在準備影片…"
 	}
 }

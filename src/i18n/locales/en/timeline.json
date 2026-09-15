@@ -75,6 +75,12 @@
 		"editRecording": "Edit this recording (starts a new undo history)",
 		"editingRecording": "Being edited",
 		"removeRecording": "Remove recording",
-		"addVideoFailed": "Could not add that video"
+		"addVideoFailed": "Could not add that video",
+		"watchSequence": "Watch the whole video",
+		"sequenceClose": "Back to editing",
+		"sequenceEditRecording": "Edit this recording",
+		"sequencePlay": "Play",
+		"sequencePause": "Pause",
+		"sequencePreparing": "Preparing the video…"
 	}
 }

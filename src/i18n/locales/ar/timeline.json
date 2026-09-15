@@ -75,6 +75,12 @@
 		"editRecording": "تحرير هذا التسجيل (يبدأ سجل التراجع من جديد)",
 		"editingRecording": "قيد التحرير",
 		"removeRecording": "حذف التسجيل",
-		"addVideoFailed": "تعذّرت إضافة هذا الفيديو"
+		"addVideoFailed": "تعذّرت إضافة هذا الفيديو",
+		"watchSequence": "مشاهدة الفيديو كاملًا",
+		"sequenceClose": "العودة إلى التحرير",
+		"sequenceEditRecording": "تحرير هذا التسجيل",
+		"sequencePlay": "تشغيل",
+		"sequencePause": "إيقاف مؤقت",
+		"sequencePreparing": "جارٍ تجهيز الفيديو…"
 	}
 }

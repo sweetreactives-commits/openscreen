@@ -75,6 +75,12 @@
 		"editRecording": "Modifica questa registrazione (la cronologia di annullamento riparte da capo)",
 		"editingRecording": "In modifica",
 		"removeRecording": "Rimuovi registrazione",
-		"addVideoFailed": "Impossibile aggiungere quel video"
+		"addVideoFailed": "Impossibile aggiungere quel video",
+		"watchSequence": "Guarda tutto il video",
+		"sequenceClose": "Torna alla modifica",
+		"sequenceEditRecording": "Modifica questa registrazione",
+		"sequencePlay": "Riproduci",
+		"sequencePause": "Pausa",
+		"sequencePreparing": "Preparazione del video…"
 	}
 }

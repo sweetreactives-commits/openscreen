@@ -67,7 +67,7 @@ import {
 } from "@/lib/userPreferences";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import { nativeBridgeClient, useCursorRecordingData, useCursorTelemetry } from "@/native";
-import type { NativePlatform } from "@/native/contracts";
+import type { CursorRecordingData, NativePlatform } from "@/native/contracts";
 import {
 	getAspectRatioValue,
 	getNativeAspectRatioValue,
@@ -110,12 +110,14 @@ import {
 	toFileUrl,
 	validateProjectData,
 } from "./projectPersistence";
+import { type SequenceEntry, SequencePreview } from "./SequencePreview";
 import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
 import { buildAutoZoomSuggestions } from "./timeline/zoomSuggestionUtils";
 import {
 	type AnnotationRegion,
 	type BlurData,
+	type CursorTelemetryPoint,
 	clampFocusToDepth,
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
@@ -302,6 +304,15 @@ export default function VideoEditor() {
 	// Which card the strip has open. Selection is not undoable, like every other
 	// selection in the editor.
 	const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+	const [sequencePreviewOpen, setSequencePreviewOpen] = useState(false);
+	const [sequenceEntries, setSequenceEntries] = useState<SequenceEntry[] | null>(null);
+	const sequencePreviewOpenRef = useRef(false);
+	sequencePreviewOpenRef.current = sequencePreviewOpen;
+	// Cursor files of recordings that are not open never change, and the sequence is
+	// rebuilt on every edit while it is being watched: read each file once.
+	const inactiveCursorCacheRef = useRef(
+		new Map<string, Promise<[CursorTelemetryPoint[], CursorRecordingData | null]>>(),
+	);
 
 	const [confirmDialogVariant, setConfirmDialogVariant] = useState<
 		"newProject" | "loadProject" | "newRecording" | null
@@ -1645,6 +1656,10 @@ export default function VideoEditor() {
 				return;
 			}
 
+			// The sequence preview has its own clock and handles its own keys; stepping
+			// or starting the editor's hidden player underneath would only make noise.
+			if (sequencePreviewOpenRef.current) return;
+
 			// Frame-step navigation (arrow keys, no modifiers)
 			if (
 				(e.key === "ArrowLeft" || e.key === "ArrowRight") &&
@@ -1923,43 +1938,46 @@ export default function VideoEditor() {
 	);
 
 	/**
-	 * Everything to export, in order, once the project holds more than one recording.
+	 * Every clip in order, as both the export and the sequence preview need it.
 	 *
 	 * The open recording contributes what the editor already has loaded. Every other
-	 * recording's cursor data is fetched now, because nothing else has loaded it, and
-	 * is gated exactly like the open one's — a take whose cursor is baked into the
-	 * picture gets no overlay, or it would show two cursors.
-	 *
-	 * With a single recording this returns undefined and the export keeps its classic
-	 * shape, which is the only one the source-copy fast path accepts.
+	 * recording's cursor data is read from its files (once), because nothing else has
+	 * loaded it, and is gated exactly like the open one's — a take whose cursor is
+	 * baked into the picture gets no overlay, or it would show two cursors.
 	 */
-	const buildExportSequence = useCallback(async (): Promise<ExportSequenceClip[] | undefined> => {
-		if (recordingEntries(clips).length < 2 || !videoPath) return undefined;
+	const buildSequenceEntries = useCallback(async (): Promise<SequenceEntry[]> => {
+		if (!videoPath) return [];
 
-		const sequence: ExportSequenceClip[] = [];
+		const sequence: SequenceEntry[] = [];
 		for (const clip of clips) {
 			if (clip.kind === "card") {
 				sequence.push({
-					kind: "card",
-					card: { durationMs: normalizeCardDurationMs(clip.durationMs), title: clip.title },
+					id: clip.id,
+					clip: {
+						kind: "card",
+						card: { durationMs: normalizeCardDurationMs(clip.durationMs), title: clip.title },
+					},
 				});
 				continue;
 			}
 
 			if (clip.id === activeClipId) {
 				sequence.push({
-					kind: "recording",
-					recording: {
-						videoUrl: videoPath,
-						webcamVideoUrl: webcamVideoPath || undefined,
-						zoomRegions,
-						trimRegions,
-						speedRegions,
-						annotationRegions,
-						cropRegion,
-						cursorRecordingData: hasEditableCursorRecording ? cursorRecordingData : null,
-						cursorTelemetry,
-						cursorClickTimestamps,
+					id: clip.id,
+					clip: {
+						kind: "recording",
+						recording: {
+							videoUrl: videoPath,
+							webcamVideoUrl: webcamVideoPath || undefined,
+							zoomRegions,
+							trimRegions,
+							speedRegions,
+							annotationRegions,
+							cropRegion,
+							cursorRecordingData: hasEditableCursorRecording ? cursorRecordingData : null,
+							cursorTelemetry,
+							cursorClickTimestamps,
+						},
 					},
 				});
 				continue;
@@ -1967,10 +1985,15 @@ export default function VideoEditor() {
 
 			if (!clip.media || !clip.editor) continue;
 			const sourcePath = clip.media.screenVideoPath;
-			const [telemetry, recordingData] = await Promise.all([
-				nativeBridgeClient.cursor.getTelemetry(sourcePath).catch(() => []),
-				nativeBridgeClient.cursor.getRecordingData(sourcePath).catch(() => null),
-			]);
+			let cursorFiles = inactiveCursorCacheRef.current.get(sourcePath);
+			if (!cursorFiles) {
+				cursorFiles = Promise.all([
+					nativeBridgeClient.cursor.getTelemetry(sourcePath).catch(() => []),
+					nativeBridgeClient.cursor.getRecordingData(sourcePath).catch(() => null),
+				]);
+				inactiveCursorCacheRef.current.set(sourcePath, cursorFiles);
+			}
+			const [telemetry, recordingData] = await cursorFiles;
 			const overlay = hasEditableCursorOverlay(
 				clip.media.cursorCaptureMode,
 				nativePlatform,
@@ -1978,20 +2001,23 @@ export default function VideoEditor() {
 			);
 
 			sequence.push({
-				kind: "recording",
-				recording: {
-					videoUrl: toFileUrl(sourcePath),
-					webcamVideoUrl: clip.media.webcamVideoPath
-						? toFileUrl(clip.media.webcamVideoPath)
-						: undefined,
-					zoomRegions: clip.editor.zoomRegions,
-					trimRegions: clip.editor.trimRegions,
-					speedRegions: clip.editor.speedRegions,
-					annotationRegions: clip.editor.annotationRegions,
-					cropRegion: clip.editor.cropRegion,
-					cursorRecordingData: overlay ? recordingData : null,
-					cursorTelemetry: telemetry,
-					cursorClickTimestamps: clickTimestampsFrom(recordingData, telemetry),
+				id: clip.id,
+				clip: {
+					kind: "recording",
+					recording: {
+						videoUrl: toFileUrl(sourcePath),
+						webcamVideoUrl: clip.media.webcamVideoPath
+							? toFileUrl(clip.media.webcamVideoPath)
+							: undefined,
+						zoomRegions: clip.editor.zoomRegions,
+						trimRegions: clip.editor.trimRegions,
+						speedRegions: clip.editor.speedRegions,
+						annotationRegions: clip.editor.annotationRegions,
+						cropRegion: clip.editor.cropRegion,
+						cursorRecordingData: overlay ? recordingData : null,
+						cursorTelemetry: telemetry,
+						cursorClickTimestamps: clickTimestampsFrom(recordingData, telemetry),
+					},
 				},
 			});
 		}
@@ -2012,6 +2038,44 @@ export default function VideoEditor() {
 		cursorClickTimestamps,
 		nativePlatform,
 	]);
+
+	/**
+	 * What to export once the project holds more than one recording.
+	 *
+	 * With a single recording this returns undefined and the export keeps its classic
+	 * shape, which is the only one the source-copy fast path accepts.
+	 */
+	const buildExportSequence = useCallback(async (): Promise<ExportSequenceClip[] | undefined> => {
+		if (recordingEntries(clips).length < 2 || !videoPath) return undefined;
+		return (await buildSequenceEntries()).map((entry) => entry.clip);
+	}, [clips, videoPath, buildSequenceEntries]);
+
+	// While the sequence is being watched it follows every edit, so what plays is
+	// always what would be exported.
+	useEffect(() => {
+		if (!sequencePreviewOpen) {
+			setSequenceEntries(null);
+			return;
+		}
+		let cancelled = false;
+		void buildSequenceEntries().then((entries) => {
+			if (!cancelled) setSequenceEntries(entries);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [sequencePreviewOpen, buildSequenceEntries]);
+
+	const openSequencePreview = useCallback(() => {
+		try {
+			videoPlaybackRef.current?.pause();
+		} catch {
+			// no-op
+		}
+		setSequencePreviewOpen(true);
+	}, []);
+
+	const closeSequencePreview = useCallback(() => setSequencePreviewOpen(false), []);
 
 	// The exporter is told only "these stills come first, these come last" — it has
 	// no business knowing about the project's clip model. Splitting at the recording
@@ -2069,6 +2133,7 @@ export default function VideoEditor() {
 			// unsaved export in memory suggests the same name the user just saw.
 			const targetFileName = lastPathSegment(targetPath) || `export-${Date.now()}`;
 
+			setSequencePreviewOpen(false);
 			setIsExporting(true);
 			setExportProgress(null);
 			setExportError(null);
@@ -3011,6 +3076,53 @@ export default function VideoEditor() {
 												/>
 											</div>
 										</div>
+										{sequencePreviewOpen && (
+											<SequencePreview
+												entries={sequenceEntries}
+												activeClipId={activeClipId}
+												activeDurationMs={duration * 1000}
+												frameAspectRatio={
+													aspectRatio === "native"
+														? getNativeAspectRatioValue(
+																videoPlaybackRef.current?.video?.videoWidth ||
+																	DEFAULT_SOURCE_DIMENSIONS.width,
+																videoPlaybackRef.current?.video?.videoHeight ||
+																	DEFAULT_SOURCE_DIMENSIONS.height,
+																cropRegion,
+															)
+														: getAspectRatioValue(aspectRatio)
+												}
+												look={{
+													wallpaper,
+													aspectRatio,
+													webcamLayoutPreset,
+													webcamMaskShape,
+													webcamMirrored,
+													webcamReactiveZoom,
+													webcamSizePreset,
+													webcamPosition,
+													showShadow: shadowIntensity > 0,
+													shadowIntensity,
+													showBlur,
+													motionBlurAmount,
+													borderRadius,
+													padding,
+													showCursor,
+													cursorSize,
+													cursorSmoothing,
+													cursorMotionBlur,
+													cursorClickBounce,
+													cursorClickRipple,
+													cursorClipToBounds,
+													cursorTheme,
+												}}
+												onClose={closeSequencePreview}
+												onEditRecording={(id) => {
+													setSequencePreviewOpen(false);
+													handleActivateRecording(id);
+												}}
+											/>
+										)}
 										{/* Playback controls */}
 										<div className="w-full flex justify-center items-center h-14 flex-shrink-0 px-4 py-2">
 											<div className="w-full max-w-[760px]">
@@ -3240,6 +3352,7 @@ export default function VideoEditor() {
 									onAddVideo={handleAddVideoClip}
 									onActivateRecording={handleActivateRecording}
 									onRemoveRecording={handleRemoveRecording}
+									onWatchSequence={openSequencePreview}
 								/>
 								<TimelineEditor
 									videoDuration={duration}

@@ -75,6 +75,12 @@
 		"editRecording": "Editar esta grabación (el historial de deshacer empieza de nuevo)",
 		"editingRecording": "En edición",
 		"removeRecording": "Eliminar grabación",
-		"addVideoFailed": "No se pudo añadir ese vídeo"
+		"addVideoFailed": "No se pudo añadir ese vídeo",
+		"watchSequence": "Ver el vídeo completo",
+		"sequenceClose": "Volver a la edición",
+		"sequenceEditRecording": "Editar esta grabación",
+		"sequencePlay": "Reproducir",
+		"sequencePause": "Pausa",
+		"sequencePreparing": "Preparando el vídeo…"
 	}
 }

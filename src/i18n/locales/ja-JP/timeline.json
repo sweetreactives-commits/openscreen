@@ -75,6 +75,12 @@
 		"editRecording": "この録画を編集（元に戻す履歴は最初からになります）",
 		"editingRecording": "編集中",
 		"removeRecording": "録画を削除",
-		"addVideoFailed": "その動画を追加できませんでした"
+		"addVideoFailed": "その動画を追加できませんでした",
+		"watchSequence": "動画全体を再生",
+		"sequenceClose": "編集に戻る",
+		"sequenceEditRecording": "この録画を編集",
+		"sequencePlay": "再生",
+		"sequencePause": "一時停止",
+		"sequencePreparing": "動画を準備しています…"
 	}
 }

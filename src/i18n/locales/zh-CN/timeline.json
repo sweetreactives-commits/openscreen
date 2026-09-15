@@ -75,6 +75,12 @@
 		"editRecording": "编辑此录制（撤销历史将重新开始）",
 		"editingRecording": "正在编辑",
 		"removeRecording": "删除录制",
-		"addVideoFailed": "无法添加该视频"
+		"addVideoFailed": "无法添加该视频",
+		"watchSequence": "观看完整视频",
+		"sequenceClose": "返回编辑",
+		"sequenceEditRecording": "编辑此录制",
+		"sequencePlay": "播放",
+		"sequencePause": "暂停",
+		"sequencePreparing": "正在准备视频…"
 	}
 }

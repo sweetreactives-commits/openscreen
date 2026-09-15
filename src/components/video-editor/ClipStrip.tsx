@@ -1,4 +1,13 @@
-import { ChevronLeft, ChevronRight, Clapperboard, FilePlus, Plus, Type, X } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	Clapperboard,
+	FilePlus,
+	MonitorPlay,
+	Plus,
+	Type,
+	X,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useScopedT } from "@/contexts/I18nContext";
@@ -17,11 +26,10 @@ import {
  * Recordings sit in the same strip. The one being edited is marked; clicking
  * another opens it for editing instead.
  *
- * Deliberately not on the timeline's own axis. That axis is the recording's
- * clock, and a card sits outside it — putting the two on one ruler is the
- * sequence-wide preview work of stage 6. Until then this shows the order, which
- * is what a card is actually about, and the timeline below keeps showing the
- * recording's own time.
+ * Deliberately not on the timeline's own axis. That axis is the open recording's
+ * clock, where its edits are made, and a card sits outside it. This shows the
+ * order, which is what a card is actually about; the whole sequence on one ruler
+ * is what "watch the whole video" opens, read-only.
  */
 
 interface ClipStripProps {
@@ -41,6 +49,8 @@ interface ClipStripProps {
 	onAddVideo: () => void;
 	onActivateRecording: (id: string) => void;
 	onRemoveRecording: (id: string) => void;
+	/** Opens the read-only preview of the whole sequence. */
+	onWatchSequence: () => void;
 }
 
 /** What the card will look like, drawn by the same code the exporter uses. */
@@ -79,6 +89,7 @@ export function ClipStrip({
 	onAddVideo,
 	onActivateRecording,
 	onRemoveRecording,
+	onWatchSequence,
 }: ClipStripProps) {
 	const t = useScopedT("timeline");
 	const recordingCount = clips.filter((clip) => clip.kind === "recording").length;
@@ -91,6 +102,19 @@ export function ClipStrip({
 	return (
 		<div className="border-b border-white/10 bg-white/[0.02]">
 			<div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1.5">
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={onWatchSequence}
+					disabled={clips.length < 2}
+					title={t("clips.watchSequence")}
+					className="h-7 shrink-0 gap-1 text-xs"
+					data-testid="testId-watch-sequence"
+				>
+					<MonitorPlay className="h-3.5 w-3.5" />
+					{t("clips.watchSequence")}
+				</Button>
+
 				<Button
 					variant="ghost"
 					size="sm"
