@@ -70,6 +70,11 @@
 		"duration": "Duration — {{seconds}} s",
 		"remove": "Remove card",
 		"moveEarlier": "Move earlier",
-		"moveLater": "Move later"
+		"moveLater": "Move later",
+		"addVideo": "Add video",
+		"editRecording": "Edit this recording (starts a new undo history)",
+		"editingRecording": "Being edited",
+		"removeRecording": "Remove recording",
+		"addVideoFailed": "Could not add that video"
 	}
 }

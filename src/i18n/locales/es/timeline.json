@@ -70,6 +70,11 @@
 		"duration": "Duración — {{seconds}} s",
 		"remove": "Eliminar tarjeta",
 		"moveEarlier": "Mover antes",
-		"moveLater": "Mover después"
+		"moveLater": "Mover después",
+		"addVideo": "Añadir vídeo",
+		"editRecording": "Editar esta grabación (el historial de deshacer empieza de nuevo)",
+		"editingRecording": "En edición",
+		"removeRecording": "Eliminar grabación",
+		"addVideoFailed": "No se pudo añadir ese vídeo"
 	}
 }

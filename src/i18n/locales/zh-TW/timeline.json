@@ -70,6 +70,11 @@
 		"duration": "長度 — {{seconds}} 秒",
 		"remove": "刪除卡片",
 		"moveEarlier": "前移",
-		"moveLater": "後移"
+		"moveLater": "後移",
+		"addVideo": "新增影片",
+		"editRecording": "編輯此錄製（復原記錄將重新開始）",
+		"editingRecording": "正在編輯",
+		"removeRecording": "刪除錄製",
+		"addVideoFailed": "無法新增該影片"
 	}
 }

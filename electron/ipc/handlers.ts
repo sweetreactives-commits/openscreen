@@ -41,6 +41,7 @@ import { createCursorRecordingSession } from "../native-bridge/cursor/recording/
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
+import { planClipImport } from "./clipImport";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
 
@@ -2463,6 +2464,60 @@ export function registerIpcHandlers(
 				message: "Failed to save exported video",
 				error: String(error),
 			};
+		}
+	});
+
+	/**
+	 * Picks a video to add to the open project as another clip.
+	 *
+	 * Separate from open-video-file-picker on purpose. That one starts a fresh
+	 * editing session, so it forgets the current project path — which is what
+	 * in-place saving checks against, and adding a clip must not turn the next save
+	 * into "Save As". And it copies a file from outside the recordings folder in,
+	 * because a reopened project only trusts that folder and its own.
+	 */
+	ipcMain.handle("pick-video-clip", async () => {
+		try {
+			const dialogOptions = buildDialogOptions(
+				{
+					title: mainT("dialogs", "fileDialogs.selectVideo"),
+					defaultPath: RECORDINGS_DIR,
+					filters: [
+						{
+							name: mainT("dialogs", "fileDialogs.videoFiles"),
+							extensions: ["webm", "mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "ts"],
+						},
+					],
+					properties: ["openFile"],
+				},
+				getMainWindow(),
+			);
+			const result = await dialog.showOpenDialog(dialogOptions);
+			if (result.canceled || result.filePaths.length === 0) {
+				return { success: false, canceled: true };
+			}
+
+			const picked = result.filePaths[0];
+			if (!hasAllowedImportVideoExtension(picked)) {
+				return { success: false, message: "Selected file is not a supported video" };
+			}
+			const stats = await fs.stat(picked);
+			if (!stats.isFile()) {
+				return { success: false, message: "Selected path is not a file" };
+			}
+
+			const plan = planClipImport(picked, RECORDINGS_DIR);
+			if (plan.copy) {
+				await fs.mkdir(RECORDINGS_DIR, { recursive: true });
+				// COPYFILE_EXCL: never overwrite something already sitting at that name.
+				await fs.copyFile(picked, plan.target, fsConstants.COPYFILE_EXCL);
+			}
+			approveFilePath(plan.target);
+
+			return { success: true, path: plan.target, copied: plan.copy };
+		} catch (error) {
+			console.error("Failed to add a video clip:", error);
+			return { success: false, message: "Failed to add the video", error: String(error) };
 		}
 	});
 

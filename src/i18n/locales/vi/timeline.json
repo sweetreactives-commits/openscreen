@@ -70,6 +70,11 @@
 		"duration": "Thời lượng — {{seconds}} giây",
 		"remove": "Xoá thẻ",
 		"moveEarlier": "Chuyển lên trước",
-		"moveLater": "Chuyển xuống sau"
+		"moveLater": "Chuyển xuống sau",
+		"addVideo": "Thêm video",
+		"editRecording": "Chỉnh sửa bản ghi này (lịch sử hoàn tác bắt đầu lại)",
+		"editingRecording": "Đang chỉnh sửa",
+		"removeRecording": "Xoá bản ghi",
+		"addVideoFailed": "Không thể thêm video đó"
 	}
 }

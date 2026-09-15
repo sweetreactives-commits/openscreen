@@ -70,6 +70,11 @@
 		"duration": "Durata — {{seconds}} s",
 		"remove": "Rimuovi scheda",
 		"moveEarlier": "Sposta prima",
-		"moveLater": "Sposta dopo"
+		"moveLater": "Sposta dopo",
+		"addVideo": "Aggiungi video",
+		"editRecording": "Modifica questa registrazione (la cronologia di annullamento riparte da capo)",
+		"editingRecording": "In modifica",
+		"removeRecording": "Rimuovi registrazione",
+		"addVideoFailed": "Impossibile aggiungere quel video"
 	}
 }

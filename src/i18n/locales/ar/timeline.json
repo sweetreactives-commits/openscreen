@@ -70,6 +70,11 @@
 		"duration": "المدة — {{seconds}} ث",
 		"remove": "حذف البطاقة",
 		"moveEarlier": "تحريك للأمام",
-		"moveLater": "تحريك للخلف"
+		"moveLater": "تحريك للخلف",
+		"addVideo": "إضافة فيديو",
+		"editRecording": "تحرير هذا التسجيل (يبدأ سجل التراجع من جديد)",
+		"editingRecording": "قيد التحرير",
+		"removeRecording": "حذف التسجيل",
+		"addVideoFailed": "تعذّرت إضافة هذا الفيديو"
 	}
 }

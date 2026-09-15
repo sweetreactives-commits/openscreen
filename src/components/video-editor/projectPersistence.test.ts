@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { projectMediaList } from "@/lib/recordingSession";
 import { computeSequence } from "@/lib/sequence";
-import { addIntroCard, addOutroCard, INITIAL_CLIPS, moveClip, updateCard } from "./clips";
+import {
+	addIntroCard,
+	addOutroCard,
+	addRecording,
+	checkoutRecording,
+	INITIAL_CLIPS,
+	moveClip,
+	updateCard,
+} from "./clips";
 import { DEFAULT_CURSOR_SETTINGS } from "./editorDefaults";
 import {
 	CLIP_EDITOR_KEYS,
@@ -758,5 +766,33 @@ describe("several recordings in one project", () => {
 
 	it("lets the main process vet every take, not only the one the editor opens", () => {
 		expect(projectMediaList(twoTakes)).toEqual([first, second]);
+	});
+});
+
+describe("switching the recording being edited", () => {
+	it("leaves the saved project byte-for-byte the same, so it is not a change", () => {
+		const takeOne = { screenVideoPath: "/rec/take-1.webm" };
+		const takeTwo = { screenVideoPath: "/rec/take-2.webm" };
+		const before = normalizeProjectEditor({
+			clips: addRecording(INITIAL_CLIPS, takeTwo),
+			activeClipId: "clip-1",
+			zoomRegions: [
+				{ id: "zoom-1", startMs: 0, endMs: 500, depth: 2, focus: { cx: 0.5, cy: 0.5 } },
+			],
+		});
+		const { clip: activeEdits } = splitEditorState(before);
+
+		const switched = checkoutRecording(before.clips, "clip-1", takeOne, activeEdits, "clip-2");
+		if (!switched) throw new Error("switch failed");
+		const after = normalizeProjectEditor({
+			...before,
+			...switched.editor,
+			clips: switched.clips,
+			activeClipId: switched.activeClipId,
+		});
+
+		expect(createProjectSnapshot(switched.media, after)).toBe(
+			createProjectSnapshot(takeOne, before),
+		);
 	});
 });

@@ -70,6 +70,11 @@
 		"duration": "長さ — {{seconds}} 秒",
 		"remove": "カードを削除",
 		"moveEarlier": "前へ移動",
-		"moveLater": "後ろへ移動"
+		"moveLater": "後ろへ移動",
+		"addVideo": "動画を追加",
+		"editRecording": "この録画を編集（元に戻す履歴は最初からになります）",
+		"editingRecording": "編集中",
+		"removeRecording": "録画を削除",
+		"addVideoFailed": "その動画を追加できませんでした"
 	}
 }

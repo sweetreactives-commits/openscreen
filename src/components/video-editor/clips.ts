@@ -1,6 +1,7 @@
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { SINGLE_CLIP_ID } from "@/lib/sequence";
 import type { ClipEditorState } from "./projectPersistence";
+import { DEFAULT_CROP_REGION } from "./types";
 
 /**
  * The project's clips as the editor holds them, and the operations on that list.
@@ -117,4 +118,92 @@ export function updateCard(
 	return clips.map((clip) =>
 		clip.id === id && clip.kind === "card" ? { ...clip, ...patch } : clip,
 	);
+}
+
+/** A recording's edits before anyone has touched it. */
+export function emptyClipEditor(): ClipEditorState {
+	return {
+		cropRegion: { ...DEFAULT_CROP_REGION },
+		zoomRegions: [],
+		trimRegions: [],
+		speedRegions: [],
+		annotationRegions: [],
+	};
+}
+
+/** A recording id nothing else in the list is using. */
+export function nextRecordingId(clips: readonly ClipEntry[]): string {
+	const taken = new Set(clips.map((clip) => clip.id));
+	for (let index = 1; ; index++) {
+		const candidate = `clip-${index}`;
+		if (!taken.has(candidate)) return candidate;
+	}
+}
+
+/**
+ * Adds a recording at the end of the project. It starts inactive, holding its own
+ * media and an untouched set of edits, so the one being edited is not disturbed.
+ */
+export function addRecording(clips: readonly ClipEntry[], media: ProjectMedia): ClipEntry[] {
+	return [
+		...clips,
+		{ id: nextRecordingId(clips), kind: "recording", media, editor: emptyClipEditor() },
+	];
+}
+
+/**
+ * Removes a recording that is not the one being edited.
+ *
+ * The active recording cannot go this way — the editor would be left showing a
+ * video that belongs to nothing — and neither can the last one, which would empty
+ * the project; that is what New Project is for.
+ */
+export function removeRecording(
+	clips: readonly ClipEntry[],
+	id: string,
+	activeClipId: string,
+): ClipEntry[] {
+	const recordings = clips.filter((clip) => clip.kind === "recording");
+	if (id === activeClipId || recordings.length < 2) return [...clips];
+	return clips.filter((clip) => !(clip.id === id && clip.kind === "recording"));
+}
+
+export interface CheckoutResult {
+	clips: ClipEntry[];
+	activeClipId: string;
+	/** The newly active recording's media, for the editor to load. */
+	media: ProjectMedia;
+	/** Its edits, for the editor's flat fields. */
+	editor: ClipEditorState;
+}
+
+/**
+ * Makes another recording the one being edited.
+ *
+ * The outgoing recording takes its media and edits into its own entry, the
+ * incoming one hands its entry's over to the editor, and nothing is kept in two
+ * places at once. Returns null when there is nothing to switch to.
+ */
+export function checkoutRecording(
+	clips: readonly ClipEntry[],
+	activeClipId: string,
+	activeMedia: ProjectMedia,
+	activeEditor: ClipEditorState,
+	targetId: string,
+): CheckoutResult | null {
+	if (targetId === activeClipId) return null;
+	const target = clips.find((clip) => clip.id === targetId && clip.kind === "recording");
+	if (!target?.media || !target.editor) return null;
+
+	const next = clips.map((clip): ClipEntry => {
+		if (clip.id === activeClipId) {
+			return { id: clip.id, kind: "recording", media: activeMedia, editor: activeEditor };
+		}
+		if (clip.id === targetId) {
+			return { id: clip.id, kind: "recording" };
+		}
+		return clip;
+	});
+
+	return { clips: next, activeClipId: targetId, media: target.media, editor: target.editor };
 }

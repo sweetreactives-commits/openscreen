@@ -70,6 +70,11 @@
 		"duration": "길이 — {{seconds}}초",
 		"remove": "카드 삭제",
 		"moveEarlier": "앞으로 이동",
-		"moveLater": "뒤로 이동"
+		"moveLater": "뒤로 이동",
+		"addVideo": "동영상 추가",
+		"editRecording": "이 녹화 편집 (실행 취소 기록이 새로 시작됩니다)",
+		"editingRecording": "편집 중",
+		"removeRecording": "녹화 삭제",
+		"addVideoFailed": "해당 동영상을 추가할 수 없습니다"
 	}
 }

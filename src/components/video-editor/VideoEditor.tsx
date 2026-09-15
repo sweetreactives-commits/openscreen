@@ -77,12 +77,15 @@ import { ClipStrip } from "./ClipStrip";
 import {
 	addIntroCard,
 	addOutroCard,
+	addRecording,
 	type ClipEntry,
+	checkoutRecording,
 	isCardEntry,
 	moveClip,
 	recordingEntries,
 	recordingIndex,
 	removeCard,
+	removeRecording,
 	updateCard,
 } from "./clips";
 import { EditorEmptyState } from "./EditorEmptyState";
@@ -337,6 +340,7 @@ export default function VideoEditor() {
 	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
+	const tTimeline = useScopedT("timeline");
 	const ts = useScopedT("settings");
 	const availableLocales = getAvailableLocales();
 
@@ -1806,6 +1810,118 @@ export default function VideoEditor() {
 		}
 	}, [unsavedExport, handleExportSaved]);
 
+	/** Adds a video file as another recording at the end, without switching to it. */
+	const handleAddVideoClip = useCallback(async () => {
+		const result = await window.electronAPI.pickVideoClip();
+		if (result.canceled) return;
+		const picked = result.path;
+		if (!result.success || !picked) {
+			toast.error(tTimeline("clips.addVideoFailed"));
+			return;
+		}
+		pushState((prev) => ({ clips: addRecording(prev.clips, { screenVideoPath: picked }) }));
+	}, [pushState, tTimeline]);
+
+	const handleRemoveRecording = useCallback(
+		(id: string) => {
+			pushState((prev) => ({ clips: removeRecording(prev.clips, id, prev.activeClipId) }));
+		},
+		[pushState],
+	);
+
+	/**
+	 * Opens another recording for editing.
+	 *
+	 * This starts a fresh undo history, the same as opening a project does. The
+	 * video on screen lives outside the history, so undo that reached back past the
+	 * switch would put the previous recording's edits over this recording's video.
+	 *
+	 * It does not make the project dirty: every recording's media and edits are
+	 * written the same way whichever one is being edited, so the saved file is
+	 * unchanged by switching.
+	 */
+	const handleActivateRecording = useCallback(
+		(id: string) => {
+			const media = currentProjectMedia;
+			if (!media) return;
+			const current = editorStateRef.current;
+			const result = checkoutRecording(
+				current.clips,
+				current.activeClipId,
+				media,
+				{
+					cropRegion: current.cropRegion,
+					zoomRegions: current.zoomRegions,
+					trimRegions: current.trimRegions,
+					speedRegions: current.speedRegions,
+					annotationRegions: current.annotationRegions,
+				},
+				id,
+			);
+			if (!result) return;
+
+			try {
+				videoPlaybackRef.current?.pause();
+			} catch {
+				// no-op
+			}
+			setIsPlaying(false);
+			setCurrentTime(0);
+			const inferredDurationMs = Math.max(
+				0,
+				...result.editor.zoomRegions.map((region) => region.endMs),
+				...result.editor.trimRegions.map((region) => region.endMs),
+				...result.editor.speedRegions.map((region) => region.endMs),
+				...result.editor.annotationRegions.map((region) => region.endMs),
+			);
+			setDuration(inferredDurationMs > 0 ? inferredDurationMs / 1000 : 0);
+
+			const { screenVideoPath, webcamVideoPath: webcamSource } = result.media;
+			setVideoSourcePath(screenVideoPath);
+			setVideoPath(toFileUrl(screenVideoPath));
+			setWebcamVideoSourcePath(webcamSource ?? null);
+			setWebcamVideoPath(webcamSource ? toFileUrl(webcamSource) : null);
+			setRecordingCursorCaptureMode(result.media.cursorCaptureMode ?? null);
+			// Its zooms are whatever it already has, even none: never auto-suggest over them.
+			autoProcessedSourceRef.current = screenVideoPath;
+
+			resetState({
+				...current,
+				...result.editor,
+				clips: result.clips,
+				activeClipId: result.activeClipId,
+			});
+
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
+			setSelectedCardId(null);
+
+			nextZoomIdRef.current = deriveNextId(
+				"zoom",
+				result.editor.zoomRegions.map((region) => region.id),
+			);
+			nextTrimIdRef.current = deriveNextId(
+				"trim",
+				result.editor.trimRegions.map((region) => region.id),
+			);
+			nextSpeedIdRef.current = deriveNextId(
+				"speed",
+				result.editor.speedRegions.map((region) => region.id),
+			);
+			nextAnnotationIdRef.current = deriveNextId(
+				"annotation",
+				result.editor.annotationRegions.map((region) => region.id),
+			);
+			nextAnnotationZIndexRef.current =
+				result.editor.annotationRegions.reduce((max, region) => Math.max(max, region.zIndex), 0) +
+				1;
+		},
+		[currentProjectMedia, resetState],
+	);
+
 	/**
 	 * Everything to export, in order, once the project holds more than one recording.
 	 *
@@ -3119,6 +3235,11 @@ export default function VideoEditor() {
 									onMoveClip={handleMoveClip}
 									onUpdateCard={handleUpdateCard}
 									onCommitCard={commitState}
+									activeClipId={activeClipId}
+									activeRecordingPath={currentProjectMedia?.screenVideoPath ?? null}
+									onAddVideo={handleAddVideoClip}
+									onActivateRecording={handleActivateRecording}
+									onRemoveRecording={handleRemoveRecording}
 								/>
 								<TimelineEditor
 									videoDuration={duration}

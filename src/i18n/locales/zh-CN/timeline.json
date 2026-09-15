@@ -70,6 +70,11 @@
 		"duration": "时长 — {{seconds}} 秒",
 		"remove": "删除卡片",
 		"moveEarlier": "前移",
-		"moveLater": "后移"
+		"moveLater": "后移",
+		"addVideo": "添加视频",
+		"editRecording": "编辑此录制（撤销历史将重新开始）",
+		"editingRecording": "正在编辑",
+		"removeRecording": "删除录制",
+		"addVideoFailed": "无法添加该视频"
 	}
 }

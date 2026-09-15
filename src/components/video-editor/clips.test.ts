@@ -3,12 +3,16 @@ import {
 	addCard,
 	addIntroCard,
 	addOutroCard,
+	addRecording,
 	type ClipEntry,
+	checkoutRecording,
+	emptyClipEditor,
 	INITIAL_CLIPS,
 	moveClip,
 	nextCardId,
 	recordingIndex,
 	removeCard,
+	removeRecording,
 	updateCard,
 } from "./clips";
 
@@ -85,5 +89,86 @@ describe("clip list", () => {
 		moveClip(clips, "clip-1", 1);
 		removeCard(clips, "clip-1");
 		expect(clips).toEqual([recording]);
+	});
+});
+
+describe("several recordings", () => {
+	const takeTwo = { screenVideoPath: "/rec/take-2.webm" };
+	const takeOneMedia = { screenVideoPath: "/rec/take-1.webm" };
+
+	it("adds a recording at the end, inactive and untouched", () => {
+		const clips = addRecording([recording], takeTwo);
+
+		expect(ids(clips)).toEqual(["clip-1", "clip-2"]);
+		expect(clips[1]).toMatchObject({ kind: "recording", media: takeTwo });
+		expect(clips[1].editor?.zoomRegions).toEqual([]);
+		// The recording being edited is left exactly as it was.
+		expect(clips[0]).toBe(recording);
+	});
+
+	it("gives every added recording its own editor state, not a shared one", () => {
+		const clips = addRecording(addRecording([recording], takeTwo), takeTwo);
+		expect(clips[1].editor).not.toBe(clips[2].editor);
+		expect(clips[1].editor?.cropRegion).not.toBe(clips[2].editor?.cropRegion);
+	});
+
+	it("will not remove the recording being edited, or the only one", () => {
+		const two = addRecording([recording], takeTwo);
+		expect(removeRecording(two, "clip-1", "clip-1")).toEqual(two);
+		expect(removeRecording([recording], "clip-1", "other")).toEqual([recording]);
+	});
+
+	it("removes another recording and leaves cards alone", () => {
+		const clips = addRecording(addOutroCard([recording]), takeTwo);
+		expect(ids(removeRecording(clips, "clip-2", "clip-1"))).toEqual(["clip-1", "card-1"]);
+	});
+
+	it("switches recordings without keeping anything in two places", () => {
+		const clips = addRecording([recording], takeTwo);
+		const activeEditor = { ...emptyClipEditor(), trimRegions: [{ id: "t", startMs: 0, endMs: 5 }] };
+
+		const result = checkoutRecording(clips, "clip-1", takeOneMedia, activeEditor, "clip-2");
+		expect(result).not.toBeNull();
+		if (!result) return;
+
+		expect(result.activeClipId).toBe("clip-2");
+		expect(result.media).toEqual(takeTwo);
+		// The outgoing take keeps its media and its trim.
+		expect(result.clips[0]).toEqual({
+			id: "clip-1",
+			kind: "recording",
+			media: takeOneMedia,
+			editor: activeEditor,
+		});
+		// The incoming one hands everything to the editor and holds nothing itself.
+		expect(result.clips[1]).toEqual({ id: "clip-2", kind: "recording" });
+	});
+
+	it("round-trips: switching away and back restores the first take's edits", () => {
+		const clips = addRecording([recording], takeTwo);
+		const firstEdits = { ...emptyClipEditor(), trimRegions: [{ id: "t", startMs: 0, endMs: 5 }] };
+
+		const away = checkoutRecording(clips, "clip-1", takeOneMedia, firstEdits, "clip-2");
+		if (!away) throw new Error("switch failed");
+		const back = checkoutRecording(
+			away.clips,
+			away.activeClipId,
+			away.media,
+			away.editor,
+			"clip-1",
+		);
+		if (!back) throw new Error("switch back failed");
+
+		expect(back.media).toEqual(takeOneMedia);
+		expect(back.editor).toEqual(firstEdits);
+		expect(back.clips[1]).toMatchObject({ id: "clip-2", media: takeTwo });
+	});
+
+	it("has nothing to switch to when the target is active, a card, or missing", () => {
+		const clips = addRecording(addIntroCard([recording]), takeTwo);
+		const editor = emptyClipEditor();
+		expect(checkoutRecording(clips, "clip-1", takeOneMedia, editor, "clip-1")).toBeNull();
+		expect(checkoutRecording(clips, "clip-1", takeOneMedia, editor, "card-1")).toBeNull();
+		expect(checkoutRecording(clips, "clip-1", takeOneMedia, editor, "ghost")).toBeNull();
 	});
 });

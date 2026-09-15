@@ -70,6 +70,11 @@
 		"duration": "Durée — {{seconds}} s",
 		"remove": "Supprimer la carte",
 		"moveEarlier": "Déplacer avant",
-		"moveLater": "Déplacer après"
+		"moveLater": "Déplacer après",
+		"addVideo": "Ajouter une vidéo",
+		"editRecording": "Modifier cet enregistrement (l'historique d'annulation repart de zéro)",
+		"editingRecording": "En cours de modification",
+		"removeRecording": "Supprimer l'enregistrement",
+		"addVideoFailed": "Impossible d'ajouter cette vidéo"
 	}
 }

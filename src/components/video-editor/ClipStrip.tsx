@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, Clapperboard, Plus, Type, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clapperboard, FilePlus, Plus, Type, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useScopedT } from "@/contexts/I18nContext";
 import { drawCardFrame } from "@/lib/cardFrame";
+import { lastPathSegment } from "@/lib/mcp/walkthrough";
 import type { ClipEntry } from "./clips";
 import {
 	DEFAULT_CARD_DURATION_MS,
@@ -13,9 +14,12 @@ import {
 /**
  * The project's clips as a strip, and the editor for the selected card.
  *
+ * Recordings sit in the same strip. The one being edited is marked; clicking
+ * another opens it for editing instead.
+ *
  * Deliberately not on the timeline's own axis. That axis is the recording's
  * clock, and a card sits outside it — putting the two on one ruler is the
- * sequence-wide preview work of stage 5. Until then this shows the order, which
+ * sequence-wide preview work of stage 6. Until then this shows the order, which
  * is what a card is actually about, and the timeline below keeps showing the
  * recording's own time.
  */
@@ -30,6 +34,13 @@ interface ClipStripProps {
 	onMoveClip: (id: string, toIndex: number) => void;
 	onUpdateCard: (id: string, patch: { title?: string; durationMs?: number }) => void;
 	onCommitCard: () => void;
+	/** The recording being edited. */
+	activeClipId: string;
+	/** Its file, for its label: the active entry carries no media of its own. */
+	activeRecordingPath: string | null;
+	onAddVideo: () => void;
+	onActivateRecording: (id: string) => void;
+	onRemoveRecording: (id: string) => void;
 }
 
 /** What the card will look like, drawn by the same code the exporter uses. */
@@ -63,8 +74,18 @@ export function ClipStrip({
 	onMoveClip,
 	onUpdateCard,
 	onCommitCard,
+	activeClipId,
+	activeRecordingPath,
+	onAddVideo,
+	onActivateRecording,
+	onRemoveRecording,
 }: ClipStripProps) {
 	const t = useScopedT("timeline");
+	const recordingCount = clips.filter((clip) => clip.kind === "recording").length;
+	const recordingLabel = (clip: ClipEntry) => {
+		const path = clip.id === activeClipId ? activeRecordingPath : clip.media?.screenVideoPath;
+		return (path && lastPathSegment(path)) || t("clips.recording");
+	};
 	const selected = clips.find((clip) => clip.id === selectedCardId && clip.kind === "card") ?? null;
 
 	return (
@@ -84,7 +105,8 @@ export function ClipStrip({
 				<div className="flex min-w-0 items-center gap-1.5">
 					{clips.map((clip, index) => {
 						const isCard = clip.kind === "card";
-						const isSelected = isCard && clip.id === selectedCardId;
+						const isActiveRecording = !isCard && clip.id === activeClipId;
+						const isSelected = (isCard && clip.id === selectedCardId) || isActiveRecording;
 
 						return (
 							<div
@@ -103,11 +125,23 @@ export function ClipStrip({
 
 								<button
 									type="button"
-									disabled={!isCard}
-									onClick={() => onSelectCard(isSelected ? null : clip.id)}
+									disabled={isActiveRecording}
+									onClick={() =>
+										isCard
+											? onSelectCard(isSelected ? null : clip.id)
+											: onActivateRecording(clip.id)
+									}
+									title={
+										isCard
+											? undefined
+											: isActiveRecording
+												? t("clips.editingRecording")
+												: t("clips.editRecording")
+									}
+									data-testid={`testId-clip-${clip.id}`}
 									className="max-w-[12rem] truncate disabled:cursor-default"
 								>
-									{isCard ? clip.title?.trim() || t("clips.untitled") : t("clips.recording")}
+									{isCard ? clip.title?.trim() || t("clips.untitled") : recordingLabel(clip)}
 								</button>
 
 								{index > 0 && (
@@ -130,6 +164,17 @@ export function ClipStrip({
 										className="opacity-50 transition-opacity hover:opacity-100"
 									>
 										<ChevronRight className="h-3.5 w-3.5" />
+									</button>
+								)}
+								{!isCard && !isActiveRecording && recordingCount > 1 && (
+									<button
+										type="button"
+										onClick={() => onRemoveRecording(clip.id)}
+										title={t("clips.removeRecording")}
+										aria-label={t("clips.removeRecording")}
+										className="opacity-50 transition-opacity hover:text-red-400 hover:opacity-100"
+									>
+										<X className="h-3.5 w-3.5" />
 									</button>
 								)}
 								{isCard && (
@@ -157,6 +202,17 @@ export function ClipStrip({
 				>
 					<Plus className="h-3.5 w-3.5" />
 					{t("clips.addOutro")}
+				</Button>
+
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={onAddVideo}
+					className="h-7 shrink-0 gap-1 text-xs"
+					data-testid="testId-add-video-clip"
+				>
+					<FilePlus className="h-3.5 w-3.5" />
+					{t("clips.addVideo")}
 				</Button>
 			</div>
 
