@@ -75,7 +75,7 @@ import {
 import { createThreeDPass, type ThreeDPass } from "./threeDPass";
 import { drawWebcamFrameImage } from "./webcamFrameDrawing";
 
-interface FrameRenderConfig {
+export interface FrameRenderConfig {
 	width: number;
 	height: number;
 	wallpaper: string;
@@ -135,6 +135,33 @@ interface LayoutCache {
 
 // Renders video frames with all effects (background, zoom, crop, blur, shadow) to an offscreen canvas for export.
 
+/** The configuration that belongs to one recording rather than to the whole video. */
+export type FrameClipContext = Pick<
+	FrameRenderConfig,
+	| "zoomRegions"
+	| "cropRegion"
+	| "cursorRecordingData"
+	| "cursorTelemetry"
+	| "cursorClickTimestamps"
+	| "videoWidth"
+	| "videoHeight"
+	| "webcamSize"
+	| "annotationRegions"
+	| "speedRegions"
+>;
+
+function initialAnimationState(): AnimationState {
+	return {
+		scale: 1,
+		focusX: DEFAULT_FOCUS.cx,
+		focusY: DEFAULT_FOCUS.cy,
+		progress: 0,
+		x: 0,
+		y: 0,
+		appliedScale: 1,
+	};
+}
+
 export class FrameRenderer {
 	private app: Application | null = null;
 	private cameraContainer: Container | null = null;
@@ -171,15 +198,43 @@ export class FrameRenderer {
 	constructor(config: FrameRenderConfig) {
 		this.config = config;
 		this.isLinux = config.platform === "linux";
-		this.animationState = {
-			scale: 1,
-			focusX: DEFAULT_FOCUS.cx,
-			focusY: DEFAULT_FOCUS.cy,
-			progress: 0,
-			x: 0,
-			y: 0,
-			appliedScale: 1,
-		};
+		this.animationState = initialAnimationState();
+	}
+
+	/**
+	 * Switches to the next recording in a sequence without rebuilding anything.
+	 *
+	 * Output size, background and the Pixi stage do not change from clip to clip,
+	 * so only the per-recording configuration is swapped. Layout is recomputed from
+	 * it on every frame anyway.
+	 */
+	setClipContext(context: FrameClipContext): void {
+		this.config = { ...this.config, ...context };
+		this.resetAccumulatedState();
+	}
+
+	/**
+	 * Forgets everything that carries over from one frame to the next.
+	 *
+	 * The zoom spring already snaps on a backward time jump, and the next clip's
+	 * clock does start again near zero — but that is not enough. Motion blur is
+	 * driven by how far the camera moved since the last frame, so the first frame
+	 * of the new clip would be measured against the last frame of the old one and
+	 * come out smeared; the auto-focus would glide from the old clip's cursor to
+	 * the new one's; and a cut that lands within the spring's 80ms window of the
+	 * previous time would carry the zoom straight through.
+	 */
+	private resetAccumulatedState(): void {
+		this.animationState = initialAnimationState();
+		this.motionBlurState = createMotionBlurState();
+		this.nativeCursorMotionBlurState = createNativeCursorMotionBlurState();
+		this.smoothedAutoFocus = null;
+		this.prevAnimationTimeMs = null;
+		this.zoomSpringState = createZoomSpringState();
+		this.prevTargetProgress = 0;
+		this.currentRotation3D = { ...DEFAULT_ROTATION_3D };
+		this.layoutCache = null;
+		this.currentVideoTime = 0;
 	}
 
 	async initialize(): Promise<void> {

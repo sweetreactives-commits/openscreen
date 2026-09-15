@@ -335,8 +335,13 @@ export class AudioProcessor {
 		return null;
 	}
 
+	/**
+	 * Picks an export codec matching a source's audio. `maxChannels` caps the
+	 * channel count, for a sequence whose takes need one layout that fits them all.
+	 */
 	static async selectSupportedExportCodecForSource(
 		demuxer: WebDemuxer,
+		maxChannels = Number.POSITIVE_INFINITY,
 	): Promise<ExportAudioCodec | null> {
 		let audioConfig: AudioDecoderConfig;
 		try {
@@ -353,7 +358,7 @@ export class AudioProcessor {
 
 		return AudioProcessor.selectSupportedExportCodec(
 			audioConfig.sampleRate || 48000,
-			audioConfig.numberOfChannels || 2,
+			Math.min(maxChannels, audioConfig.numberOfChannels || 2),
 		);
 	}
 

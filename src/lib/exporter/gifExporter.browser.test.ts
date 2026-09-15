@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sampleVideoUrl from "../../../tests/fixtures/sample.webm?url";
+import smallVideoUrl from "../../../tests/fixtures/sample-small.webm?url";
 import { BackgroundLoadError } from "../wallpaper";
 import { GifExporter } from "./gifExporter";
 import type { ExportProgress } from "./types";
@@ -156,5 +157,44 @@ describe("GifExporter with card clips (real browser)", () => {
 
 		expect(result.success, result.error).toBe(true);
 		expect(result.blob!.size).toBeGreaterThan(1024);
+	});
+});
+
+describe("GifExporter with several recordings (real browser)", () => {
+	const crop = { x: 0, y: 0, width: 1, height: 1 };
+
+	it("renders every recording and the card between them, in order", async () => {
+		const progress: ExportProgress[] = [];
+		const result = await new GifExporter({
+			videoUrl: sampleVideoUrl,
+			width: 320,
+			height: 180,
+			frameRate: 15,
+			loop: true,
+			sizePreset: "medium",
+			wallpaper: "#1a1a2e",
+			zoomRegions: [],
+			showShadow: false,
+			shadowIntensity: 0,
+			showBlur: false,
+			cropRegion: crop,
+			sequence: [
+				{
+					kind: "recording",
+					recording: { videoUrl: sampleVideoUrl, zoomRegions: [], cropRegion: crop },
+				},
+				{ kind: "card", card: { durationMs: 1_000, title: "Next" } },
+				{
+					kind: "recording",
+					recording: { videoUrl: smallVideoUrl, zoomRegions: [], cropRegion: crop },
+				},
+			],
+			onProgress: (p) => progress.push(p),
+		}).export();
+
+		expect(result.success, result.error).toBe(true);
+		// Two two-second recordings and a one-second card, at 15fps.
+		expect(progress.at(-1)?.totalFrames).toBe(75);
+		expect(Math.max(...progress.map((p) => p.percentage))).toBeLessThanOrEqual(100);
 	});
 });

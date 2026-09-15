@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	getSourceCopyFastPathBlockers,
 	isSourceCopyFastPathEligible,
+	resolveExportSequence,
 	type VideoExporterConfig,
 } from "./videoExporter";
 
@@ -117,5 +118,75 @@ describe("getSourceCopyFastPathBlockers", () => {
 				height: 1032,
 			}),
 		).toContain("output-size 1920x1080 differs from source 1920x1032");
+	});
+});
+
+describe("resolveExportSequence", () => {
+	it("describes the classic single recording as a sequence of one", () => {
+		const sequence = resolveExportSequence(createConfig({ zoomRegions: [] }));
+		expect(sequence).toHaveLength(1);
+		expect(sequence[0]).toMatchObject({
+			kind: "recording",
+			recording: { videoUrl: "recording.mp4" },
+		});
+	});
+
+	it("puts cards around the recording in the order they were given", () => {
+		const sequence = resolveExportSequence(
+			createConfig({
+				cards: {
+					before: [{ durationMs: 1_000, title: "Intro" }],
+					after: [{ durationMs: 500, title: "Bye" }],
+				},
+			}),
+		);
+		expect(sequence.map((clip) => clip.kind)).toEqual(["card", "recording", "card"]);
+	});
+
+	it("carries the recording's own edits into it, not just its file", () => {
+		const trim = { id: "trim-1", startMs: 0, endMs: 100 };
+		const [clip] = resolveExportSequence(createConfig({ trimRegions: [trim] }));
+		expect(clip.kind === "recording" && clip.recording.trimRegions).toEqual([trim]);
+	});
+
+	it("lets an explicit sequence replace the single-recording fields entirely", () => {
+		const sequence = resolveExportSequence(
+			createConfig({
+				cards: { before: [{ durationMs: 1_000 }], after: [] },
+				sequence: [
+					{
+						kind: "recording",
+						recording: {
+							videoUrl: "a.webm",
+							zoomRegions: [],
+							cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+						},
+					},
+				],
+			}),
+		);
+		expect(sequence).toHaveLength(1);
+		expect(sequence[0]).toMatchObject({ recording: { videoUrl: "a.webm" } });
+	});
+
+	it("never lets a sequence through the source-copy fast path", () => {
+		// An explicit sequence leaves the top-level edit fields empty. Judging by them
+		// would call a heavily edited sequence untouched and copy the first file.
+		const blockers = getSourceCopyFastPathBlockers(
+			createConfig({
+				sequence: [
+					{
+						kind: "recording",
+						recording: {
+							videoUrl: "a.webm",
+							zoomRegions: [],
+							cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+						},
+					},
+				],
+			}),
+			{ width: 1920, height: 1080 },
+		);
+		expect(blockers).toContain("the export is a sequence");
 	});
 });

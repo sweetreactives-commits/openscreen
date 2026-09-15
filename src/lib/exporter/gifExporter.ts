@@ -12,7 +12,13 @@ import { cardFrameCount, drawCardFrame } from "@/lib/cardFrame";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
-import { FrameRenderer } from "./frameRenderer";
+import {
+	type ExportCard,
+	type ExportRecording,
+	type ExportSequenceClip,
+	resolveExportSequence,
+} from "./exportSequence";
+import { type FrameClipContext, FrameRenderer } from "./frameRenderer";
 import { StreamingVideoDecoder } from "./streamingDecoder";
 import { TimestampedVideoFrameQueue } from "./timestampedVideoFrameQueue";
 import type {
@@ -22,7 +28,6 @@ import type {
 	GifFrameRate,
 	GifSizePreset,
 } from "./types";
-import type { ExportCard } from "./videoExporter";
 
 const GIF_WORKER_URL = new URL("gif.js/dist/gif.worker.js", import.meta.url).toString();
 
@@ -30,6 +35,8 @@ interface GifExporterConfig {
 	videoUrl: string;
 	/** Card clips flanking the recording, already split by the caller. */
 	cards?: { before: ExportCard[]; after: ExportCard[] };
+	/** Everything to render, in order; replaces the single-recording fields when present. */
+	sequence?: ExportSequenceClip[];
 	webcamVideoUrl?: string;
 	width: number;
 	height: number;
@@ -121,8 +128,8 @@ export function calculateOutputDimensions(
 
 export class GifExporter {
 	private config: GifExporterConfig;
-	private streamingDecoder: StreamingVideoDecoder | null = null;
-	private webcamDecoder: StreamingVideoDecoder | null = null;
+	/** Every decoder this export opened, so cancelling stops all of them. */
+	private decoders: StreamingVideoDecoder[] = [];
 	private renderer: FrameRenderer | null = null;
 	private gif: GIF | null = null;
 	private cancelled = false;
@@ -132,8 +139,6 @@ export class GifExporter {
 	}
 
 	async export(): Promise<ExportResult> {
-		let webcamFrameQueue: TimestampedVideoFrameQueue | null = null;
-
 		const warnings: string[] = [];
 		const onWarning = (message: string) => warnings.push(message);
 
@@ -143,27 +148,80 @@ export class GifExporter {
 			this.cleanup();
 			this.cancelled = false;
 
-			this.streamingDecoder = new StreamingVideoDecoder();
-			const videoInfo = await this.streamingDecoder.loadMetadata(this.config.videoUrl);
-			let webcamInfo: Awaited<ReturnType<StreamingVideoDecoder["loadMetadata"]>> | null = null;
-			if (this.config.webcamVideoUrl) {
-				this.webcamDecoder = new StreamingVideoDecoder();
-				webcamInfo = await this.webcamDecoder.loadMetadata(this.config.webcamVideoUrl);
+			const sequence = resolveExportSequence(this.config);
+			const frameRate = this.config.frameRate;
+
+			// Phase 1: open every recording, so the frame budget is known up front.
+			type LoadedRecording = {
+				recording: ExportRecording;
+				decoder: StreamingVideoDecoder;
+				info: Awaited<ReturnType<StreamingVideoDecoder["loadMetadata"]>>;
+				webcamDecoder: StreamingVideoDecoder | null;
+				webcamInfo: Awaited<ReturnType<StreamingVideoDecoder["loadMetadata"]>> | null;
+				frames: number;
+			};
+			const loaded = new Map<ExportSequenceClip, LoadedRecording>();
+			for (const clip of sequence) {
+				if (clip.kind !== "recording") continue;
+				const { recording } = clip;
+
+				const decoder = new StreamingVideoDecoder();
+				this.decoders.push(decoder);
+				const info = await decoder.loadMetadata(recording.videoUrl);
+
+				let webcamDecoder: StreamingVideoDecoder | null = null;
+				let webcamInfo: LoadedRecording["webcamInfo"] = null;
+				if (recording.webcamVideoUrl) {
+					webcamDecoder = new StreamingVideoDecoder();
+					this.decoders.push(webcamDecoder);
+					webcamInfo = await webcamDecoder.loadMetadata(recording.webcamVideoUrl);
+				}
+
+				const { totalFrames } = decoder.getExportMetrics(
+					frameRate,
+					recording.trimRegions,
+					recording.speedRegions,
+				);
+				loaded.set(clip, {
+					recording,
+					decoder,
+					info,
+					webcamDecoder,
+					webcamInfo,
+					frames: totalFrames,
+				});
 			}
 
-			this.renderer = new FrameRenderer({
+			const recordings = [...loaded.values()];
+			if (recordings.length === 0) {
+				throw new Error("Nothing to export: the sequence contains no recording");
+			}
+
+			const clipContext = (entry: LoadedRecording): FrameClipContext => ({
+				zoomRegions: entry.recording.zoomRegions,
+				cropRegion: entry.recording.cropRegion,
+				cursorRecordingData: entry.recording.cursorRecordingData,
+				cursorTelemetry: entry.recording.cursorTelemetry,
+				cursorClickTimestamps: entry.recording.cursorClickTimestamps,
+				videoWidth: entry.info.width,
+				videoHeight: entry.info.height,
+				webcamSize: entry.webcamInfo
+					? { width: entry.webcamInfo.width, height: entry.webcamInfo.height }
+					: null,
+				annotationRegions: entry.recording.annotationRegions,
+				speedRegions: entry.recording.speedRegions,
+			});
+
+			const renderer = new FrameRenderer({
 				width: this.config.width,
 				height: this.config.height,
 				wallpaper: this.config.wallpaper,
-				zoomRegions: this.config.zoomRegions,
 				showShadow: this.config.showShadow,
 				shadowIntensity: this.config.shadowIntensity,
 				showBlur: this.config.showBlur,
 				motionBlurAmount: this.config.motionBlurAmount,
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
-				cropRegion: this.config.cropRegion,
-				cursorRecordingData: this.config.cursorRecordingData,
 				cursorScale: this.config.cursorScale,
 				cursorSmoothing: this.config.cursorSmoothing,
 				cursorMotionBlur: this.config.cursorMotionBlur,
@@ -171,30 +229,25 @@ export class GifExporter {
 				cursorClickRipple: this.config.cursorClickRipple,
 				cursorClipToBounds: this.config.cursorClipToBounds,
 				cursorTheme: this.config.cursorTheme,
-				videoWidth: videoInfo.width,
-				videoHeight: videoInfo.height,
-				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
 				webcamMirrored: this.config.webcamMirrored,
 				webcamReactiveZoom: this.config.webcamReactiveZoom,
 				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
-				annotationRegions: this.config.annotationRegions,
-				speedRegions: this.config.speedRegions,
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
-				cursorTelemetry: this.config.cursorTelemetry,
-				cursorClickTimestamps: this.config.cursorClickTimestamps,
 				platform,
+				...clipContext(recordings[0]),
 			});
-			await this.renderer.initialize();
+			this.renderer = renderer;
+			await renderer.initialize();
 
 			// gif.js repeat: 0 = infinite loop, 1 = play once
 			const repeat = this.config.loop ? 0 : 1;
 			const cores = navigator.hardwareConcurrency || 4;
 			const WORKER_COUNT = Math.max(1, Math.min(8, cores - 1));
-			this.gif = new GIF({
+			const gif = new GIF({
 				workers: WORKER_COUNT,
 				quality: 10,
 				width: this.config.width,
@@ -205,92 +258,76 @@ export class GifExporter {
 				transparent: null,
 				dither: "FloydSteinberg",
 			});
+			this.gif = gif;
 
-			// Effective duration and frame count, excluding trim regions
-			const { effectiveDuration, totalFrames: recordingFrames } =
-				this.streamingDecoder.getExportMetrics(
-					this.config.frameRate,
-					this.config.trimRegions,
-					this.config.speedRegions,
-				);
+			// Progress counts every clip, cards included, or it would climb past 100%.
+			const totalFrames = sequence.reduce(
+				(sum, clip) =>
+					sum +
+					(clip.kind === "card"
+						? cardFrameCount(clip.card.durationMs, frameRate)
+						: (loaded.get(clip)?.frames ?? 0)),
+				0,
+			);
 
 			let frameIndex = 0;
-
 			// gif.js wants frame delay in ms
-			const frameDelay = Math.round(1000 / this.config.frameRate);
+			const frameDelay = Math.round(1000 / frameRate);
 
-			const cardsBefore = this.config.cards?.before ?? [];
-			const cardsAfter = this.config.cards?.after ?? [];
-			const countCardFrames = (cards: ExportCard[]) =>
-				cards.reduce(
-					(sum, card) => sum + cardFrameCount(card.durationMs, this.config.frameRate),
-					0,
-				);
-			// Progress has to count the cards too, or it would report past 100%.
-			const totalFrames =
-				recordingFrames + countCardFrames(cardsBefore) + countCardFrames(cardsAfter);
+			const addFrame = (canvas: HTMLCanvasElement) => {
+				gif.addFrame(canvas, { delay: frameDelay, copy: true });
+				frameIndex++;
+				this.config.onProgress?.({
+					currentFrame: frameIndex,
+					totalFrames,
+					percentage: (frameIndex / totalFrames) * 100,
+					estimatedTimeRemaining: 0,
+				});
+			};
 
 			/** Draws a card once and adds those pixels for as long as it lasts. */
-			const emitCards = async (cards: ExportCard[]) => {
-				if (cards.length === 0) return;
-
+			const emitCard = (card: ExportCard) => {
 				const cardCanvas = document.createElement("canvas");
 				cardCanvas.width = this.config.width;
 				cardCanvas.height = this.config.height;
 				const cardCtx = cardCanvas.getContext("2d");
 				if (!cardCtx) throw new Error("Could not get a 2D context to draw a card clip");
 
-				for (const card of cards) {
-					if (this.cancelled) return;
-					drawCardFrame(cardCtx, {
-						width: cardCanvas.width,
-						height: cardCanvas.height,
-						title: card.title,
-					});
-
-					const frames = cardFrameCount(card.durationMs, this.config.frameRate);
-					for (let i = 0; i < frames && !this.cancelled; i++) {
-						this.gif?.addFrame(cardCanvas, { delay: frameDelay, copy: true });
-						frameIndex++;
-						this.config.onProgress?.({
-							currentFrame: frameIndex,
-							totalFrames,
-							percentage: (frameIndex / totalFrames) * 100,
-							estimatedTimeRemaining: 0,
-						});
-					}
+				drawCardFrame(cardCtx, {
+					width: cardCanvas.width,
+					height: cardCanvas.height,
+					title: card.title,
+				});
+				const frames = cardFrameCount(card.durationMs, frameRate);
+				for (let i = 0; i < frames && !this.cancelled; i++) {
+					addFrame(cardCanvas);
 				}
 			};
 
-			console.log("[GifExporter] Original duration:", videoInfo.duration, "s");
-			console.log("[GifExporter] Effective duration:", effectiveDuration, "s");
-			console.log("[GifExporter] Total frames to export:", totalFrames);
-			console.log("[GifExporter] Frame rate:", this.config.frameRate, "FPS");
-			console.log("[GifExporter] Frame delay:", frameDelay, "ms");
-			console.log("[GifExporter] Loop:", this.config.loop ? "infinite" : "once");
-			console.log("[GifExporter] Using streaming decode (web-demuxer + VideoDecoder)");
+			/** Decodes one recording and renders it, with its webcam alongside if it has one. */
+			const renderRecording = async (entry: LoadedRecording) => {
+				renderer.setClipContext(clipContext(entry));
 
-			webcamFrameQueue = this.config.webcamVideoUrl ? new TimestampedVideoFrameQueue() : null;
-			let stopWebcamDecode = false;
-			let webcamDecodeError: Error | null = null;
-			const webcamDecodePromise =
-				this.webcamDecoder && webcamFrameQueue
-					? (() => {
-							const queue = webcamFrameQueue;
-							return this.webcamDecoder
+				let stopWebcamDecode = false;
+				let webcamDecodeError: Error | null = null;
+				const webcamDecoder = entry.webcamDecoder;
+				const webcamQueue = webcamDecoder ? new TimestampedVideoFrameQueue() : null;
+				const webcamDecodePromise =
+					webcamDecoder && webcamQueue
+						? webcamDecoder
 								.decodeAll(
-									this.config.frameRate,
-									this.config.trimRegions,
-									this.config.speedRegions,
+									frameRate,
+									entry.recording.trimRegions,
+									entry.recording.speedRegions,
 									async (webcamFrame, _exportTimestampUs, webcamSourceTimestampMs) => {
-										while (queue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
+										while (webcamQueue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
 											await new Promise((resolve) => setTimeout(resolve, 2));
 										}
 										if (this.cancelled || stopWebcamDecode) {
 											webcamFrame.close();
 											return;
 										}
-										queue.enqueue(webcamFrame, webcamSourceTimestampMs);
+										webcamQueue.enqueue(webcamFrame, webcamSourceTimestampMs);
 									},
 									onWarning,
 								)
@@ -300,103 +337,97 @@ export class GifExporter {
 								})
 								.finally(() => {
 									if (webcamDecodeError) {
-										queue.fail(webcamDecodeError);
+										webcamQueue.fail(webcamDecodeError);
 									} else {
-										queue.close();
+										webcamQueue.close();
 									}
-								});
-						})()
-					: null;
+								})
+						: null;
 
-			await emitCards(cardsBefore);
+				try {
+					// Stream decode and process frames, no seeking
+					await entry.decoder.decodeAll(
+						frameRate,
+						entry.recording.trimRegions,
+						entry.recording.speedRegions,
+						async (videoFrame, _exportTimestampUs, sourceTimestampMs) => {
+							let webcamFrame: VideoFrame | null = null;
+							try {
+								if (this.cancelled) {
+									return;
+								}
 
-			// Stream decode and process frames, no seeking
-			await this.streamingDecoder.decodeAll(
-				this.config.frameRate,
-				this.config.trimRegions,
-				this.config.speedRegions,
-				async (videoFrame, _exportTimestampUs, sourceTimestampMs) => {
-					let webcamFrame: VideoFrame | null = null;
-					try {
-						if (this.cancelled) {
-							return;
-						}
+								webcamFrame = webcamQueue ? await webcamQueue.frameAt(sourceTimestampMs) : null;
+								if (this.cancelled) {
+									return;
+								}
 
-						webcamFrame = webcamFrameQueue
-							? await webcamFrameQueue.frameAt(sourceTimestampMs)
-							: null;
-						const renderer = this.renderer;
-						if (this.cancelled || !renderer) {
-							return;
-						}
-
-						const sourceTimestampUs = sourceTimestampMs * 1000; // us
-						await renderer.renderFrame(videoFrame, sourceTimestampUs, webcamFrame);
-
-						const canvas = renderer.getCanvas();
-
-						this.gif!.addFrame(canvas, { delay: frameDelay, copy: true });
-
-						frameIndex++;
-
-						if (this.config.onProgress) {
-							this.config.onProgress({
-								currentFrame: frameIndex,
-								totalFrames,
-								percentage: (frameIndex / totalFrames) * 100,
-								estimatedTimeRemaining: 0,
-							});
-						}
-					} finally {
-						videoFrame.close();
-						webcamFrame?.close();
+								await renderer.renderFrame(videoFrame, sourceTimestampMs * 1000, webcamFrame);
+								addFrame(renderer.getCanvas());
+							} finally {
+								videoFrame.close();
+								webcamFrame?.close();
+							}
+						},
+						onWarning,
+					);
+				} finally {
+					stopWebcamDecode = true;
+					webcamQueue?.destroy();
+					webcamDecoder?.cancel();
+					if (webcamDecodePromise) {
+						await webcamDecodePromise.catch(() => undefined);
 					}
-				},
-				onWarning,
-			);
+				}
+			};
+
+			console.log("[GifExporter] Clips:", sequence.length, "recordings:", recordings.length);
+			console.log("[GifExporter] Total frames to export:", totalFrames);
+			console.log("[GifExporter] Frame rate:", frameRate, "FPS, delay", frameDelay, "ms");
+			console.log("[GifExporter] Loop:", this.config.loop ? "infinite" : "once");
+
+			// Phase 2: render the sequence in order.
+			for (const clip of sequence) {
+				if (this.cancelled) break;
+				if (clip.kind === "card") {
+					emitCard(clip.card);
+				} else {
+					const entry = loaded.get(clip);
+					if (entry) await renderRecording(entry);
+				}
+			}
 
 			if (this.cancelled) {
 				return { success: false, error: "Export cancelled" };
 			}
 
-			await emitCards(cardsAfter);
-
-			stopWebcamDecode = true;
-			webcamFrameQueue?.destroy();
-			this.webcamDecoder?.cancel();
-			await webcamDecodePromise;
-
 			// Now in the finalizing phase
-			if (this.config.onProgress) {
-				this.config.onProgress({
-					currentFrame: totalFrames,
-					totalFrames,
-					percentage: 100,
-					estimatedTimeRemaining: 0,
-					phase: "finalizing",
-				});
-			}
+			this.config.onProgress?.({
+				currentFrame: totalFrames,
+				totalFrames,
+				percentage: 100,
+				estimatedTimeRemaining: 0,
+				phase: "finalizing",
+			});
 
 			const blob = await new Promise<Blob>((resolve, _reject) => {
-				this.gif!.on("finished", (blob: Blob) => {
+				gif.on("finished", (blob: Blob) => {
 					resolve(blob);
 				});
 
-				this.gif!.on("progress", (progress: number) => {
-					if (this.config.onProgress) {
-						this.config.onProgress({
-							currentFrame: totalFrames,
-							totalFrames,
-							percentage: 100,
-							estimatedTimeRemaining: 0,
-							phase: "finalizing",
-							renderProgress: Math.round(progress * 100),
-						});
-					}
+				gif.on("progress", (progress: number) => {
+					this.config.onProgress?.({
+						currentFrame: totalFrames,
+						totalFrames,
+						percentage: 100,
+						estimatedTimeRemaining: 0,
+						phase: "finalizing",
+						renderProgress: Math.round(progress * 100),
+					});
 				});
 
 				// gif.js has no typed 'error' event; the outer try/catch handles failures
-				this.gif!.render();
+				gif.render();
 			});
 
 			return { success: true, blob, warnings: warnings.length > 0 ? warnings : undefined };
@@ -410,19 +441,13 @@ export class GifExporter {
 				error: error instanceof Error ? error.message : String(error),
 			};
 		} finally {
-			webcamFrameQueue?.destroy();
 			this.cleanup();
 		}
 	}
 
 	cancel(): void {
 		this.cancelled = true;
-		if (this.streamingDecoder) {
-			this.streamingDecoder.cancel();
-		}
-		if (this.webcamDecoder) {
-			this.webcamDecoder.cancel();
-		}
+		for (const decoder of this.decoders) decoder.cancel();
 		if (this.gif) {
 			this.gif.abort();
 		}
@@ -430,23 +455,14 @@ export class GifExporter {
 	}
 
 	private cleanup(): void {
-		if (this.streamingDecoder) {
+		for (const decoder of this.decoders) {
 			try {
-				this.streamingDecoder.destroy();
+				decoder.destroy();
 			} catch (e) {
-				console.warn("Error destroying streaming decoder:", e);
+				console.warn("Error destroying decoder:", e);
 			}
-			this.streamingDecoder = null;
 		}
-
-		if (this.webcamDecoder) {
-			try {
-				this.webcamDecoder.destroy();
-			} catch (e) {
-				console.warn("Error destroying webcam decoder:", e);
-			}
-			this.webcamDecoder = null;
-		}
+		this.decoders = [];
 
 		if (this.renderer) {
 			try {
