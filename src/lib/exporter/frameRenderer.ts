@@ -260,6 +260,12 @@ export class FrameRenderer {
 			antialias: true,
 			resolution: 1,
 			autoDensity: true,
+			// Frames are drawn by hand, one per decoded video frame. Left to its default,
+			// Pixi also starts a ticker that redraws the stage on every animation frame —
+			// wasted GPU work for the whole export, and a race: renderFrame destroys the
+			// previous frame's texture while the ticker may be mid-draw, which surfaced as
+			// "Cannot read properties of null (reading '2')" inside Pixi's filter pass.
+			autoStart: false,
 		});
 
 		this.cameraContainer = new Container();
