@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AudioProcessor, downmixPlanarChannelsForExport, planLeadInSilence } from "./audioEncoder";
+import {
+	AudioProcessor,
+	downmixPlanarChannelsForExport,
+	fitChannels,
+	placeDecodedPieces,
+} from "./audioEncoder";
 
 describe("AudioProcessor.selectSupportedExportCodec", () => {
 	afterEach(() => {
@@ -71,42 +76,82 @@ describe("downmixPlanarChannelsForExport", () => {
 	});
 });
 
-describe("planLeadInSilence", () => {
-	it("covers exactly the silence an intro card needs", () => {
-		const pieces = planLeadInSilence(3_000_000, 48_000);
-		const frames = pieces.reduce((sum, piece) => sum + piece.frames, 0);
-
-		// Three seconds at 48kHz.
-		expect(frames).toBe(144_000);
+describe("fitChannels", () => {
+	it("leaves a clip alone when it already fits the output", () => {
+		const stereo = [new Float32Array([1, 1]), new Float32Array([2, 2])];
+		expect(fitChannels(stereo, 2)).toBe(stereo);
 	});
 
-	it("lays the pieces end to end, starting at the very beginning", () => {
-		const pieces = planLeadInSilence(100_000, 48_000, 512);
-
-		expect(pieces[0].timestampUs).toBe(0);
-		let frame = 0;
-		for (const piece of pieces) {
-			expect(piece.timestampUs).toBe(Math.round((frame / 48_000) * 1_000_000));
-			frame += piece.frames;
-		}
+	it("leaves a mono clip for the assembler to spread, rather than inventing a channel", () => {
+		const mono = [new Float32Array([0.5, 0.5])];
+		expect(fitChannels(mono, 2)).toHaveLength(1);
 	});
 
-	it("never hands the encoder a piece bigger than it asked for", () => {
-		for (const piece of planLeadInSilence(3_000_000, 48_000)) {
-			expect(piece.frames).toBeLessThanOrEqual(1024);
-			expect(piece.frames).toBeGreaterThan(0);
-		}
+	it("mixes a stereo clip down into a mono output instead of keeping only the left", () => {
+		const fitted = fitChannels([new Float32Array([1, 1]), new Float32Array([0, 0])], 1);
+		expect(fitted).toHaveLength(1);
+		expect(fitted[0][0]).toBeCloseTo(0.5, 5);
 	});
 
-	it("has nothing to fill when there is no card in front", () => {
-		expect(planLeadInSilence(0, 48_000)).toEqual([]);
-		expect(planLeadInSilence(-1, 48_000)).toEqual([]);
-		expect(planLeadInSilence(3_000_000, 0)).toEqual([]);
-	});
-
-	it("scales with the sample rate rather than assuming one", () => {
-		expect(planLeadInSilence(1_000_000, 44_100).reduce((sum, piece) => sum + piece.frames, 0)).toBe(
-			44_100,
+	it("keeps the centre channel of a surround clip, where the speech is", () => {
+		// 5.1 with sound only in the centre: dropping the extra channels would silence it.
+		const frames = 4;
+		const surround = Array.from({ length: 6 }, (_, channel) =>
+			new Float32Array(frames).fill(channel === 2 ? 1 : 0),
 		);
+		const fitted = fitChannels(surround, 2);
+
+		expect(fitted).toHaveLength(2);
+		expect(fitted[0][0]).toBeGreaterThan(0);
+		expect(fitted[1][0]).toBeGreaterThan(0);
+	});
+});
+
+describe("placeDecodedPieces", () => {
+	const RATE = 1_000; // one sample per millisecond keeps the arithmetic readable
+	const piece = (timestampMs: number, values: number[]) => ({
+		timestampUs: timestampMs * 1_000,
+		planes: [new Float32Array(values)],
+	});
+
+	it("lays contiguous pieces end to end", () => {
+		const [plane] = placeDecodedPieces([piece(0, [1, 1]), piece(2, [2, 2])], RATE, 1);
+		expect(Array.from(plane)).toEqual([1, 1, 2, 2]);
+	});
+
+	it("keeps a real gap silent, so what follows does not drift earlier", () => {
+		// A stall of 10ms between the pieces.
+		const [plane] = placeDecodedPieces([piece(0, [1, 1]), piece(12, [2, 2])], RATE, 1);
+		expect(plane.length).toBe(14);
+		expect(Array.from(plane.subarray(2, 12))).toEqual(new Array(10).fill(0));
+		expect(Array.from(plane.subarray(12))).toEqual([2, 2]);
+	});
+
+	it("snaps a piece that is a sample off from rounding, rather than leaving a click", () => {
+		const [early] = placeDecodedPieces([piece(0, [1, 1]), piece(1, [2, 2])], RATE, 1);
+		expect(Array.from(early)).toEqual([1, 1, 2, 2]);
+
+		const [late] = placeDecodedPieces([piece(0, [1, 1]), piece(3, [2, 2])], RATE, 1);
+		expect(Array.from(late)).toEqual([1, 1, 2, 2]);
+	});
+
+	it("keeps a late-starting stream's lead-in as silence", () => {
+		const [plane] = placeDecodedPieces([piece(3, [1, 1])], RATE, 1);
+		expect(Array.from(plane)).toEqual([0, 0, 0, 1, 1]);
+	});
+
+	it("drops priming samples that sit before zero", () => {
+		const [plane] = placeDecodedPieces([piece(-2, [9, 9, 1, 2])], RATE, 1);
+		expect(Array.from(plane)).toEqual([1, 2]);
+	});
+
+	it("survives priming longer than the piece itself", () => {
+		const [plane] = placeDecodedPieces([piece(-10, [1, 2]), piece(0, [5])], RATE, 1);
+		expect(Array.from(plane)).toEqual([5]);
+	});
+
+	it("has nothing to place from nothing", () => {
+		expect(placeDecodedPieces([], RATE, 1)[0].length).toBe(0);
+		expect(placeDecodedPieces([], RATE, 0)).toEqual([]);
 	});
 });

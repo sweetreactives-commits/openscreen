@@ -1,5 +1,12 @@
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import {
+	type AudioPlacement,
+	applyTrimsToSamples,
+	assembleAudioTimeline,
+	type PlanarAudio,
+	planAudioChunks,
+} from "./audioTimeline";
 import type { ExportAudioMuxerCodec, VideoMuxer } from "./muxer";
 
 const AUDIO_BITRATE = 128_000;
@@ -154,39 +161,145 @@ export function downmixPlanarChannelsForExport(
 	return output;
 }
 
-/** One silent piece of the lead-in: how many frames, and where it starts. */
-export interface SilencePiece {
-	frames: number;
-	timestampUs: number;
+/** One recording's part in a sequence's audio. Cards have no entry: they are silent. */
+export interface SequenceAudioClip {
+	demuxer: WebDemuxer;
+	videoUrl: string;
+	trimRegions?: readonly TrimRegion[];
+	speedRegions?: readonly SpeedRegion[];
+	validatedDurationSec: number;
+	/**
+	 * Where this clip's picture starts in the output. Sound follows the picture,
+	 * and the picture moves in whole frames, so callers derive this from frame
+	 * counts rather than from exact milliseconds.
+	 */
+	outStartMs: number;
 }
 
-/** Encoders take audio in bites, not in one slab. */
-const SILENCE_CHUNK_FRAMES = 1024;
+/**
+ * Brings a clip to the output's channel count.
+ *
+ * More channels than the output are mixed down properly — dropping the extras
+ * would lose the centre channel, which is where speech lives. Fewer are left
+ * alone: the assembler already spreads a mono clip across every output channel.
+ */
+export function fitChannels(samples: PlanarAudio, channels: number): PlanarAudio {
+	if (samples.length <= channels) return samples;
+
+	const frames = samples[0].length;
+	const flat = downmixPlanarChannelsForExport(samples, channels);
+	return Array.from({ length: channels }, (_, channel) =>
+		flat.subarray(channel * frames, (channel + 1) * frames),
+	);
+}
+
+/** A decoded piece of a stream, before it is laid on the clip's own track. */
+export interface DecodedPiece {
+	timestampUs: number;
+	planes: PlanarAudio;
+}
+
+/** Within this many samples a piece counts as following on, not as a gap or overlap. */
+const SNAP_FRAMES = 2;
 
 /**
- * Splits the silence a card's lead-in needs into encoder-sized pieces.
+ * Lays decoded pieces out by their own timestamps.
  *
- * Pure, because the interesting part is arithmetic and the fixtures in this
- * repo have no audio track to exercise the real path with.
+ * Simply concatenating them would be wrong the moment a stream has a gap — a
+ * microphone that stalled, a capture that fell behind: everything after the gap
+ * would slide earlier and the sound would drift ahead of the picture for the rest
+ * of the clip. So each piece goes where its timestamp says, and a real gap stays
+ * silent.
+ *
+ * Timestamps are microseconds rounded from sample counts, so contiguous pieces
+ * routinely land a sample early or late. A piece within `SNAP_FRAMES` of where
+ * the previous one ended is treated as following on; otherwise rounding would
+ * leave single-sample holes and overlaps, which are audible as clicks.
+ *
+ * Anything before zero — codec priming shows up as a negative timestamp — is
+ * dropped, since it was never meant to be heard.
  */
-export function planLeadInSilence(
-	durationUs: number,
+export function placeDecodedPieces(
+	pieces: readonly DecodedPiece[],
 	sampleRate: number,
-	chunkFrames: number = SILENCE_CHUNK_FRAMES,
-): SilencePiece[] {
-	if (!(durationUs > 0) || !(sampleRate > 0) || !(chunkFrames > 0)) return [];
+	channels: number,
+	snapFrames: number = SNAP_FRAMES,
+): PlanarAudio {
+	if (channels < 1 || sampleRate <= 0) return [];
 
-	const totalFrames = Math.round((durationUs / 1_000_000) * sampleRate);
-	const pieces: SilencePiece[] = [];
+	const placed: { start: number; planes: PlanarAudio }[] = [];
+	let cursor = Number.NEGATIVE_INFINITY;
+	for (const piece of pieces) {
+		const length = piece.planes[0]?.length ?? 0;
+		if (length === 0) continue;
 
-	for (let frame = 0; frame < totalFrames; frame += chunkFrames) {
-		pieces.push({
-			frames: Math.min(chunkFrames, totalFrames - frame),
-			timestampUs: Math.round((frame / sampleRate) * 1_000_000),
-		});
+		let start = Math.round((piece.timestampUs / 1_000_000) * sampleRate);
+		if (Math.abs(start - cursor) <= snapFrames) start = cursor;
+		placed.push({ start, planes: piece.planes });
+		cursor = start + length;
 	}
 
-	return pieces;
+	const end = placed.reduce((max, piece) => Math.max(max, piece.start + piece.planes[0].length), 0);
+	const output: PlanarAudio = Array.from({ length: channels }, () => new Float32Array(end));
+
+	for (const piece of placed) {
+		const skip = Math.max(0, -piece.start);
+		const at = Math.max(0, piece.start);
+		for (let channel = 0; channel < channels; channel++) {
+			const source = piece.planes[channel] ?? piece.planes[0];
+			if (skip < source.length) output[channel].set(source.subarray(skip), at);
+		}
+	}
+
+	return output;
+}
+
+/** Planar samples out of decoded frames, each placed where its timestamp says. */
+function audioDataToPlanar(frames: readonly AudioData[]): PlanarAudio {
+	const channels = frames[0].numberOfChannels;
+	const pieces: DecodedPiece[] = frames.map((frame) => ({
+		timestampUs: frame.timestamp,
+		planes: Array.from({ length: channels }, (_, channel) => {
+			const plane = new Float32Array(frame.numberOfFrames);
+			frame.copyTo(plane, { planeIndex: channel, format: "f32-planar" });
+			return plane;
+		}),
+	}));
+	return placeDecodedPieces(pieces, frames[0].sampleRate, channels);
+}
+
+/** Converts samples between rates. A no-op when they already match. */
+async function resamplePlanar(
+	samples: PlanarAudio,
+	fromRate: number,
+	toRate: number,
+): Promise<PlanarAudio> {
+	if (fromRate === toRate || samples.length === 0 || samples[0].length === 0) return samples;
+
+	const length = Math.max(1, Math.round((samples[0].length * toRate) / fromRate));
+	const context = new OfflineAudioContext(samples.length, length, toRate);
+	const buffer = context.createBuffer(samples.length, samples[0].length, fromRate);
+	// A fresh copy: planes may be views into a shared buffer, which copyToChannel refuses.
+	samples.forEach((plane, channel) => buffer.copyToChannel(new Float32Array(plane), channel));
+
+	const source = context.createBufferSource();
+	source.buffer = buffer;
+	source.connect(context.destination);
+	source.start();
+
+	const rendered = await context.startRendering();
+	return Array.from({ length: rendered.numberOfChannels }, (_, channel) =>
+		rendered.getChannelData(channel),
+	);
+}
+
+/** Decodes a rendered audio file to samples at `sampleRate`; the context resamples. */
+async function decodeBlobToPlanar(blob: Blob, sampleRate: number): Promise<PlanarAudio> {
+	const context = new OfflineAudioContext(1, 1, sampleRate);
+	const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+	return Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
+		buffer.getChannelData(channel),
+	);
 }
 
 export class AudioProcessor {
@@ -245,110 +358,100 @@ export class AudioProcessor {
 	}
 
 	/**
-	 * Two modes: no speed regions uses the fast WebCodecs trim-only pipeline; speed
-	 * regions use the pitch-preserving rendered timeline pipeline.
-	 */
-	/**
-	 * How much silence the finished video opens with, in microseconds.
+	 * Builds the whole audio track for a sequence of clips and muxes it.
 	 *
-	 * Card clips before the recording add video frames but no sound, so the
-	 * recording's audio has to start that much later or it would play over the
-	 * title card and stay ahead of the picture for the whole video.
+	 * Every recording is brought down to plain samples at the export rate — decoded
+	 * from its own stream, or rendered in real time first when it has speed changes,
+	 * because only that pass keeps the pitch — and placed where its picture starts.
+	 * Cards contribute nothing, and the silence under them is free: the assembled
+	 * track starts out as zeroes.
 	 */
-	private leadInUs = 0;
-
-	async process(
-		demuxer: WebDemuxer,
+	async processSequence(
+		clips: readonly SequenceAudioClip[],
 		muxer: VideoMuxer,
-		videoUrl: string,
-		trimRegions: TrimRegion[] | undefined,
-		speedRegions: SpeedRegion[] | undefined,
-		validatedDurationSec: number,
 		exportCodec: ExportAudioCodec,
-		leadInMs = 0,
 	): Promise<void> {
-		this.leadInUs = Math.max(0, Math.round(leadInMs * 1000));
+		const sampleRate = exportCodec.sampleRate;
+		const channels = exportCodec.numberOfChannels;
 
-		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
-		const sortedSpeedRegions = speedRegions
-			? [...speedRegions]
+		const placements: AudioPlacement[] = [];
+		for (const clip of clips) {
+			if (this.cancelled) return;
+			const samples = await this.extractClipSamples(clip, sampleRate);
+			if (samples.length === 0 || samples[0].length === 0) continue;
+			placements.push({ outStartMs: clip.outStartMs, samples: fitChannels(samples, channels) });
+		}
+		if (this.cancelled || placements.length === 0) return;
+
+		const track = assembleAudioTimeline(placements, sampleRate, channels);
+		await this.encodeTrack(track, sampleRate, channels, exportCodec, muxer);
+	}
+
+	/** One recording's sound as samples at `sampleRate`, with its trims and speeds applied. */
+	private async extractClipSamples(
+		clip: SequenceAudioClip,
+		sampleRate: number,
+	): Promise<PlanarAudio> {
+		const trims = clip.trimRegions
+			? [...clip.trimRegions].sort((a, b) => a.startMs - b.startMs)
+			: [];
+		const speeds = clip.speedRegions
+			? clip.speedRegions
 					.filter((region) => region.endMs - region.startMs > MIN_SPEED_REGION_DELTA_MS)
 					.sort((a, b) => a.startMs - b.startMs)
 			: [];
 
-		// Speed edits need timeline playback to preserve pitch.
-		if (sortedSpeedRegions.length > 0) {
-			const renderedAudioBlob = await this.renderPitchPreservedTimelineAudio(
-				videoUrl,
-				sortedTrims,
-				sortedSpeedRegions,
-				validatedDurationSec,
+		if (speeds.length > 0) {
+			// The real-time pass already applies trims and speeds; what comes back is
+			// finished sound with nothing left to cut.
+			const rendered = await this.renderPitchPreservedTimelineAudio(
+				clip.videoUrl,
+				trims,
+				speeds,
+				clip.validatedDurationSec,
 			);
-			if (!this.cancelled && renderedAudioBlob.size > 0) {
-				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer, exportCodec);
-				return;
-			}
-			return;
+			if (this.cancelled || rendered.size === 0) return [];
+			return decodeBlobToPlanar(rendered, sampleRate);
 		}
 
-		// No speed edits: demux/decode/encode with trim timestamp remap. The +0.5s mirrors
-		// streamingDecoder.decodeAll's read window so both paths read the same distance past
-		// the validated duration boundary.
-		const readEndSec = validatedDurationSec + 0.5;
-		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec, exportCodec);
+		// The +0.5s mirrors streamingDecoder.decodeAll's read window, so sound and
+		// picture read the same distance past the validated duration.
+		const decoded = await this.decodeStreamToPlanar(clip.demuxer, clip.validatedDurationSec + 0.5);
+		if (!decoded || this.cancelled) return [];
+
+		const resampled = await resamplePlanar(decoded.samples, decoded.sampleRate, sampleRate);
+		return applyTrimsToSamples(resampled, sampleRate, clip.validatedDurationSec * 1000, trims);
 	}
 
-	// Trim-only path, used for projects without speed regions.
-	private async processTrimOnlyAudio(
+	/** Decodes a recording's audio stream to planar samples at its own rate. */
+	private async decodeStreamToPlanar(
 		demuxer: WebDemuxer,
-		muxer: VideoMuxer,
-		sortedTrims: TrimRegion[],
-		readEndSec?: number,
-		exportCodec?: ExportAudioCodec,
-	): Promise<void> {
-		let audioConfig: AudioDecoderConfig;
+		readEndSec: number,
+	): Promise<{ samples: PlanarAudio; sampleRate: number } | null> {
+		let config: AudioDecoderConfig;
 		try {
-			audioConfig = await demuxer.getDecoderConfig("audio");
+			config = await demuxer.getDecoderConfig("audio");
 		} catch {
-			console.warn("[AudioProcessor] No audio track found, skipping");
-			return;
+			return null;
+		}
+		if (!(await AudioDecoder.isConfigSupported(config)).supported) {
+			console.warn("[AudioProcessor] Audio codec not supported:", config.codec);
+			return null;
 		}
 
-		const codecCheck = await AudioDecoder.isConfigSupported(audioConfig);
-		if (!codecCheck.supported) {
-			console.warn("[AudioProcessor] Audio codec not supported:", audioConfig.codec);
-			return;
-		}
-
-		// Phase 1: decode, skipping trimmed regions.
-		const decodedFrames: AudioData[] = [];
-
+		const frames: AudioData[] = [];
 		const decoder = new AudioDecoder({
-			output: (data: AudioData) => decodedFrames.push(data),
+			output: (data: AudioData) => frames.push(data),
 			error: (e: DOMException) => console.error("[AudioProcessor] Decode error:", e),
 		});
-		decoder.configure(audioConfig);
+		decoder.configure(config);
 
-		const safeReadEndSec =
-			typeof readEndSec === "number" && Number.isFinite(readEndSec)
-				? Math.max(0, readEndSec)
-				: undefined;
-		const audioStream =
-			safeReadEndSec !== undefined
-				? demuxer.read("audio", 0, safeReadEndSec)
-				: demuxer.read("audio");
-		const reader = audioStream.getReader();
-
+		const reader = demuxer.read("audio", 0, Math.max(0, readEndSec)).getReader();
 		try {
 			while (!this.cancelled) {
 				const { done, value: chunk } = await reader.read();
 				if (done || !chunk) break;
-
-				const timestampMs = chunk.timestamp / 1000;
-				if (this.isInTrimRegion(timestampMs, sortedTrims)) continue;
-
 				decoder.decode(chunk);
-
 				while (decoder.decodeQueueSize > DECODE_BACKPRESSURE_LIMIT && !this.cancelled) {
 					await new Promise((resolve) => setTimeout(resolve, 1));
 				}
@@ -366,75 +469,64 @@ export class AudioProcessor {
 			decoder.close();
 		}
 
-		if (this.cancelled || decodedFrames.length === 0) {
-			for (const frame of decodedFrames) frame.close();
-			return;
+		try {
+			if (this.cancelled || frames.length === 0) return null;
+			return { samples: audioDataToPlanar(frames), sampleRate: frames[0].sampleRate };
+		} finally {
+			for (const frame of frames) frame.close();
 		}
+	}
 
-		// Phase 2: re-encode with timestamps adjusted for trim gaps.
-		const encodedChunks: { chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }[] = [];
-
-		const encoder = new AudioEncoder({
-			output: (chunk: EncodedAudioChunk, meta?: EncodedAudioChunkMetadata) => {
-				encodedChunks.push({ chunk, meta });
-			},
-			error: (e: DOMException) => console.error("[AudioProcessor] Encode error:", e),
-		});
-
-		const sampleRate = audioConfig.sampleRate || 48000;
-		const channels = audioConfig.numberOfChannels || 2;
-		const selectedCodec =
-			exportCodec ?? (await AudioProcessor.selectSupportedExportCodec(sampleRate, channels));
-		if (!selectedCodec) {
-			console.warn("[AudioProcessor] No supported audio export codec, skipping audio");
-			for (const frame of decodedFrames) frame.close();
-			return;
-		}
-
-		const outputSampleRate = selectedCodec.sampleRate || sampleRate;
-		const outputChannels = selectedCodec.numberOfChannels || channels;
-		const encodeConfig: AudioEncoderConfig = {
-			codec: selectedCodec.encoderCodec,
-			sampleRate: outputSampleRate,
-			numberOfChannels: outputChannels,
+	/** Encodes an assembled track in encoder-sized pieces and hands the result to the muxer. */
+	private async encodeTrack(
+		track: PlanarAudio,
+		sampleRate: number,
+		channels: number,
+		exportCodec: ExportAudioCodec,
+		muxer: VideoMuxer,
+	): Promise<void> {
+		const config: AudioEncoderConfig = {
+			codec: exportCodec.encoderCodec,
+			sampleRate,
+			numberOfChannels: channels,
 			bitrate: AUDIO_BITRATE,
 		};
-
-		const encodeSupport = await AudioEncoder.isConfigSupported(encodeConfig);
-		if (!encodeSupport.supported) {
-			console.warn(
-				`[AudioProcessor] ${selectedCodec.label} encoding not supported, skipping audio`,
-			);
-			for (const frame of decodedFrames) frame.close();
+		if (!(await AudioEncoder.isConfigSupported(config)).supported) {
+			console.warn(`[AudioProcessor] ${exportCodec.label} encoding not supported, skipping audio`);
 			return;
 		}
 
-		encoder.configure(encodeConfig);
+		const encoded: { chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }[] = [];
+		const encoder = new AudioEncoder({
+			output: (chunk, meta) => encoded.push({ chunk, meta }),
+			error: (e: DOMException) => console.error("[AudioProcessor] Encode error:", e),
+		});
+		encoder.configure(config);
 
-		// Real silence rather than a hole in the track: a gap before the first
-		// sample is legal in MP4 but players disagree about how to handle it, and
-		// a card that plays with nothing on the audio track is what we mean anyway.
-		this.encodeSilence(encoder, this.leadInUs, outputSampleRate, outputChannels);
+		const totalFrames = track[0]?.length ?? 0;
+		let cursor = 0;
+		for (const piece of planAudioChunks(totalFrames, sampleRate)) {
+			if (this.cancelled) break;
 
-		for (const audioData of decodedFrames) {
-			if (this.cancelled) {
-				audioData.close();
-				continue;
+			const data = new Float32Array(piece.frames * channels);
+			for (let channel = 0; channel < channels; channel++) {
+				data.set(track[channel].subarray(cursor, cursor + piece.frames), channel * piece.frames);
 			}
-
-			const timestampMs = audioData.timestamp / 1000;
-			const trimOffsetMs = this.computeTrimOffset(timestampMs, sortedTrims);
-			const adjustedTimestampUs = audioData.timestamp - trimOffsetMs * 1000;
-
-			const adjusted = this.cloneForEncoding(
-				audioData,
-				Math.max(0, adjustedTimestampUs) + this.leadInUs,
-				outputChannels,
-			);
+			const audioData = new AudioData({
+				format: "f32-planar",
+				sampleRate,
+				numberOfFrames: piece.frames,
+				numberOfChannels: channels,
+				timestamp: piece.timestampUs,
+				data,
+			});
+			encoder.encode(audioData);
 			audioData.close();
+			cursor += piece.frames;
 
-			encoder.encode(adjusted);
-			adjusted.close();
+			while (encoder.encodeQueueSize > DECODE_BACKPRESSURE_LIMIT && !this.cancelled) {
+				await new Promise((resolve) => setTimeout(resolve, 1));
+			}
 		}
 
 		if (encoder.state === "configured") {
@@ -442,19 +534,12 @@ export class AudioProcessor {
 			encoder.close();
 		}
 
-		// Phase 3: flush encoded chunks to muxer.
-		for (const { chunk, meta } of encodedChunks) {
+		for (const { chunk, meta } of encoded) {
 			if (this.cancelled) break;
 			await muxer.addAudioChunk(chunk, meta);
 		}
-
-		console.log(
-			`[AudioProcessor] Processed ${decodedFrames.length} audio frames, encoded ${encodedChunks.length} chunks`,
-		);
 	}
 
-	// Speed-aware path mirroring preview semantics (trim skipping + playbackRate). Relies on
-	// browser media playback to preserve pitch and avoid the chipmunk effect.
 	private async renderPitchPreservedTimelineAudio(
 		videoUrl: string,
 		trimRegions: TrimRegion[],
@@ -652,29 +737,6 @@ export class AudioProcessor {
 	}
 
 	// Demux the rendered speed-adjusted blob and feed its chunks into the MP4 muxer.
-	private async muxRenderedAudioBlob(
-		blob: Blob,
-		muxer: VideoMuxer,
-		exportCodec: ExportAudioCodec,
-	): Promise<void> {
-		if (this.cancelled) return;
-
-		const file = new File([blob], "speed-audio.webm", { type: blob.type || "audio/webm" });
-		const wasmUrl = new URL("./wasm/web-demuxer.wasm", window.location.href).href;
-		const demuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
-
-		try {
-			await demuxer.load(file);
-			await this.processTrimOnlyAudio(demuxer, muxer, [], undefined, exportCodec);
-		} finally {
-			try {
-				demuxer.destroy();
-			} catch {
-				/* ignore */
-			}
-		}
-	}
-
 	private startAudioRecording(stream: MediaStream): {
 		recorder: MediaRecorder;
 		recordedBlobPromise: Promise<Blob>;
@@ -786,112 +848,6 @@ export class AudioProcessor {
 				(region) => currentTimeMs >= region.startMs && currentTimeMs < region.endMs,
 			) || null
 		);
-	}
-
-	private cloneForEncoding(
-		src: AudioData,
-		newTimestamp: number,
-		targetChannels: number,
-	): AudioData {
-		if (targetChannels !== src.numberOfChannels) {
-			return this.downmixWithTimestamp(src, newTimestamp, targetChannels);
-		}
-
-		if (!src.format) {
-			throw new Error("AudioData format is required for cloning");
-		}
-		const isPlanar = src.format.includes("planar");
-		const numPlanes = isPlanar ? src.numberOfChannels : 1;
-
-		let totalSize = 0;
-		for (let planeIndex = 0; planeIndex < numPlanes; planeIndex++) {
-			totalSize += src.allocationSize({ planeIndex });
-		}
-
-		const buffer = new ArrayBuffer(totalSize);
-		let offset = 0;
-		for (let planeIndex = 0; planeIndex < numPlanes; planeIndex++) {
-			const planeSize = src.allocationSize({ planeIndex });
-			src.copyTo(new Uint8Array(buffer, offset, planeSize), { planeIndex });
-			offset += planeSize;
-		}
-
-		return new AudioData({
-			format: src.format,
-			sampleRate: src.sampleRate,
-			numberOfFrames: src.numberOfFrames,
-			numberOfChannels: src.numberOfChannels,
-			timestamp: newTimestamp,
-			data: buffer,
-		});
-	}
-
-	private downmixWithTimestamp(
-		src: AudioData,
-		newTimestamp: number,
-		targetChannels: number,
-	): AudioData {
-		const sourceChannels = src.numberOfChannels;
-		const frameCount = src.numberOfFrames;
-		if (targetChannels < 1 || targetChannels > 2) {
-			throw new Error(`Unsupported target channel count: ${targetChannels}`);
-		}
-
-		const sourcePlanes = Array.from({ length: sourceChannels }, () => new Float32Array(frameCount));
-		for (let channel = 0; channel < sourceChannels; channel++) {
-			src.copyTo(sourcePlanes[channel], {
-				format: "f32-planar",
-				planeIndex: channel,
-			});
-		}
-
-		const output = downmixPlanarChannelsForExport(sourcePlanes, targetChannels);
-
-		return new AudioData({
-			format: "f32-planar",
-			sampleRate: src.sampleRate,
-			numberOfFrames: frameCount,
-			numberOfChannels: targetChannels,
-			timestamp: newTimestamp,
-			data: output.buffer instanceof ArrayBuffer ? output.buffer : output.slice().buffer,
-		});
-	}
-
-	/** Fills `durationUs` at the head of the track with zeroes, in encoder-sized pieces. */
-	private encodeSilence(
-		encoder: AudioEncoder,
-		durationUs: number,
-		sampleRate: number,
-		channels: number,
-	): void {
-		if (channels <= 0) return;
-
-		for (const piece of planLeadInSilence(durationUs, sampleRate)) {
-			const silence = new AudioData({
-				format: "f32-planar",
-				sampleRate,
-				numberOfFrames: piece.frames,
-				numberOfChannels: channels,
-				timestamp: piece.timestampUs,
-				data: new Float32Array(piece.frames * channels),
-			});
-			encoder.encode(silence);
-			silence.close();
-		}
-	}
-
-	private isInTrimRegion(timestampMs: number, trims: TrimRegion[]): boolean {
-		return trims.some((trim) => timestampMs >= trim.startMs && timestampMs < trim.endMs);
-	}
-
-	private computeTrimOffset(timestampMs: number, trims: TrimRegion[]): number {
-		let offset = 0;
-		for (const trim of trims) {
-			if (trim.endMs <= timestampMs) {
-				offset += trim.endMs - trim.startMs;
-			}
-		}
-		return offset;
 	}
 
 	cancel(): void {

@@ -538,16 +538,21 @@ export class VideoExporter {
 				if (demuxer) {
 					console.log("[VideoExporter] Processing audio track...");
 					this.audioProcessor = new AudioProcessor();
-					await this.audioProcessor.process(
-						demuxer,
+					await this.audioProcessor.processSequence(
+						[
+							{
+								demuxer,
+								videoUrl: this.config.videoUrl,
+								trimRegions: this.config.trimRegions,
+								speedRegions: this.config.speedRegions,
+								validatedDurationSec: videoInfo.duration,
+								// Sound follows the picture, which starts after the intro cards'
+								// whole frames — not after their exact milliseconds.
+								outStartMs: (countCardFrames(cardsBefore) * 1000) / this.config.frameRate,
+							},
+						],
 						muxer,
-						this.config.videoUrl,
-						this.config.trimRegions,
-						this.config.speedRegions,
-						videoInfo.duration,
 						audioExportCodec,
-						// The recording's sound starts after the intro cards have played.
-						cardsBefore.reduce((sum, card) => sum + Math.max(0, card.durationMs), 0),
 					);
 				}
 			}

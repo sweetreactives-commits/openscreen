@@ -86,6 +86,11 @@ describe("VideoExporter (real browser)", () => {
 	});
 });
 
+// Speed-region audio is deliberately not tested here. That path plays the audio
+// through a media element in real time, and in this headless browser the
+// AudioContext never leaves "suspended" — resume() does not settle, with or
+// without an autoplay flag. Electron has no such problem, so the path is covered
+// by tests/e2e/speed-audio-export.spec.ts instead.
 describe("VideoExporter audio with card clips (real browser)", () => {
 	const base = {
 		videoUrl: audioVideoUrl,
