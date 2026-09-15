@@ -22,6 +22,7 @@ import {
 	DEFAULT_WEBCAM_MIRRORED,
 	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 } from "@/components/video-editor/types";
+import { SINGLE_CLIP_ID } from "@/lib/sequence";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 // Undoable state. Selection IDs are excluded, since undoing a selection change
@@ -33,6 +34,8 @@ export interface EditorState {
 	 * `trimRegions` or `zoomRegions` had to learn about clips.
 	 */
 	clips: ClipEntry[];
+	/** Which recording the flat fields below belong to. */
+	activeClipId: string;
 	zoomRegions: ZoomRegion[];
 	/** Magic-wand auto-zoom toggle. When on, fresh recordings get suggested zooms. */
 	autoZoomEnabled: boolean;
@@ -70,6 +73,7 @@ export interface EditorState {
 
 export const INITIAL_EDITOR_STATE: EditorState = {
 	clips: INITIAL_CLIPS,
+	activeClipId: SINGLE_CLIP_ID,
 	zoomRegions: [],
 	autoZoomEnabled: true,
 	autoFocusAll: false,

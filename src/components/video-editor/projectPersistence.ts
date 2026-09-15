@@ -3,7 +3,7 @@ import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
 import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
-import { projectMediaList } from "@/lib/recordingSession";
+import { normalizeProjectMedia, projectMediaList } from "@/lib/recordingSession";
 import type { SequenceClipInput } from "@/lib/sequence";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
@@ -99,7 +99,7 @@ export const CLIP_EDITOR_KEYS = [
 
 export type ClipEditorState = Pick<ProjectEditorState, (typeof CLIP_EDITOR_KEYS)[number]>;
 /** Held at the top level of the saved file rather than inside `editor`. */
-export const TOP_LEVEL_EDITOR_KEYS = ["clips"] as const;
+export const TOP_LEVEL_EDITOR_KEYS = ["clips", "activeClipId"] as const;
 
 export type SequenceEditorState = Omit<
 	ProjectEditorState,
@@ -147,6 +147,11 @@ export function normalizeCardDurationMs(value: unknown): number {
 export interface ProjectEditorState {
 	/** The project's clips in order. Saved at the top level, not inside `editor`. */
 	clips: ClipEntry[];
+	/**
+	 * Which recording the flat per-clip fields belong to. Not saved: a project
+	 * always opens on its first recording.
+	 */
+	activeClipId: string;
 	wallpaper: string;
 	shadowIntensity: number;
 	showBlur: boolean;
@@ -376,16 +381,35 @@ export function resolveProjectClips(candidate: Partial<EditorProjectData>): Clip
 	const stored = candidate.clips;
 	if (!Array.isArray(stored) || stored.length === 0) return [...INITIAL_CLIPS];
 
-	const clips: ClipEntry[] = stored.map((clip) =>
-		isCardClip(clip)
-			? {
-					id: String(clip.id),
-					kind: "card",
-					durationMs: normalizeCardDurationMs(clip.durationMs),
-					...(typeof clip.title === "string" ? { title: clip.title } : {}),
-				}
-			: { id: String(clip.id), kind: "recording" },
-	);
+	// The first recording opens as the active one, so its media and edits go to the
+	// editor's own state; every later recording keeps its own in its entry.
+	let seenRecording = false;
+	const clips: ClipEntry[] = [];
+	for (const clip of stored) {
+		if (isCardClip(clip)) {
+			clips.push({
+				id: String(clip.id),
+				kind: "card",
+				durationMs: normalizeCardDurationMs(clip.durationMs),
+				...(typeof clip.title === "string" ? { title: clip.title } : {}),
+			});
+			continue;
+		}
+		if (!seenRecording) {
+			seenRecording = true;
+			clips.push({ id: String(clip.id), kind: "recording" });
+			continue;
+		}
+		const media = normalizeProjectMedia(clip.media);
+		// A later recording with nowhere to load from cannot be shown or exported.
+		if (!media) continue;
+		clips.push({
+			id: String(clip.id),
+			kind: "recording",
+			media,
+			editor: normalizeClipEditorHalf(clip.editor),
+		});
+	}
 
 	return clips.some((clip) => clip.kind === "recording") ? clips : [...INITIAL_CLIPS, ...clips];
 }
@@ -396,36 +420,70 @@ export function resolveProjectEditor(candidate: Partial<EditorProjectData>): Pro
 	// that opens with an intro card has one before it.
 	const clipEditor = candidate.clips?.find((clip) => !isCardClip(clip))?.editor;
 	const clips = resolveProjectClips(candidate);
-	return normalizeProjectEditor({ ...sequence, ...(clipEditor ?? {}), clips });
+	const activeClipId = clips.find((clip) => clip.kind === "recording")?.id;
+	return normalizeProjectEditor({ ...sequence, ...(clipEditor ?? {}), clips, activeClipId });
 }
 
 /**
  * Defensive pass over the clip list. A project with no recording in it would
  * leave the editor's open video with nowhere to sit, so one is put back.
  */
-function normalizeClipEntries(value: unknown): ClipEntry[] {
-	if (!Array.isArray(value) || value.length === 0) return [...INITIAL_CLIPS];
+function normalizeClipList(
+	value: unknown,
+	activeClipId: unknown,
+): { clips: ClipEntry[]; activeClipId: string } {
+	const parsed: ClipEntry[] = [];
+	if (Array.isArray(value)) {
+		for (const entry of value) {
+			if (!entry || typeof entry !== "object") continue;
+			const clip = entry as Partial<ClipEntry>;
+			if (typeof clip.id !== "string" || !clip.id) continue;
 
-	const clips: ClipEntry[] = [];
-	for (const entry of value) {
-		if (!entry || typeof entry !== "object") continue;
-		const clip = entry as Partial<ClipEntry>;
-		if (typeof clip.id !== "string" || !clip.id) continue;
+			if (clip.kind === "card") {
+				parsed.push({
+					id: clip.id,
+					kind: "card",
+					durationMs: normalizeCardDurationMs(clip.durationMs),
+					...(typeof clip.title === "string" ? { title: clip.title } : {}),
+				});
+				continue;
+			}
 
-		clips.push(
-			clip.kind === "card"
-				? {
-						id: clip.id,
-						kind: "card",
-						durationMs: normalizeCardDurationMs(clip.durationMs),
-						...(typeof clip.title === "string" ? { title: clip.title } : {}),
-					}
-				: { id: clip.id, kind: "recording" },
-		);
+			const media = normalizeProjectMedia(clip.media);
+			parsed.push({
+				id: clip.id,
+				kind: "recording",
+				...(media ? { media, editor: normalizeClipEditorHalf(clip.editor) } : {}),
+			});
+		}
 	}
 
-	if (clips.length === 0) return [...INITIAL_CLIPS];
-	return clips.some((clip) => clip.kind === "recording") ? clips : [...INITIAL_CLIPS, ...clips];
+	const clips = parsed.some((clip) => clip.kind === "recording")
+		? parsed
+		: [...INITIAL_CLIPS, ...parsed];
+
+	const recordings = clips.filter((clip) => clip.kind === "recording");
+	const active =
+		recordings.find((clip) => clip.id === activeClipId) ??
+		// Without a valid choice, the recording whose data the editor already holds —
+		// the one that carries none of its own — is the active one.
+		recordings.find((clip) => !clip.media) ??
+		recordings[0];
+
+	// The active recording's media and edits live in the editor's state, never in
+	// its entry: two copies would sooner or later disagree.
+	const settled = clips.map((clip) =>
+		clip.id === active.id ? { id: clip.id, kind: "recording" as const } : clip,
+	);
+
+	return { clips: settled, activeClipId: active.id };
+}
+
+/** A stored clip's edits, filled out the way a whole project's would be. */
+function normalizeClipEditorHalf(value: unknown): ClipEditorState {
+	const partial = value && typeof value === "object" ? (value as Partial<ProjectEditorState>) : {};
+	// clips: [] keeps this from reaching back into clip lists and recursing.
+	return splitEditorState(normalizeProjectEditor({ ...partial, clips: [] })).clip;
 }
 
 export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): ProjectEditorState {
@@ -688,7 +746,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 
 	return {
 		...normalizedCursor,
-		clips: normalizeClipEntries(editor.clips),
+		...normalizeClipList(editor.clips, editor.activeClipId),
 		wallpaper:
 			typeof editor.wallpaper === "string"
 				? normalizeWallpaperValue(editor.wallpaper)
@@ -781,23 +839,29 @@ export function createProjectData(
 ): EditorProjectData {
 	const { clip, sequence } = splitEditorState(editor);
 	const entries = editor.clips?.length ? editor.clips : INITIAL_CLIPS;
+	const recordings = entries.filter((entry) => entry.kind === "recording");
+	const activeId =
+		recordings.find((entry) => entry.id === editor.activeClipId)?.id ?? recordings[0]?.id;
 
-	return {
-		version: PROJECT_VERSION,
-		// The recording's edits are the flat state the editor was working in; a card
-		// has none, only how long it lasts and what it says.
-		clips: entries.map((entry) =>
-			entry.kind === "card"
-				? {
-						id: entry.id,
-						media: null,
-						durationMs: normalizeCardDurationMs(entry.durationMs),
-						...(entry.title === undefined ? {} : { title: entry.title }),
-					}
-				: { id: entry.id, media, editor: clip },
-		),
-		editor: sequence,
-	};
+	const clips: ProjectClipData[] = [];
+	for (const entry of entries) {
+		if (entry.kind === "card") {
+			// A card has no edits, only how long it lasts and what it says.
+			clips.push({
+				id: entry.id,
+				media: null,
+				durationMs: normalizeCardDurationMs(entry.durationMs),
+				...(entry.title === undefined ? {} : { title: entry.title }),
+			});
+		} else if (entry.id === activeId) {
+			// The active recording's edits are the flat state the editor is working in.
+			clips.push({ id: entry.id, media, editor: clip });
+		} else if (entry.media && entry.editor) {
+			clips.push({ id: entry.id, media: entry.media, editor: entry.editor });
+		}
+	}
+
+	return { version: PROJECT_VERSION, clips, editor: sequence };
 }
 
 export function createProjectSnapshot(

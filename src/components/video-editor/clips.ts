@@ -1,4 +1,6 @@
+import type { ProjectMedia } from "@/lib/recordingSession";
 import { SINGLE_CLIP_ID } from "@/lib/sequence";
+import type { ClipEditorState } from "./projectPersistence";
 
 /**
  * The project's clips as the editor holds them, and the operations on that list.
@@ -9,12 +11,14 @@ import { SINGLE_CLIP_ID } from "@/lib/sequence";
  * meaning what they have always meant: the edits on the recording. Nothing that
  * reads `trimRegions` or `zoomRegions` has to learn about clips.
  *
- * The day a project holds two *recordings*, that stops being enough and the
- * editor will need to check one out at a time. That is stage 6 of
- * docs/architecture/multiclip.md, not this.
+ * A project can hold several recordings, and the editor works on one of them at
+ * a time — the active one. Its media and edits live exactly where a single
+ * recording's always have: the editor's loaded video and the flat fields. Every
+ * other recording keeps its own media and edits here, in its entry. The active
+ * entry deliberately carries neither, so the two copies can never disagree.
  */
 
-/** A card's text, its length, or the recording the project was built around. */
+/** One clip in the project: a card, or one of its recordings. */
 export interface ClipEntry {
 	id: string;
 	kind: "recording" | "card";
@@ -22,10 +26,19 @@ export interface ClipEntry {
 	durationMs?: number;
 	/** Cards only: the line shown on it. */
 	title?: string;
+	/** Recordings other than the active one: where the recording lives. */
+	media?: ProjectMedia;
+	/** Recordings other than the active one: the edits that address it. */
+	editor?: ClipEditorState;
 }
 
 /** A project that has never had a card added is still a sequence — of one. */
 export const INITIAL_CLIPS: ClipEntry[] = [{ id: SINGLE_CLIP_ID, kind: "recording" }];
+
+/** The project's recordings, in playback order. */
+export function recordingEntries(clips: readonly ClipEntry[]): ClipEntry[] {
+	return clips.filter((clip) => clip.kind === "recording");
+}
 
 export function isCardEntry(clip: ClipEntry): boolean {
 	return clip.kind === "card";

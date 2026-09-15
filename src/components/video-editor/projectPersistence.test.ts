@@ -671,3 +671,92 @@ describe("cards through save and load", () => {
 		expect(hasProjectUnsavedChanges(moved, added)).toBe(true);
 	});
 });
+
+describe("several recordings in one project", () => {
+	const first = { screenVideoPath: "/tmp/take-1.webm" };
+	const second = { screenVideoPath: "/tmp/take-2.webm", webcamVideoPath: "/tmp/cam-2.webm" };
+
+	/** A v4 file with two takes and a card between them, as a future editor would write it. */
+	const twoTakes = {
+		version: 4,
+		clips: [
+			{
+				id: "clip-1",
+				media: first,
+				editor: { trimRegions: [{ id: "trim-a", startMs: 0, endMs: 500 }] },
+			},
+			{ id: "card-1", media: null, durationMs: 1_000, title: "Take two" },
+			{
+				id: "clip-2",
+				media: second,
+				editor: {
+					zoomRegions: [
+						{ id: "zoom-b", startMs: 0, endMs: 900, depth: 2, focus: { cx: 0.5, cy: 0.5 } },
+					],
+				},
+			},
+		],
+		editor: { wallpaper: "/wallpapers/wallpaper3.jpg" },
+	};
+
+	it("opens on the first recording, with its edits in the editor", () => {
+		const editor = resolveProjectEditor(twoTakes as never);
+
+		expect(editor.activeClipId).toBe("clip-1");
+		expect(editor.trimRegions).toHaveLength(1);
+		// The second take's zoom is not mistaken for the first take's.
+		expect(editor.zoomRegions).toHaveLength(0);
+		expect(resolveProjectMedia(twoTakes as never)).toEqual(first);
+	});
+
+	it("keeps every other recording's media and edits in its own entry", () => {
+		const editor = resolveProjectEditor(twoTakes as never);
+		const later = editor.clips.find((clip) => clip.id === "clip-2");
+
+		expect(later?.media).toEqual(second);
+		expect(later?.editor?.zoomRegions).toHaveLength(1);
+		expect(later?.editor?.trimRegions).toEqual([]);
+	});
+
+	it("never duplicates the active recording's data into its entry", () => {
+		const editor = resolveProjectEditor(twoTakes as never);
+		const active = editor.clips.find((clip) => clip.id === editor.activeClipId);
+
+		expect(active).toEqual({ id: "clip-1", kind: "recording" });
+	});
+
+	it("survives a round trip with every take, card and edit in place", () => {
+		const loaded = resolveProjectEditor(twoTakes as never);
+		const saved = createProjectData(first, loaded);
+		const reloaded = resolveProjectEditor(saved);
+
+		expect(saved.clips?.map((clip) => clip.id)).toEqual(["clip-1", "card-1", "clip-2"]);
+		expect(saved.clips?.[2]).toMatchObject({ media: second });
+		expect(saved.clips?.[2].editor?.zoomRegions).toHaveLength(1);
+		expect(reloaded).toEqual(loaded);
+	});
+
+	it("does not save which recording was active, so a project always reopens on its first", () => {
+		const saved = createProjectData(first, resolveProjectEditor(twoTakes as never));
+		expect(JSON.stringify(saved)).not.toContain("activeClipId");
+	});
+
+	it("drops a later recording that has nowhere to load from, rather than inventing one", () => {
+		const broken = {
+			...twoTakes,
+			clips: [...twoTakes.clips, { id: "clip-3", media: { screenVideoPath: "" }, editor: {} }],
+		};
+		const editor = resolveProjectEditor(broken as never);
+		expect(editor.clips.map((clip) => clip.id)).toEqual(["clip-1", "card-1", "clip-2"]);
+	});
+
+	it("falls back to the recording without its own data when the active id is stale", () => {
+		const loaded = resolveProjectEditor(twoTakes as never);
+		const normalized = normalizeProjectEditor({ ...loaded, activeClipId: "ghost" });
+		expect(normalized.activeClipId).toBe("clip-1");
+	});
+
+	it("lets the main process vet every take, not only the one the editor opens", () => {
+		expect(projectMediaList(twoTakes)).toEqual([first, second]);
+	});
+});

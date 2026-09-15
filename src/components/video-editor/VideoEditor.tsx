@@ -35,6 +35,7 @@ import {
 	transcribeMono16kToSegments,
 	trimLeadingSilenceMono16k,
 } from "@/lib/captioning";
+import { clickTimestampsFrom, hasEditableCursorOverlay } from "@/lib/cursor/clickTimestamps";
 import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
 	calculateEffectiveSourceDimensions,
@@ -50,6 +51,7 @@ import {
 	type GifSizePreset,
 	VideoExporter,
 } from "@/lib/exporter";
+import type { ExportSequenceClip } from "@/lib/exporter/exportSequence";
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ExportRunner } from "@/lib/mcp/exportJob";
 import { acceptProposals, countProposals, discardProposals } from "@/lib/mcp/proposals";
@@ -78,6 +80,7 @@ import {
 	type ClipEntry,
 	isCardEntry,
 	moveClip,
+	recordingEntries,
 	recordingIndex,
 	removeCard,
 	updateCard,
@@ -135,15 +138,6 @@ import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
 /** Single Sonner slot so auto-caption phases update in place instead of stacking. */
 const AUTO_CAPTION_PROGRESS_TOAST_ID = "auto-caption-progress";
-
-function isClickInteractionType(interactionType: string | null | undefined) {
-	return (
-		interactionType === "click" ||
-		interactionType === "double-click" ||
-		interactionType === "right-click" ||
-		interactionType === "middle-click"
-	);
-}
 
 interface ExportDiagnostics {
 	formatLabel: "GIF" | "Video";
@@ -217,6 +211,7 @@ export default function VideoEditor() {
 
 	const {
 		clips,
+		activeClipId,
 		zoomRegions,
 		autoZoomEnabled,
 		autoFocusAll,
@@ -314,19 +309,10 @@ export default function VideoEditor() {
 		useCursorTelemetry(cursorTelemetrySourcePath);
 	const { data: cursorRecordingData, error: cursorRecordingDataError } =
 		useCursorRecordingData(cursorTelemetrySourcePath);
-	const cursorClickTimestamps = useMemo<number[]>(() => {
-		const recordingClicks =
-			cursorRecordingData?.samples
-				.filter((sample) => isClickInteractionType(sample.interactionType))
-				.map((sample) => sample.timeMs) ?? [];
-		if (recordingClicks.length > 0) {
-			return recordingClicks;
-		}
-
-		return cursorTelemetry
-			.filter((sample) => isClickInteractionType(sample.interactionType))
-			.map((sample) => sample.timeMs);
-	}, [cursorRecordingData, cursorTelemetry]);
+	const cursorClickTimestamps = useMemo<number[]>(
+		() => clickTimestampsFrom(cursorRecordingData, cursorTelemetry),
+		[cursorRecordingData, cursorTelemetry],
+	);
 
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
@@ -342,10 +328,11 @@ export default function VideoEditor() {
 	// Windows recordings include captured cursor assets. macOS hides the system
 	// cursor in ScreenCaptureKit and renders telemetry samples with OpenScreen's
 	// default arrow asset for the editable overlay.
-	const hasEditableCursorRecording =
-		recordingCursorCaptureMode === "editable-overlay" &&
-		(nativePlatform === "win32" || nativePlatform === "darwin") &&
-		hasNativeCursorRecordingData(cursorRecordingData);
+	const hasEditableCursorRecording = hasEditableCursorOverlay(
+		recordingCursorCaptureMode,
+		nativePlatform,
+		cursorRecordingData,
+	);
 	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
 	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
@@ -446,6 +433,7 @@ export default function VideoEditor() {
 				padding: normalizedEditor.padding,
 				cropRegion: normalizedEditor.cropRegion,
 				clips: normalizedEditor.clips,
+				activeClipId: normalizedEditor.activeClipId,
 				zoomRegions: normalizedEditor.zoomRegions,
 				autoZoomEnabled: normalizedEditor.autoZoomEnabled,
 				autoFocusAll: normalizedEditor.autoFocusAll,
@@ -1818,6 +1806,97 @@ export default function VideoEditor() {
 		}
 	}, [unsavedExport, handleExportSaved]);
 
+	/**
+	 * Everything to export, in order, once the project holds more than one recording.
+	 *
+	 * The open recording contributes what the editor already has loaded. Every other
+	 * recording's cursor data is fetched now, because nothing else has loaded it, and
+	 * is gated exactly like the open one's — a take whose cursor is baked into the
+	 * picture gets no overlay, or it would show two cursors.
+	 *
+	 * With a single recording this returns undefined and the export keeps its classic
+	 * shape, which is the only one the source-copy fast path accepts.
+	 */
+	const buildExportSequence = useCallback(async (): Promise<ExportSequenceClip[] | undefined> => {
+		if (recordingEntries(clips).length < 2 || !videoPath) return undefined;
+
+		const sequence: ExportSequenceClip[] = [];
+		for (const clip of clips) {
+			if (clip.kind === "card") {
+				sequence.push({
+					kind: "card",
+					card: { durationMs: normalizeCardDurationMs(clip.durationMs), title: clip.title },
+				});
+				continue;
+			}
+
+			if (clip.id === activeClipId) {
+				sequence.push({
+					kind: "recording",
+					recording: {
+						videoUrl: videoPath,
+						webcamVideoUrl: webcamVideoPath || undefined,
+						zoomRegions,
+						trimRegions,
+						speedRegions,
+						annotationRegions,
+						cropRegion,
+						cursorRecordingData: hasEditableCursorRecording ? cursorRecordingData : null,
+						cursorTelemetry,
+						cursorClickTimestamps,
+					},
+				});
+				continue;
+			}
+
+			if (!clip.media || !clip.editor) continue;
+			const sourcePath = clip.media.screenVideoPath;
+			const [telemetry, recordingData] = await Promise.all([
+				nativeBridgeClient.cursor.getTelemetry(sourcePath).catch(() => []),
+				nativeBridgeClient.cursor.getRecordingData(sourcePath).catch(() => null),
+			]);
+			const overlay = hasEditableCursorOverlay(
+				clip.media.cursorCaptureMode,
+				nativePlatform,
+				recordingData,
+			);
+
+			sequence.push({
+				kind: "recording",
+				recording: {
+					videoUrl: toFileUrl(sourcePath),
+					webcamVideoUrl: clip.media.webcamVideoPath
+						? toFileUrl(clip.media.webcamVideoPath)
+						: undefined,
+					zoomRegions: clip.editor.zoomRegions,
+					trimRegions: clip.editor.trimRegions,
+					speedRegions: clip.editor.speedRegions,
+					annotationRegions: clip.editor.annotationRegions,
+					cropRegion: clip.editor.cropRegion,
+					cursorRecordingData: overlay ? recordingData : null,
+					cursorTelemetry: telemetry,
+					cursorClickTimestamps: clickTimestampsFrom(recordingData, telemetry),
+				},
+			});
+		}
+		return sequence;
+	}, [
+		clips,
+		activeClipId,
+		videoPath,
+		webcamVideoPath,
+		zoomRegions,
+		trimRegions,
+		speedRegions,
+		annotationRegions,
+		cropRegion,
+		hasEditableCursorRecording,
+		cursorRecordingData,
+		cursorTelemetry,
+		cursorClickTimestamps,
+		nativePlatform,
+	]);
+
 	// The exporter is told only "these stills come first, these come last" — it has
 	// no business knowing about the project's clip model. Splitting at the recording
 	// is what turns one into the other.
@@ -1903,6 +1982,18 @@ export default function VideoEditor() {
 				const previewWidth = containerElement?.clientWidth || DEFAULT_SOURCE_DIMENSIONS.width;
 				const previewHeight = containerElement?.clientHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 
+				// Several recordings go out as a sequence; one keeps the classic shape.
+				const exportSequence = await buildExportSequence();
+				// In a sequence each recording decides for itself whether it has an overlay
+				// cursor to draw, so the global scale only says whether cursors are shown.
+				const exportCursorScale = exportSequence
+					? showCursor
+						? cursorSize
+						: 0
+					: effectiveShowCursor
+						? cursorSize
+						: 0;
+
 				if (settings.format === "gif" && settings.gifConfig) {
 					// GIF Export
 					const gifExporter = new GifExporter({
@@ -1915,6 +2006,7 @@ export default function VideoEditor() {
 						sizePreset: settings.gifConfig.sizePreset,
 						wallpaper,
 						cards: exportCards,
+						sequence: exportSequence,
 						zoomRegions,
 						trimRegions,
 						speedRegions,
@@ -1927,7 +2019,7 @@ export default function VideoEditor() {
 						videoPadding: padding,
 						cropRegion,
 						cursorRecordingData,
-						cursorScale: effectiveShowCursor ? cursorSize : 0,
+						cursorScale: exportCursorScale,
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
@@ -2021,6 +2113,7 @@ export default function VideoEditor() {
 						codec: "avc1.640033",
 						wallpaper,
 						cards: exportCards,
+						sequence: exportSequence,
 						zoomRegions,
 						trimRegions,
 						speedRegions,
@@ -2032,7 +2125,7 @@ export default function VideoEditor() {
 						padding,
 						cropRegion,
 						cursorRecordingData,
-						cursorScale: effectiveShowCursor ? cursorSize : 0,
+						cursorScale: exportCursorScale,
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
@@ -2176,6 +2269,8 @@ export default function VideoEditor() {
 			cursorTheme,
 			t,
 			exportCards,
+			showCursor,
+			buildExportSequence,
 		],
 	);
 
