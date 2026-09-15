@@ -335,6 +335,13 @@ export function createThreeDPass(width: number, height: number): ThreeDPass {
 		gl.deleteBuffer(vbo);
 		gl.deleteVertexArray(vao);
 		gl.deleteTexture(texture);
+		// Deleting resources does not release the context itself; it lives on until the
+		// canvas is garbage-collected. Chromium caps live WebGL contexts per page and
+		// drops the oldest when the cap is hit — which, a few exports into a session,
+		// can be the context of an export still running, or the editor's own preview.
+		gl.getExtension("WEBGL_lose_context")?.loseContext();
+		canvas.width = 0;
+		canvas.height = 0;
 	};
 
 	return { apply, readPixels, resize, destroy };
