@@ -61,6 +61,18 @@
 		"acceptAll": "すべて採用",
 		"discardAll": "すべて破棄"
 	},
+	"silence": {
+		"title": "無音を取り除く",
+		"remove": "間を切り取る",
+		"restore": "間を戻す",
+		"sensitivity": "感度",
+		"minPause": "最短の間",
+		"padding": "話し声の前後に残す余白",
+		"hint": "手で調整したカットは、間を戻しても残ります。",
+		"noAudio": "この録画には測る音声がありません。",
+		"nothingFound": "切り取るほど長い間はありませんでした。",
+		"allQuiet": "ここには話し声がありません。無音を切ると何も残りません。"
+	},
 	"clips": {
 		"addIntro": "冒頭にカードを追加",
 		"addOutro": "末尾にカードを追加",

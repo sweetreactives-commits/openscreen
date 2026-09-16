@@ -61,6 +61,18 @@
 		"acceptAll": "全部保留",
 		"discardAll": "全部捨棄"
 	},
+	"silence": {
+		"title": "去掉空白",
+		"remove": "剪掉停頓",
+		"restore": "還原停頓",
+		"sensitivity": "靈敏度",
+		"minPause": "最短停頓",
+		"padding": "語音前後留白",
+		"hint": "你手動調過的剪輯，在還原停頓時會保留。",
+		"noAudio": "這段錄製沒有聲音可供分析。",
+		"nothingFound": "沒有值得剪掉的長停頓。",
+		"allQuiet": "這裡沒有人說話——把安靜的部分剪掉就什麼都不剩了。"
+	},
 	"clips": {
 		"addIntro": "新增片頭",
 		"addOutro": "新增片尾",

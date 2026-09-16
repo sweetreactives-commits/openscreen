@@ -61,6 +61,18 @@
 		"acceptAll": "Keep all",
 		"discardAll": "Discard all"
 	},
+	"silence": {
+		"title": "Remove dead air",
+		"remove": "Cut the pauses",
+		"restore": "Put the pauses back",
+		"sensitivity": "Sensitivity",
+		"minPause": "Shortest pause",
+		"padding": "Air around speech",
+		"hint": "Cuts you adjust by hand stay put when you put the pauses back.",
+		"noAudio": "This recording has no sound to measure.",
+		"nothingFound": "No pause long enough to be worth cutting.",
+		"allQuiet": "There is no speech here — cutting the quiet would leave nothing."
+	},
 	"clips": {
 		"addIntro": "Add intro",
 		"addOutro": "Add outro",

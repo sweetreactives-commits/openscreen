@@ -61,6 +61,18 @@
 		"acceptAll": "Giữ tất cả",
 		"discardAll": "Bỏ tất cả"
 	},
+	"silence": {
+		"title": "Bỏ khoảng lặng",
+		"remove": "Cắt các quãng nghỉ",
+		"restore": "Trả lại các quãng nghỉ",
+		"sensitivity": "Độ nhạy",
+		"minPause": "Quãng nghỉ ngắn nhất",
+		"padding": "Khoảng thở quanh lời nói",
+		"hint": "Những chỗ cắt bạn tự chỉnh sẽ giữ nguyên khi trả lại các quãng nghỉ.",
+		"noAudio": "Bản ghi này không có âm thanh để đo.",
+		"nothingFound": "Không có quãng nghỉ nào đủ dài để đáng cắt.",
+		"allQuiet": "Ở đây không có tiếng nói — cắt hết khoảng lặng thì chẳng còn gì."
+	},
 	"clips": {
 		"addIntro": "Thêm mở đầu",
 		"addOutro": "Thêm kết thúc",

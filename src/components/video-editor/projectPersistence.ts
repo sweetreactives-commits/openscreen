@@ -6,6 +6,13 @@ import type { ProjectMedia } from "@/lib/recordingSession";
 import { normalizeProjectMedia, projectMediaList } from "@/lib/recordingSession";
 import type { SequenceClipInput } from "@/lib/sequence";
 import {
+	DEFAULT_SILENCE_MIN_PAUSE_MS,
+	DEFAULT_SILENCE_PADDING_MS,
+	DEFAULT_SILENCE_SENSITIVITY,
+	MIN_PAUSE_RANGE_MS,
+	PADDING_RANGE_MS,
+} from "@/lib/silenceTrim";
+import {
 	normalizeTransitionMs,
 	normalizeTransitionStyle,
 	type TransitionStyle,
@@ -163,6 +170,9 @@ export interface ProjectEditorState {
 	showTrimWaveform: boolean;
 	transitionStyle: TransitionStyle;
 	transitionMs: number;
+	silenceSensitivity: number;
+	silenceMinPauseMs: number;
+	silencePaddingMs: number;
 	motionBlurAmount: number;
 	borderRadius: number;
 	padding: number;
@@ -813,6 +823,17 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		// project looked like.
 		transitionStyle: normalizeTransitionStyle(editor.transitionStyle),
 		transitionMs: normalizeTransitionMs(editor.transitionMs),
+		// How dead air is looked for. The cuts it made are ordinary trims and are
+		// already in the file; these only shape the next search.
+		silenceSensitivity: isFiniteNumber(editor.silenceSensitivity)
+			? clamp(editor.silenceSensitivity, 0, 100)
+			: DEFAULT_SILENCE_SENSITIVITY,
+		silenceMinPauseMs: isFiniteNumber(editor.silenceMinPauseMs)
+			? clamp(editor.silenceMinPauseMs, MIN_PAUSE_RANGE_MS[0], MIN_PAUSE_RANGE_MS[1])
+			: DEFAULT_SILENCE_MIN_PAUSE_MS,
+		silencePaddingMs: isFiniteNumber(editor.silencePaddingMs)
+			? clamp(editor.silencePaddingMs, PADDING_RANGE_MS[0], PADDING_RANGE_MS[1])
+			: DEFAULT_SILENCE_PADDING_MS,
 		motionBlurAmount: isFiniteNumber(editor.motionBlurAmount)
 			? clamp(editor.motionBlurAmount, 0, 1)
 			: typeof (editor as { motionBlurEnabled?: unknown }).motionBlurEnabled === "boolean"

@@ -61,6 +61,18 @@
 		"acceptAll": "Tümünü tut",
 		"discardAll": "Tümünü at"
 	},
+	"silence": {
+		"title": "Sessizlikleri kaldır",
+		"remove": "Duraklamaları kes",
+		"restore": "Duraklamaları geri getir",
+		"sensitivity": "Duyarlılık",
+		"minPause": "En kısa duraklama",
+		"padding": "Konuşmanın çevresindeki pay",
+		"hint": "Elle düzelttiğiniz kesimler, duraklamaları geri getirince yerinde kalır.",
+		"noAudio": "Bu kayıtta ölçülecek ses yok.",
+		"nothingFound": "Kesmeye değecek kadar uzun bir duraklama yok.",
+		"allQuiet": "Burada konuşma yok — sessizliği kesmek geriye hiçbir şey bırakmaz."
+	},
 	"clips": {
 		"addIntro": "Açılış ekle",
 		"addOutro": "Kapanış ekle",

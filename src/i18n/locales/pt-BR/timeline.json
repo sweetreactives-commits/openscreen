@@ -61,6 +61,18 @@
 		"acceptAll": "Manter todas",
 		"discardAll": "Descartar todas"
 	},
+	"silence": {
+		"title": "Remover o silêncio",
+		"remove": "Cortar as pausas",
+		"restore": "Devolver as pausas",
+		"sensitivity": "Sensibilidade",
+		"minPause": "Pausa mais curta",
+		"padding": "Ar em volta da fala",
+		"hint": "Os cortes que você ajustar à mão ficam quando devolver as pausas.",
+		"noAudio": "Esta gravação não tem som para medir.",
+		"nothingFound": "Nenhuma pausa longa o bastante para valer um corte.",
+		"allQuiet": "Não há fala aqui — cortar o silêncio não deixaria nada."
+	},
 	"clips": {
 		"addIntro": "Adicionar abertura",
 		"addOutro": "Adicionar encerramento",

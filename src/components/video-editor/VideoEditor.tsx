@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
+import { decodeAudioPeaks, getCachedAudioPeaks } from "@/hooks/useAudioPeaks";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
 import { useMcpCommands } from "@/hooks/useMcpCommands";
 import { type Locale } from "@/i18n/config";
@@ -58,6 +59,7 @@ import { acceptProposals, countProposals, discardProposals } from "@/lib/mcp/pro
 import { lastPathSegment } from "@/lib/mcp/walkthrough";
 import type { CursorCaptureMode, ProjectMedia, RecordingSession } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
+import { findSilenceCuts, type SilenceTrimSettings } from "@/lib/silenceTrim";
 import {
 	getExportFolder,
 	getProjectFolder,
@@ -189,6 +191,13 @@ function buildExportDiagnosticMessage(diagnostics: ExportDiagnostics) {
 	return `${diagnostics.formatLabel} export failed\n${details.join("\n")}`;
 }
 
+/** Why a scan for dead air came back with nothing, in words the user can act on. */
+const SILENCE_REFUSAL_KEYS = {
+	"no-audio": "silence.noAudio",
+	"nothing-found": "silence.nothingFound",
+	"all-quiet": "silence.allQuiet",
+} as const;
+
 function buildSaveDiagnosticMessage(formatLabel: "GIF" | "Video", reason?: string) {
 	return `${formatLabel} export save failed${reason ? `\nReason: ${reason}` : ""}`;
 }
@@ -233,6 +242,9 @@ export default function VideoEditor() {
 		motionBlurAmount,
 		transitionStyle,
 		transitionMs,
+		silenceSensitivity,
+		silenceMinPauseMs,
+		silencePaddingMs,
 		borderRadius,
 		padding,
 		aspectRatio,
@@ -1177,6 +1189,104 @@ export default function VideoEditor() {
 			setSelectedBlurId(null);
 		},
 		[pushState],
+	);
+
+	/**
+	 * Cutting the dead air out of the open recording.
+	 *
+	 * The detector and the peaks it reads already exist — for the waveform and for
+	 * the agent's audio profile. What is decided here is what to do with them: the
+	 * user's own trims are searched around and never touched, while the cuts this
+	 * made last time are replaced wholesale, exactly as the auto-zoom wand does.
+	 * Dragging one promotes it to manual, so an adjusted cut survives all of this.
+	 */
+	const [isScanningSilence, setIsScanningSilence] = useState(false);
+
+	const hasSilenceCuts = useMemo(
+		() => trimRegions.some((region) => region.source === "auto"),
+		[trimRegions],
+	);
+
+	const silenceSettings = useMemo<SilenceTrimSettings>(
+		() => ({
+			sensitivity: silenceSensitivity,
+			minPauseMs: silenceMinPauseMs,
+			paddingMs: silencePaddingMs,
+		}),
+		[silenceSensitivity, silenceMinPauseMs, silencePaddingMs],
+	);
+
+	/** Turns a scan into the trims it stands for, or reports why there are none. */
+	const silenceTrimsFrom = useCallback(
+		(peaks: Float32Array | null, settings: SilenceTrimSettings, existing: TrimRegion[]) => {
+			const scan = findSilenceCuts(peaks, Math.round(duration * 1000), settings, existing);
+			if (!scan.ok) {
+				toast.info(tTimeline(SILENCE_REFUSAL_KEYS[scan.reason]));
+				return null;
+			}
+			return scan.cuts.map<TrimRegion>((cut) => ({
+				id: `trim-${nextTrimIdRef.current++}`,
+				startMs: cut.startMs,
+				endMs: cut.endMs,
+				source: "auto" as const,
+			}));
+		},
+		[duration, tTimeline],
+	);
+
+	const handleRemoveSilence = useCallback(async () => {
+		if (hasSilenceCuts) {
+			pushState((prev) => ({
+				trimRegions: prev.trimRegions.filter((region) => region.source !== "auto"),
+			}));
+			return;
+		}
+		if (!videoPath) return;
+
+		setIsScanningSilence(true);
+		try {
+			const peaks = await decodeAudioPeaks(videoPath);
+			const kept = trimRegions.filter((region) => region.source !== "auto");
+			const added = silenceTrimsFrom(peaks, silenceSettings, kept);
+			if (!added) return;
+			pushState((prev) => ({
+				trimRegions: [...prev.trimRegions.filter((region) => region.source !== "auto"), ...added],
+			}));
+		} finally {
+			setIsScanningSilence(false);
+		}
+	}, [hasSilenceCuts, videoPath, trimRegions, silenceSettings, silenceTrimsFrom, pushState]);
+
+	/**
+	 * A setting moved. Re-cut in the same step, so tuning is one undo, not two.
+	 *
+	 * Only from peaks already decoded: this runs on every drag of a slider, and the
+	 * decode has certainly happened by now — the cuts being adjusted came from it.
+	 */
+	const handleSilenceSettingsChange = useCallback(
+		(patch: Partial<SilenceTrimSettings>) => {
+			const next = { ...silenceSettings, ...patch };
+			const fields = {
+				silenceSensitivity: next.sensitivity,
+				silenceMinPauseMs: next.minPauseMs,
+				silencePaddingMs: next.paddingMs,
+			};
+			const peaks = hasSilenceCuts ? getCachedAudioPeaks(videoPath ?? undefined) : null;
+			if (!peaks) {
+				pushState(() => fields);
+				return;
+			}
+			const kept = trimRegions.filter((region) => region.source !== "auto");
+			const added = silenceTrimsFrom(peaks, next, kept);
+			pushState((prev) => ({
+				...fields,
+				trimRegions: [
+					...prev.trimRegions.filter((region) => region.source !== "auto"),
+					...(added ?? []),
+				],
+			}));
+		},
+		[silenceSettings, hasSilenceCuts, videoPath, trimRegions, silenceTrimsFrom, pushState],
 	);
 
 	const handleZoomSpanChange = useCallback(
@@ -3459,6 +3569,11 @@ export default function VideoEditor() {
 									onToggleAutoZoom={handleToggleAutoZoom}
 									autoFocusAll={autoFocusAll}
 									onToggleAutoFocusAll={handleToggleAutoFocusAll}
+									hasSilenceCuts={hasSilenceCuts}
+									isScanningSilence={isScanningSilence}
+									silenceSettings={silenceSettings}
+									onRemoveSilence={() => void handleRemoveSilence()}
+									onSilenceSettingsChange={handleSilenceSettingsChange}
 									onZoomSpanChange={handleZoomSpanChange}
 									onZoomDelete={handleZoomDelete}
 									selectedZoomId={selectedZoomId}

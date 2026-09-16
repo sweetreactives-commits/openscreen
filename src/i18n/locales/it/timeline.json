@@ -61,6 +61,18 @@
 		"acceptAll": "Tieni tutte",
 		"discardAll": "Scarta tutte"
 	},
+	"silence": {
+		"title": "Togliere le pause",
+		"remove": "Taglia le pause",
+		"restore": "Rimetti le pause",
+		"sensitivity": "Sensibilità",
+		"minPause": "Pausa più breve",
+		"padding": "Aria attorno al parlato",
+		"hint": "I tagli che sistemi a mano restano quando rimetti le pause.",
+		"noAudio": "Questa registrazione non ha audio da misurare.",
+		"nothingFound": "Nessuna pausa abbastanza lunga da valere un taglio.",
+		"allQuiet": "Qui non si parla: tagliare il silenzio non lascerebbe nulla."
+	},
 	"clips": {
 		"addIntro": "Aggiungi intro",
 		"addOutro": "Aggiungi finale",

@@ -61,6 +61,18 @@
 		"acceptAll": "모두 유지",
 		"discardAll": "모두 버리기"
 	},
+	"silence": {
+		"title": "빈 소리 없애기",
+		"remove": "쉬는 구간 잘라내기",
+		"restore": "쉬는 구간 되돌리기",
+		"sensitivity": "민감도",
+		"minPause": "가장 짧은 쉼",
+		"padding": "말 앞뒤로 남길 여백",
+		"hint": "직접 손본 컷은 쉬는 구간을 되돌려도 그대로 남습니다.",
+		"noAudio": "이 녹화에는 잴 소리가 없습니다.",
+		"nothingFound": "잘라낼 만큼 긴 쉼이 없습니다.",
+		"allQuiet": "여기에는 말소리가 없습니다. 조용한 곳을 자르면 남는 게 없습니다."
+	},
 	"clips": {
 		"addIntro": "인트로 추가",
 		"addOutro": "아웃트로 추가",

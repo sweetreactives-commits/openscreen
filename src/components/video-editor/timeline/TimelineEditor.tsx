@@ -1,6 +1,7 @@
 import type { Range, Span } from "dnd-timeline";
 import { useTimelineContext } from "dnd-timeline";
 import {
+	AudioLines,
 	Captions,
 	Check,
 	ChevronDown,
@@ -22,10 +23,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Slider } from "@/components/ui/slider";
 import { useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { useAudioPeaks } from "@/hooks/useAudioPeaks";
 import { matchesShortcut } from "@/lib/shortcuts";
+import { MIN_PAUSE_RANGE_MS, PADDING_RANGE_MS, type SilenceTrimSettings } from "@/lib/silenceTrim";
 import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
 import { formatShortcut } from "@/utils/platformUtils";
@@ -64,6 +67,12 @@ interface TimelineEditorProps {
 	/** Global Auto-Focus toggle state + handler. */
 	autoFocusAll?: boolean;
 	onToggleAutoFocusAll?: (on: boolean) => void;
+	/** Cutting the dead air: whether any automatic cut is on the timeline right now. */
+	hasSilenceCuts?: boolean;
+	isScanningSilence?: boolean;
+	silenceSettings?: SilenceTrimSettings;
+	onRemoveSilence?: () => void;
+	onSilenceSettingsChange?: (patch: Partial<SilenceTrimSettings>) => void;
 	onZoomSpanChange: (id: string, span: Span) => void;
 	onZoomDelete: (id: string) => void;
 	selectedZoomId: string | null;
@@ -894,6 +903,42 @@ function Timeline({
 	);
 }
 
+/** One labelled slider in the dead-air menu. */
+function SilenceSetting({
+	label,
+	value,
+	display,
+	min,
+	max,
+	step,
+	onChange,
+}: {
+	label: string;
+	value: number;
+	display: string;
+	min: number;
+	max: number;
+	step: number;
+	onChange: (value: number) => void;
+}) {
+	return (
+		<div>
+			<div className="mb-1 flex items-center justify-between">
+				<span className="text-[10px] font-medium text-slate-300">{label}</span>
+				<span className="font-mono text-[10px] text-slate-500">{display}</span>
+			</div>
+			<Slider
+				value={[value]}
+				onValueChange={(values) => onChange(values[0])}
+				min={min}
+				max={max}
+				step={step}
+				className="w-full [&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:border-[#ef4444] [&_[role=slider]]:bg-[#ef4444]"
+			/>
+		</div>
+	);
+}
+
 export default function TimelineEditor({
 	videoDuration,
 	hasVideoSource = false,
@@ -905,6 +950,11 @@ export default function TimelineEditor({
 	onToggleAutoZoom,
 	autoFocusAll = false,
 	onToggleAutoFocusAll,
+	hasSilenceCuts = false,
+	isScanningSilence = false,
+	silenceSettings,
+	onRemoveSilence,
+	onSilenceSettingsChange,
 	onZoomSpanChange,
 	onZoomDelete,
 	selectedZoomId,
@@ -956,6 +1006,7 @@ export default function TimelineEditor({
 	const [range, setRange] = useState<Range>(() => createInitialRange(totalMs));
 	const [keyframes, setKeyframes] = useState<{ id: string; time: number }[]>([]);
 	const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
+	const [silenceMenuOpen, setSilenceMenuOpen] = useState(false);
 	const [scrollLabels, setScrollLabels] = useState({
 		pan: "Scroll",
 		zoom: "Ctrl + Scroll",
@@ -1538,6 +1589,72 @@ export default function TimelineEditor({
 					>
 						<Scissors className="w-4 h-4" />
 					</Button>
+					{onRemoveSilence && silenceSettings && (
+						<DropdownMenu open={silenceMenuOpen} onOpenChange={setSilenceMenuOpen}>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									disabled={isScanningSilence || !videoUrl}
+									aria-pressed={hasSilenceCuts}
+									data-testid="testId-silence-menu"
+									className={cn(
+										"h-7 w-7 rounded-lg transition-all hover:bg-[#ef4444]/10 hover:text-[#ef4444]",
+										hasSilenceCuts ? "bg-[#ef4444]/15 text-[#ef4444]" : "text-slate-400",
+									)}
+									title={t("silence.title")}
+								>
+									<AudioLines className={cn("w-4 h-4", isScanningSilence && "animate-pulse")} />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" className="w-64 border-white/10 bg-[#1a1a1a] p-2">
+								<Button
+									size="sm"
+									onClick={() => {
+										// The answer is on the timeline, not in here: get out of the way
+										// so it can be seen. The sliders below leave the menu open.
+										setSilenceMenuOpen(false);
+										onRemoveSilence();
+									}}
+									disabled={isScanningSilence}
+									data-testid="testId-silence-apply"
+									className="h-7 w-full text-xs"
+								>
+									{hasSilenceCuts ? t("silence.restore") : t("silence.remove")}
+								</Button>
+								<div className="mt-2 space-y-2">
+									<SilenceSetting
+										label={t("silence.sensitivity")}
+										value={silenceSettings.sensitivity}
+										display={String(silenceSettings.sensitivity)}
+										min={0}
+										max={100}
+										step={5}
+										onChange={(value) => onSilenceSettingsChange?.({ sensitivity: value })}
+									/>
+									<SilenceSetting
+										label={t("silence.minPause")}
+										value={silenceSettings.minPauseMs}
+										display={`${silenceSettings.minPauseMs} ms`}
+										min={MIN_PAUSE_RANGE_MS[0]}
+										max={MIN_PAUSE_RANGE_MS[1]}
+										step={50}
+										onChange={(value) => onSilenceSettingsChange?.({ minPauseMs: value })}
+									/>
+									<SilenceSetting
+										label={t("silence.padding")}
+										value={silenceSettings.paddingMs}
+										display={`${silenceSettings.paddingMs} ms`}
+										min={PADDING_RANGE_MS[0]}
+										max={PADDING_RANGE_MS[1]}
+										step={10}
+										onChange={(value) => onSilenceSettingsChange?.({ paddingMs: value })}
+									/>
+								</div>
+								<p className="mt-2 text-[10px] leading-snug text-slate-500">{t("silence.hint")}</p>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 					<Button
 						onClick={handleAddAnnotation}
 						variant="ghost"

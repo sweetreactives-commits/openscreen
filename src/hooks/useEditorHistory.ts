@@ -24,6 +24,11 @@ import {
 } from "@/components/video-editor/types";
 import { SINGLE_CLIP_ID } from "@/lib/sequence";
 import {
+	DEFAULT_SILENCE_MIN_PAUSE_MS,
+	DEFAULT_SILENCE_PADDING_MS,
+	DEFAULT_SILENCE_SENSITIVITY,
+} from "@/lib/silenceTrim";
+import {
 	DEFAULT_TRANSITION_MS,
 	DEFAULT_TRANSITION_STYLE,
 	type TransitionStyle,
@@ -60,6 +65,16 @@ export interface EditorState {
 	/** How the seams left by trims are smoothed over. Sequence-wide, like the look. */
 	transitionStyle: TransitionStyle;
 	transitionMs: number;
+	/**
+	 * How dead air is found when the user asks for it to go.
+	 *
+	 * Settings only. Whether the feature is "on" is not stored: it is whether any
+	 * automatic cut is still on the timeline, which cannot drift out of step with
+	 * the cuts themselves.
+	 */
+	silenceSensitivity: number;
+	silenceMinPauseMs: number;
+	silencePaddingMs: number;
 	padding: number;
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
@@ -96,6 +111,9 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	motionBlurAmount: DEFAULT_EDITOR_APPEARANCE_SETTINGS.motionBlurAmount,
 	transitionStyle: DEFAULT_TRANSITION_STYLE,
 	transitionMs: DEFAULT_TRANSITION_MS,
+	silenceSensitivity: DEFAULT_SILENCE_SENSITIVITY,
+	silenceMinPauseMs: DEFAULT_SILENCE_MIN_PAUSE_MS,
+	silencePaddingMs: DEFAULT_SILENCE_PADDING_MS,
 	borderRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.borderRadius,
 	padding: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,
