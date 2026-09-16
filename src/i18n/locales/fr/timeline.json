@@ -73,6 +73,15 @@
 		"nothingFound": "Aucune pause assez longue pour valoir une coupe.",
 		"allQuiet": "Il n'y a pas de parole ici : couper le silence ne laisserait rien."
 	},
+	"timelapse": {
+		"title": "Accélérer les passages mornes",
+		"speedUp": "Accélérer l'attente",
+		"restore": "Revenir à la vitesse normale",
+		"speed": "Combien plus vite",
+		"minLength": "Rien de plus court que",
+		"hint": "Les passages sans parole ni clic. Les vitesses que vous réglez restent intactes.",
+		"nothingFound": "Rien ici n'est assez morne pour valoir une accélération."
+	},
 	"clips": {
 		"addIntro": "Ajouter une intro",
 		"addOutro": "Ajouter une fin",

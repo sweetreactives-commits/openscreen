@@ -13,6 +13,11 @@ import {
 	PADDING_RANGE_MS,
 } from "@/lib/silenceTrim";
 import {
+	DEFAULT_TIMELAPSE_MIN_MS,
+	DEFAULT_TIMELAPSE_SPEED,
+	TIMELAPSE_MIN_RANGE_MS,
+} from "@/lib/timelapse";
+import {
 	normalizeTransitionMs,
 	normalizeTransitionStyle,
 	type TransitionStyle,
@@ -173,6 +178,8 @@ export interface ProjectEditorState {
 	silenceSensitivity: number;
 	silenceMinPauseMs: number;
 	silencePaddingMs: number;
+	timelapseSpeed: number;
+	timelapseMinMs: number;
 	motionBlurAmount: number;
 	borderRadius: number;
 	padding: number;
@@ -834,6 +841,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		silencePaddingMs: isFiniteNumber(editor.silencePaddingMs)
 			? clamp(editor.silencePaddingMs, PADDING_RANGE_MS[0], PADDING_RANGE_MS[1])
 			: DEFAULT_SILENCE_PADDING_MS,
+		timelapseSpeed: isFiniteNumber(editor.timelapseSpeed)
+			? clampPlaybackSpeed(editor.timelapseSpeed)
+			: DEFAULT_TIMELAPSE_SPEED,
+		timelapseMinMs: isFiniteNumber(editor.timelapseMinMs)
+			? clamp(editor.timelapseMinMs, TIMELAPSE_MIN_RANGE_MS[0], TIMELAPSE_MIN_RANGE_MS[1])
+			: DEFAULT_TIMELAPSE_MIN_MS,
 		motionBlurAmount: isFiniteNumber(editor.motionBlurAmount)
 			? clamp(editor.motionBlurAmount, 0, 1)
 			: typeof (editor as { motionBlurEnabled?: unknown }).motionBlurEnabled === "boolean"

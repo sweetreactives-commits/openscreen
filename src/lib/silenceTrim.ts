@@ -148,6 +148,25 @@ function overlaps(cut: SilenceCut, region: { startMs: number; endMs: number }): 
 }
 
 /**
+ * Every stretch of this recording that nobody is speaking over.
+ *
+ * Unfiltered by length — what counts as long enough is the caller's question.
+ * Shared with the timelapse pass, which asks the same thing of the audio and
+ * differs only in what it does with the answer (see timelapse.ts).
+ */
+export function silentStretches(
+	peaks: Float32Array,
+	durationMs: number,
+	sensitivity: number,
+): SilenceCut[] {
+	const profile = buildAudioProfile(peaks, durationMs, {
+		silenceThreshold: silenceThreshold(peaks, sensitivity),
+		minSilenceMs: RAW_MIN_PAUSE_MS,
+	});
+	return bridgeBursts(profile.silences, BRIDGE_MS);
+}
+
+/**
  * Every stretch of dead air worth removing from a recording.
  *
  * `existingTrims` are left strictly alone: a cut touching one is dropped rather
@@ -162,15 +181,10 @@ export function findSilenceCuts(
 ): SilenceScan {
 	if (!peaks || peaks.length < 2 || !(durationMs > 0)) return { ok: false, reason: "no-audio" };
 
-	const profile = buildAudioProfile(peaks, durationMs, {
-		silenceThreshold: silenceThreshold(peaks, settings.sensitivity),
-		minSilenceMs: RAW_MIN_PAUSE_MS,
-	});
-
 	const paddingMs = clamp(settings.paddingMs, PADDING_RANGE_MS[0], PADDING_RANGE_MS[1]);
 	const minPauseMs = clamp(settings.minPauseMs, MIN_PAUSE_RANGE_MS[0], MIN_PAUSE_RANGE_MS[1]);
 
-	const cuts = bridgeBursts(profile.silences, BRIDGE_MS)
+	const cuts = silentStretches(peaks, durationMs, settings.sensitivity)
 		.filter((pause) => pause.endMs - pause.startMs >= minPauseMs)
 		.map((pause) => cutForPause(pause, durationMs, paddingMs))
 		.filter((cut) => cut.endMs - cut.startMs >= MIN_CUT_MS)

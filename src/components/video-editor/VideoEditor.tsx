@@ -60,6 +60,7 @@ import { lastPathSegment } from "@/lib/mcp/walkthrough";
 import type { CursorCaptureMode, ProjectMedia, RecordingSession } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { findSilenceCuts, type SilenceTrimSettings } from "@/lib/silenceTrim";
+import { findBoringStretches, type TimelapseSettings } from "@/lib/timelapse";
 import {
 	getExportFolder,
 	getProjectFolder,
@@ -123,6 +124,7 @@ import {
 	type BlurData,
 	type CursorTelemetryPoint,
 	clampFocusToDepth,
+	clampPlaybackSpeed,
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
@@ -191,6 +193,12 @@ function buildExportDiagnosticMessage(diagnostics: ExportDiagnostics) {
 	return `${diagnostics.formatLabel} export failed\n${details.join("\n")}`;
 }
 
+/** Why a scan for boring stretches came back with nothing. */
+const TIMELAPSE_REFUSAL_KEYS = {
+	"no-audio": "silence.noAudio",
+	"nothing-found": "timelapse.nothingFound",
+} as const;
+
 /** Why a scan for dead air came back with nothing, in words the user can act on. */
 const SILENCE_REFUSAL_KEYS = {
 	"no-audio": "silence.noAudio",
@@ -245,6 +253,8 @@ export default function VideoEditor() {
 		silenceSensitivity,
 		silenceMinPauseMs,
 		silencePaddingMs,
+		timelapseSpeed,
+		timelapseMinMs,
 		borderRadius,
 		padding,
 		aspectRatio,
@@ -1296,6 +1306,100 @@ export default function VideoEditor() {
 			}));
 		},
 		[silenceSettings, hasSilenceCuts, videoPath, trimRegions, silenceTrimsFrom, pushState],
+	);
+
+	/**
+	 * Speeding up the stretches where nothing is happening.
+	 *
+	 * The sibling of the dead-air cuts and built the same way, on the same two
+	 * analyses the agent already uses. It keeps out of the cuts' way rather than
+	 * competing with them: a stretch that already carries a trim or a speed of the
+	 * user's own is a question that has been answered.
+	 */
+	const [isScanningBoring, setIsScanningBoring] = useState(false);
+
+	const hasTimelapse = useMemo(
+		() => speedRegions.some((region) => region.source === "auto"),
+		[speedRegions],
+	);
+
+	const timelapseSettings = useMemo<TimelapseSettings>(
+		() => ({
+			sensitivity: silenceSensitivity,
+			speed: timelapseSpeed,
+			minBoringMs: timelapseMinMs,
+		}),
+		[silenceSensitivity, timelapseSpeed, timelapseMinMs],
+	);
+
+	const timelapseRegionsFrom = useCallback(
+		(peaks: Float32Array | null, settings: TimelapseSettings, keptSpeeds: SpeedRegion[]) => {
+			const scan = findBoringStretches(
+				peaks,
+				Math.round(duration * 1000),
+				cursorClickTimestamps,
+				settings,
+				trimRegions,
+				keptSpeeds,
+			);
+			if (!scan.ok) {
+				toast.info(tTimeline(TIMELAPSE_REFUSAL_KEYS[scan.reason]));
+				return null;
+			}
+			return scan.stretches.map<SpeedRegion>((stretch) => ({
+				id: `speed-${nextSpeedIdRef.current++}`,
+				startMs: stretch.startMs,
+				endMs: stretch.endMs,
+				speed: clampPlaybackSpeed(settings.speed),
+				source: "auto" as const,
+			}));
+		},
+		[duration, cursorClickTimestamps, trimRegions, tTimeline],
+	);
+
+	const handleTimelapse = useCallback(async () => {
+		if (hasTimelapse) {
+			pushState((prev) => ({
+				speedRegions: prev.speedRegions.filter((region) => region.source !== "auto"),
+			}));
+			return;
+		}
+		if (!videoPath) return;
+
+		setIsScanningBoring(true);
+		try {
+			const peaks = await decodeAudioPeaks(videoPath);
+			const kept = speedRegions.filter((region) => region.source !== "auto");
+			const added = timelapseRegionsFrom(peaks, timelapseSettings, kept);
+			if (!added) return;
+			pushState((prev) => ({
+				speedRegions: [...prev.speedRegions.filter((region) => region.source !== "auto"), ...added],
+			}));
+		} finally {
+			setIsScanningBoring(false);
+		}
+	}, [hasTimelapse, videoPath, speedRegions, timelapseSettings, timelapseRegionsFrom, pushState]);
+
+	const handleTimelapseSettingsChange = useCallback(
+		(patch: Partial<TimelapseSettings>) => {
+			const next = { ...timelapseSettings, ...patch };
+			const fields = { timelapseSpeed: next.speed, timelapseMinMs: next.minBoringMs };
+			const peaks = hasTimelapse ? getCachedAudioPeaks(videoPath ?? undefined) : null;
+			if (!peaks) {
+				pushState(() => fields);
+				return;
+			}
+			const kept = speedRegions.filter((region) => region.source !== "auto");
+			const added = timelapseRegionsFrom(peaks, next, kept);
+			pushState((prev) => ({
+				...fields,
+				speedRegions: [
+					...prev.speedRegions.filter((region) => region.source !== "auto"),
+					...(added ?? []),
+				],
+			}));
+		},
+		[timelapseSettings, hasTimelapse, videoPath, speedRegions, timelapseRegionsFrom, pushState],
 	);
 
 	const handleZoomSpanChange = useCallback(
@@ -3584,6 +3688,11 @@ export default function VideoEditor() {
 									silenceSettings={silenceSettings}
 									onRemoveSilence={() => void handleRemoveSilence()}
 									onSilenceSettingsChange={handleSilenceSettingsChange}
+									hasTimelapse={hasTimelapse}
+									isScanningBoring={isScanningBoring}
+									timelapseSettings={timelapseSettings}
+									onTimelapse={() => void handleTimelapse()}
+									onTimelapseSettingsChange={handleTimelapseSettingsChange}
 									onZoomSpanChange={handleZoomSpanChange}
 									onZoomDelete={handleZoomDelete}
 									selectedZoomId={selectedZoomId}

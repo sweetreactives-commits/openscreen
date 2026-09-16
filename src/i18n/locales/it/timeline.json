@@ -73,6 +73,15 @@
 		"nothingFound": "Nessuna pausa abbastanza lunga da valere un taglio.",
 		"allQuiet": "Qui non si parla: tagliare il silenzio non lascerebbe nulla."
 	},
+	"timelapse": {
+		"title": "Accelerare le parti noiose",
+		"speedUp": "Accelera l'attesa",
+		"restore": "Torna alla velocità normale",
+		"speed": "Quanto più veloce",
+		"minLength": "Niente più corto di",
+		"hint": "Tratti senza parole né clic. Le velocità che imposti tu restano come sono.",
+		"nothingFound": "Qui non c'è nulla di abbastanza noioso da accelerare."
+	},
 	"clips": {
 		"addIntro": "Aggiungi intro",
 		"addOutro": "Aggiungi finale",

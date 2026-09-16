@@ -73,6 +73,15 @@
 		"nothingFound": "Kesmeye değecek kadar uzun bir duraklama yok.",
 		"allQuiet": "Burada konuşma yok — sessizliği kesmek geriye hiçbir şey bırakmaz."
 	},
+	"timelapse": {
+		"title": "Sıkıcı yerleri hızlandır",
+		"speedUp": "Beklemeyi hızlandır",
+		"restore": "Normal hıza dön",
+		"speed": "Ne kadar hızlı",
+		"minLength": "Şundan kısa olmasın",
+		"hint": "Konuşma da tıklama da olmayan bölümler. Kendi ayarladığınız hızlara dokunulmaz.",
+		"nothingFound": "Burada hızlandırmaya değecek kadar sıkıcı bir yer yok."
+	},
 	"clips": {
 		"addIntro": "Açılış ekle",
 		"addOutro": "Kapanış ekle",

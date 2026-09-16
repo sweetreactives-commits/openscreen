@@ -28,6 +28,7 @@ import {
 	DEFAULT_SILENCE_PADDING_MS,
 	DEFAULT_SILENCE_SENSITIVITY,
 } from "@/lib/silenceTrim";
+import { DEFAULT_TIMELAPSE_MIN_MS, DEFAULT_TIMELAPSE_SPEED } from "@/lib/timelapse";
 import {
 	DEFAULT_TRANSITION_MS,
 	DEFAULT_TRANSITION_STYLE,
@@ -75,6 +76,9 @@ export interface EditorState {
 	silenceSensitivity: number;
 	silenceMinPauseMs: number;
 	silencePaddingMs: number;
+	/** How boring stretches are sped up. The sensitivity above is shared with them. */
+	timelapseSpeed: number;
+	timelapseMinMs: number;
 	padding: number;
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
@@ -114,6 +118,8 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	silenceSensitivity: DEFAULT_SILENCE_SENSITIVITY,
 	silenceMinPauseMs: DEFAULT_SILENCE_MIN_PAUSE_MS,
 	silencePaddingMs: DEFAULT_SILENCE_PADDING_MS,
+	timelapseSpeed: DEFAULT_TIMELAPSE_SPEED,
+	timelapseMinMs: DEFAULT_TIMELAPSE_MIN_MS,
 	borderRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.borderRadius,
 	padding: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,

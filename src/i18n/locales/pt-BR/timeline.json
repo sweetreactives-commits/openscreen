@@ -73,6 +73,15 @@
 		"nothingFound": "Nenhuma pausa longa o bastante para valer um corte.",
 		"allQuiet": "Não há fala aqui — cortar o silêncio não deixaria nada."
 	},
+	"timelapse": {
+		"title": "Acelerar as partes paradas",
+		"speedUp": "Acelerar a espera",
+		"restore": "Voltar à velocidade normal",
+		"speed": "Quanto mais rápido",
+		"minLength": "Nada menor que",
+		"hint": "Trechos sem fala e sem cliques. As velocidades que você definir ficam como estão.",
+		"nothingFound": "Não há nada parado o bastante para valer uma aceleração."
+	},
 	"clips": {
 		"addIntro": "Adicionar abertura",
 		"addOutro": "Adicionar encerramento",

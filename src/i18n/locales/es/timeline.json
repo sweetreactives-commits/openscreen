@@ -73,6 +73,15 @@
 		"nothingFound": "No hay ninguna pausa lo bastante larga para cortarla.",
 		"allQuiet": "Aquí no hay voz: cortar el silencio no dejaría nada."
 	},
+	"timelapse": {
+		"title": "Acelerar lo aburrido",
+		"speedUp": "Acelerar la espera",
+		"restore": "Volver a la velocidad normal",
+		"speed": "Cuánto más rápido",
+		"minLength": "Nada más corto que",
+		"hint": "Tramos sin voz ni clics. Las velocidades que pongas tú se quedan como están.",
+		"nothingFound": "Aquí no hay nada lo bastante aburrido para acelerarlo."
+	},
 	"clips": {
 		"addIntro": "Añadir intro",
 		"addOutro": "Añadir cierre",

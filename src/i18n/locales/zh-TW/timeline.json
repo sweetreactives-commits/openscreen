@@ -73,6 +73,15 @@
 		"nothingFound": "沒有值得剪掉的長停頓。",
 		"allQuiet": "這裡沒有人說話——把安靜的部分剪掉就什麼都不剩了。"
 	},
+	"timelapse": {
+		"title": "加速無聊的部分",
+		"speedUp": "加速等待",
+		"restore": "恢復正常速度",
+		"speed": "快多少倍",
+		"minLength": "短於此的不處理",
+		"hint": "既沒有說話也沒有點擊的片段。你自己設的速度不會被更動。",
+		"nothingFound": "這裡沒有無聊到值得加速的片段。"
+	},
 	"clips": {
 		"addIntro": "新增片頭",
 		"addOutro": "新增片尾",

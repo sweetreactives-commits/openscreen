@@ -5,6 +5,7 @@ import {
 	Captions,
 	Check,
 	ChevronDown,
+	FastForward,
 	Gauge,
 	MessageSquare,
 	Plus,
@@ -29,6 +30,7 @@ import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { useAudioPeaks } from "@/hooks/useAudioPeaks";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { MIN_PAUSE_RANGE_MS, PADDING_RANGE_MS, type SilenceTrimSettings } from "@/lib/silenceTrim";
+import { TIMELAPSE_MIN_RANGE_MS, type TimelapseSettings } from "@/lib/timelapse";
 import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
 import { formatShortcut } from "@/utils/platformUtils";
@@ -73,6 +75,12 @@ interface TimelineEditorProps {
 	silenceSettings?: SilenceTrimSettings;
 	onRemoveSilence?: () => void;
 	onSilenceSettingsChange?: (patch: Partial<SilenceTrimSettings>) => void;
+	/** Speeding up the boring stretches: whether any automatic speed is on the timeline. */
+	hasTimelapse?: boolean;
+	isScanningBoring?: boolean;
+	timelapseSettings?: TimelapseSettings;
+	onTimelapse?: () => void;
+	onTimelapseSettingsChange?: (patch: Partial<TimelapseSettings>) => void;
 	onZoomSpanChange: (id: string, span: Span) => void;
 	onZoomDelete: (id: string) => void;
 	selectedZoomId: string | null;
@@ -903,7 +911,10 @@ function Timeline({
 	);
 }
 
-/** One labelled slider in the dead-air menu. */
+/** The speeds offered for a boring stretch. Slower than 2x is not worth a region. */
+const TIMELAPSE_SPEEDS = [2, 3, 4, 5] as const;
+
+/** One labelled slider in the dead-air or timelapse menu. */
 function SilenceSetting({
 	label,
 	value,
@@ -911,6 +922,7 @@ function SilenceSetting({
 	min,
 	max,
 	step,
+	accent = "#ef4444",
 	onChange,
 }: {
 	label: string;
@@ -919,6 +931,7 @@ function SilenceSetting({
 	min: number;
 	max: number;
 	step: number;
+	accent?: string;
 	onChange: (value: number) => void;
 }) {
 	return (
@@ -933,7 +946,8 @@ function SilenceSetting({
 				min={min}
 				max={max}
 				step={step}
-				className="w-full [&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:border-[#ef4444] [&_[role=slider]]:bg-[#ef4444]"
+				style={{ ["--slider-accent" as string]: accent }}
+				className="w-full [&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:border-[var(--slider-accent)] [&_[role=slider]]:bg-[var(--slider-accent)]"
 			/>
 		</div>
 	);
@@ -955,6 +969,11 @@ export default function TimelineEditor({
 	silenceSettings,
 	onRemoveSilence,
 	onSilenceSettingsChange,
+	hasTimelapse = false,
+	isScanningBoring = false,
+	timelapseSettings,
+	onTimelapse,
+	onTimelapseSettingsChange,
 	onZoomSpanChange,
 	onZoomDelete,
 	selectedZoomId,
@@ -1007,6 +1026,7 @@ export default function TimelineEditor({
 	const [keyframes, setKeyframes] = useState<{ id: string; time: number }[]>([]);
 	const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
 	const [silenceMenuOpen, setSilenceMenuOpen] = useState(false);
+	const [timelapseMenuOpen, setTimelapseMenuOpen] = useState(false);
 	const [scrollLabels, setScrollLabels] = useState({
 		pan: "Scroll",
 		zoom: "Ctrl + Scroll",
@@ -1684,6 +1704,78 @@ export default function TimelineEditor({
 								<path d="M6 6h12M6 18h12" />
 							</svg>
 						</Button>
+					)}
+					{onTimelapse && timelapseSettings && (
+						<DropdownMenu open={timelapseMenuOpen} onOpenChange={setTimelapseMenuOpen}>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									disabled={isScanningBoring || !videoUrl}
+									aria-pressed={hasTimelapse}
+									data-testid="testId-timelapse-menu"
+									className={cn(
+										"h-7 w-7 rounded-lg transition-all hover:bg-[#d97706]/10 hover:text-[#d97706]",
+										hasTimelapse ? "bg-[#d97706]/15 text-[#d97706]" : "text-slate-400",
+									)}
+									title={t("timelapse.title")}
+								>
+									<FastForward className={cn("w-4 h-4", isScanningBoring && "animate-pulse")} />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" className="w-64 border-white/10 bg-[#1a1a1a] p-2">
+								<Button
+									size="sm"
+									onClick={() => {
+										setTimelapseMenuOpen(false);
+										onTimelapse();
+									}}
+									disabled={isScanningBoring}
+									data-testid="testId-timelapse-apply"
+									className="h-7 w-full text-xs"
+								>
+									{hasTimelapse ? t("timelapse.restore") : t("timelapse.speedUp")}
+								</Button>
+								<div className="mt-2 space-y-2">
+									<div>
+										<div className="mb-1 text-[10px] font-medium text-slate-300">
+											{t("timelapse.speed")}
+										</div>
+										<div className="flex gap-1" data-testid="testId-timelapse-speeds">
+											{TIMELAPSE_SPEEDS.map((speed) => (
+												<button
+													key={speed}
+													type="button"
+													onClick={() => onTimelapseSettingsChange?.({ speed })}
+													data-active={speed === timelapseSettings.speed ? "true" : "false"}
+													className={cn(
+														"flex-1 rounded-md px-2 py-1 text-[10px] transition-colors",
+														speed === timelapseSettings.speed
+															? "bg-[#d97706]/20 text-slate-100 ring-1 ring-[#d97706]/60"
+															: "bg-white/[0.04] text-slate-400 hover:text-slate-200",
+													)}
+												>
+													{`${speed}×`}
+												</button>
+											))}
+										</div>
+									</div>
+									<SilenceSetting
+										label={t("timelapse.minLength")}
+										value={timelapseSettings.minBoringMs}
+										display={`${Math.round(timelapseSettings.minBoringMs / 1000)} s`}
+										min={TIMELAPSE_MIN_RANGE_MS[0]}
+										max={TIMELAPSE_MIN_RANGE_MS[1]}
+										step={1_000}
+										accent="#d97706"
+										onChange={(value) => onTimelapseSettingsChange?.({ minBoringMs: value })}
+									/>
+								</div>
+								<p className="mt-2 text-[10px] leading-snug text-slate-500">
+									{t("timelapse.hint")}
+								</p>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					)}
 					<Button
 						onClick={handleAddSpeed}

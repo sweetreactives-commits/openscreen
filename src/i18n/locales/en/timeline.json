@@ -73,6 +73,15 @@
 		"nothingFound": "No pause long enough to be worth cutting.",
 		"allQuiet": "There is no speech here — cutting the quiet would leave nothing."
 	},
+	"timelapse": {
+		"title": "Speed up the dull parts",
+		"speedUp": "Speed up the waiting",
+		"restore": "Back to normal speed",
+		"speed": "How much faster",
+		"minLength": "Nothing shorter than",
+		"hint": "Stretches with nothing said and nothing clicked. Speeds you set yourself are left alone.",
+		"nothingFound": "Nothing here is dull enough to be worth speeding up."
+	},
 	"clips": {
 		"addIntro": "Add intro",
 		"addOutro": "Add outro",

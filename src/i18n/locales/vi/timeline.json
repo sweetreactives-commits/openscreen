@@ -73,6 +73,15 @@
 		"nothingFound": "Không có quãng nghỉ nào đủ dài để đáng cắt.",
 		"allQuiet": "Ở đây không có tiếng nói — cắt hết khoảng lặng thì chẳng còn gì."
 	},
+	"timelapse": {
+		"title": "Tua nhanh đoạn buồn tẻ",
+		"speedUp": "Tua nhanh lúc chờ",
+		"restore": "Trả về tốc độ thường",
+		"speed": "Nhanh gấp mấy lần",
+		"minLength": "Không ngắn hơn",
+		"hint": "Những đoạn không ai nói và không có cú nhấp nào. Tốc độ bạn tự đặt vẫn giữ nguyên.",
+		"nothingFound": "Ở đây không có đoạn nào đủ buồn tẻ để đáng tua nhanh."
+	},
 	"clips": {
 		"addIntro": "Thêm mở đầu",
 		"addOutro": "Thêm kết thúc",
