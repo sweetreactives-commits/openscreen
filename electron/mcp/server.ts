@@ -596,9 +596,10 @@ function registerRecordingTools(server: McpServer): void {
 				"approve it — every time, with no way for you to skip or suppress it — and " +
 				"the app's own countdown runs before capture begins. Expect this to be " +
 				"refused: it is refused outright unless the user has separately allowed " +
-				"agents to record, and while the editor holds unsaved work, since starting " +
-				"a recording closes the editor. Tell the user what you are about to record " +
-				"before calling this, so the dialog is not a surprise.",
+				"agents to record. An open project is not in the way — it is put aside " +
+				"first, unsaved edits included, and the take you are about to record joins " +
+				"it rather than starting a project of its own. Tell the user what you are " +
+				"about to record before calling this, so the dialog is not a surprise.",
 			inputSchema: z.object({}),
 			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 		},

@@ -21,6 +21,8 @@ export type McpCommand =
 	| "get_frame"
 	| "get_transcript"
 	| "open_clip"
+	/** Puts the open project aside before the editor window is destroyed. */
+	| "park_project"
 	| "apply_commands"
 	| "export_video"
 	| "export_walkthrough";

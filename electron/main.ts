@@ -23,6 +23,7 @@ import {
 	getSelectedDesktopSource,
 	registerIpcHandlers,
 } from "./ipc/handlers";
+import { callEditor, isEditorAvailable } from "./mcp/bridge";
 import { registerExportPathHandler } from "./mcp/exportPath";
 import { registerImageReader } from "./mcp/imageReader";
 import { registerMcpIpc } from "./mcp/ipc";
@@ -502,15 +503,17 @@ app.whenReady().then(async () => {
 	registerExportPathHandler(RECORDINGS_DIR);
 	configureMcpRecording({
 		getMainWindow: () => mainWindow,
-		hasUnsavedChanges: () => editorHasUnsavedChanges,
 		isRecording: () => isRecording,
-		switchToRecorder: () => {
-			// The agent only gets here with nothing unsaved, so the project file on disk
-			// is current: remember it, and the take it is about to record joins it
-			// instead of starting a project of its own.
-			beginRetakeForCurrentProject();
-			switchToHudWrapper();
+		// The editor holds the project, so only the editor can put it aside — the
+		// same way its own "Back to recording" button does. With no editor there is
+		// nothing loaded to park, and remembering the file on disk is enough for the
+		// take to join it.
+		parkProject: async () => {
+			if (!isEditorAvailable()) return beginRetakeForCurrentProject() || true;
+			const response = await callEditor<{ parked: boolean }>("park_project");
+			return response.ok;
 		},
+		switchToRecorder: switchToHudWrapper,
 	});
 	registerWalkthroughWriter();
 	registerImageReader();

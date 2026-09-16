@@ -50,7 +50,7 @@ export function claimPendingRecordingStart(): boolean {
 export type RecordingRefusal =
 	| "not-allowed"
 	| "declined"
-	| "unsaved-changes"
+	| "park-failed"
 	| "already-recording"
 	| "not-recording"
 	| "no-window";
@@ -66,9 +66,9 @@ export const REFUSAL_MESSAGES: Record<RecordingRefusal, string> = {
 		"The user has not allowed agents to start recordings. They can turn that on in " +
 		"OpenScreen's AI agent access settings; it is a separate switch from editing.",
 	declined: "The user declined the recording.",
-	"unsaved-changes":
-		"The editor has unsaved changes, and starting a recording closes it. Ask the user " +
-		"to save or discard first.",
+	"park-failed":
+		"The open project could not be put aside, and starting a recording closes the " +
+		"editor, so nothing was started. The user's work is untouched.",
 	"already-recording": "A recording is already in progress.",
 	"not-recording": "Nothing is recording.",
 	"no-window": "OpenScreen has no window to record from.",
@@ -81,8 +81,11 @@ function refuse(refusal: RecordingRefusal): RecordingOutcome {
 export interface RecordingDeps {
 	/** The window that hosts the recorder UI. */
 	getMainWindow: () => BrowserWindow | null;
-	/** True while the editor holds work the user has not saved. */
-	hasUnsavedChanges: () => boolean;
+	/**
+	 * Puts the open project aside so it survives the editor window, and says
+	 * whether it worked. Nothing switches away from work that is still loose.
+	 */
+	parkProject: () => Promise<boolean>;
 	/** True while a capture is already running. */
 	isRecording: () => boolean;
 	/** Brings the recorder UI up, closing the editor. */
@@ -122,15 +125,15 @@ export async function startRecordingForAgent(deps: RecordingDeps): Promise<Recor
 	const window = deps.getMainWindow();
 	if (!window || window.isDestroyed()) return refuse("no-window");
 
-	// Checked before asking, so the user is never prompted for something that
-	// would cost them work even if they said yes.
-	if (deps.hasUnsavedChanges()) return refuse("unsaved-changes");
-
 	const approved = await (deps.confirm ?? askTheUser)(window);
 	if (!approved) return refuse("declined");
 
 	// Re-check: the dialog is modal but the world can still move while it is open.
 	if (deps.isRecording()) return refuse("already-recording");
+
+	// Ordered, not optional: the switch below destroys the editor window, so the
+	// project has to be somewhere else first.
+	if (!(await deps.parkProject())) return refuse("park-failed");
 
 	// Left for the recorder to claim, in case it is created after this point and
 	// misses the event below.

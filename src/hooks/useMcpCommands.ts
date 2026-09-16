@@ -55,6 +55,15 @@ export interface McpCommandSources {
 	getClipTelemetry: (sourcePath: string) => Promise<readonly CursorTelemetryPoint[]>;
 	/** Opens another recording for editing, as clicking it in the strip does. */
 	openClip: (clipId: string) => boolean;
+	/**
+	 * Puts the open project aside so the editor window can be destroyed.
+	 *
+	 * The same thing "Back to recording" does, and it has to be the same: the
+	 * snapshot of the project lives here, in the renderer, and the main process
+	 * cannot build one. Resolves false if the work could not be put aside — then
+	 * nothing may switch away from it.
+	 */
+	parkProject: () => Promise<boolean>;
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -195,6 +204,15 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						return { ok: false, message: `Could not open clip "${clipId}".` };
 					}
 					return { ok: true, activeClipId: clipId, alreadyOpen: false };
+				}
+
+				case "park_project": {
+					// Asked for just before the editor is torn down for a recording. If this
+					// says no, nothing tears anything down.
+					const parked = await current.parkProject();
+					return parked
+						? { ok: true, parked: true }
+						: { ok: false, message: "Could not put the project aside." };
 				}
 
 				case "apply_commands": {

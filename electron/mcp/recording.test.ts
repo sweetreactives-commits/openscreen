@@ -24,7 +24,7 @@ function deps(overrides: Record<string, unknown> = {}) {
 		window,
 		options: {
 			getMainWindow: () => window,
-			hasUnsavedChanges: () => false,
+			parkProject: async () => true,
 			isRecording: () => false,
 			switchToRecorder: vi.fn(),
 			confirm: async () => true,
@@ -84,14 +84,34 @@ describe("startRecordingForAgent", () => {
 		expect(confirm).toHaveBeenCalledTimes(3);
 	});
 
-	it("refuses while the editor holds unsaved work, without prompting", async () => {
-		const confirm = vi.fn(async () => true);
-		const { options } = deps({ hasUnsavedChanges: () => true, confirm });
+	it("puts the project aside before switching away from it", async () => {
+		// Order is the whole guarantee: the switch destroys the editor window, so the
+		// project has to be somewhere else by the time it happens.
+		const order: string[] = [];
+		const { options } = deps({
+			parkProject: async () => {
+				order.push("park");
+				return true;
+			},
+			switchToRecorder: () => order.push("switch"),
+		});
+
 		const outcome = await startRecordingForAgent(options);
 
-		expect(outcome.refusal).toBe("unsaved-changes");
-		// Saying yes would have closed the editor and taken the work with it.
-		expect(confirm).not.toHaveBeenCalled();
+		expect(outcome.ok).toBe(true);
+		expect(order).toEqual(["park", "switch"]);
+	});
+
+	it("does not switch away from work it could not put aside", async () => {
+		const switchToRecorder = vi.fn();
+		const { options } = deps({ parkProject: async () => false, switchToRecorder });
+		const outcome = await startRecordingForAgent(options);
+
+		expect(outcome.refusal).toBe("park-failed");
+		expect(
+			switchToRecorder,
+			"the editor was destroyed with the project still in it",
+		).not.toHaveBeenCalled();
 	});
 
 	it("refuses when a recording is already running", async () => {

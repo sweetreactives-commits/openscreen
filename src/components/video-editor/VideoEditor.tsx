@@ -799,19 +799,28 @@ export default function VideoEditor() {
 	 * which deliberately bypasses the unsaved-changes guard on the window. So every
 	 * caller has to have dealt with unsaved work already — see handleNewRecording.
 	 */
+	/**
+	 * Puts the project aside before the editor window is destroyed.
+	 *
+	 * The take that is about to be recorded belongs to this project, so the project
+	 * has to survive the window. A saved file with nothing unsaved on top of it
+	 * needs no copy — it already says all this. Shared with the agent's path, which
+	 * must park exactly the same way rather than approximately.
+	 */
+	const parkProjectForRetake = useCallback(async () => {
+		if (!currentProjectMedia) return true;
+		const upToDateOnDisk = Boolean(currentProjectPath) && !hasUnsavedChanges;
+		const result = await window.electronAPI.beginRetake({
+			projectData: upToDateOnDisk
+				? null
+				: createProjectData(currentProjectMedia, projectEditorState),
+			projectPath: currentProjectPath,
+		});
+		return result?.success !== false;
+	}, [currentProjectMedia, currentProjectPath, hasUnsavedChanges, projectEditorState]);
+
 	const doNewRecording = useCallback(async () => {
-		// Park the project first: the editor window is about to be destroyed, and the
-		// take the user is going away to record belongs to this project. A saved file
-		// with nothing unsaved on top of it needs no copy — it already says all this.
-		if (currentProjectMedia) {
-			const upToDateOnDisk = Boolean(currentProjectPath) && !hasUnsavedChanges;
-			await window.electronAPI.beginRetake({
-				projectData: upToDateOnDisk
-					? null
-					: createProjectData(currentProjectMedia, projectEditorState),
-				projectPath: currentProjectPath,
-			});
-		}
+		await parkProjectForRetake();
 
 		const result = await window.electronAPI.startNewRecording();
 		if (result.success) {
@@ -820,7 +829,7 @@ export default function VideoEditor() {
 			console.error("Failed to start new recording:", result.error);
 			setError("Failed to start new recording: " + (result.error || "Unknown error"));
 		}
-	}, [currentProjectMedia, currentProjectPath, hasUnsavedChanges, projectEditorState]);
+	}, [parkProjectForRetake]);
 
 	/**
 	 * "Back to recording" — record another take for this project.
@@ -2804,6 +2813,7 @@ export default function VideoEditor() {
 		getClipTelemetry: loadClipTelemetry,
 		// An agent moves between recordings the same way the user does, undo history
 		// and all; there is no back door that edits a recording nobody can see.
+		parkProject: parkProjectForRetake,
 		openClip: (clipId: string) => {
 			const clip = clips.find((entry) => entry.id === clipId && entry.kind === "recording");
 			if (!clip?.media) return false;
