@@ -254,6 +254,45 @@ describe("VideoExporter sequences of several recordings (real browser)", () => {
 		expect(meanDifference(own, inSequence)).toBeLessThan(8);
 	});
 
+	it("smooths over the join between clips when a transition is set", async () => {
+		// A one-second card at 15fps, so the recording starts on frame 15 — one second
+		// in. A card never goes through the frame renderer, where a trim's seam is
+		// handled, so this is the path only the export loop can smooth over.
+		const withCard = {
+			...base,
+			sequence: [
+				{ kind: "card" as const, card: { durationMs: 1_000, title: "Intro" } },
+				recording(sampleVideoUrl),
+			],
+		};
+		const hardCut = await new VideoExporter(withCard).export();
+		const dissolved = await new VideoExporter({
+			...withCard,
+			transitionStyle: "dissolve" as const,
+			transitionMs: 600,
+		}).export();
+		expect(hardCut.success, hardCut.error).toBe(true);
+		expect(dissolved.success, dissolved.error).toBe(true);
+
+		// Just after the card gives way, the dissolved export is still mostly card —
+		// the near-black title slide over the recording — while the hard cut is already
+		// showing the recording alone.
+		const cutJustAfter = await frameAt(hardCut.blob!, 1.05);
+		const dissolvedJustAfter = await frameAt(dissolved.blob!, 1.05);
+		expect(
+			meanDifference(cutJustAfter, dissolvedJustAfter),
+			"the join was not smoothed over",
+		).toBeGreaterThan(15);
+
+		// And well past it the two are the same video again: the transition ends.
+		const cutLater = await frameAt(hardCut.blob!, 1.9);
+		const dissolvedLater = await frameAt(dissolved.blob!, 1.9);
+		expect(
+			meanDifference(cutLater, dissolvedLater),
+			"the held frame outstayed the transition",
+		).toBeLessThan(8);
+	});
+
 	it("places each recording's sound under its own picture, silence where a take has none", async () => {
 		const result = await new VideoExporter({
 			...base,

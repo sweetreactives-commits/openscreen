@@ -7,7 +7,20 @@ import type { ExportSequenceClip } from "@/lib/exporter/exportSequence";
 import { lastPathSegment } from "@/lib/mcp/walkthrough";
 import { probeMediaDurationMs } from "@/lib/mediaDuration";
 import { computeSequence, resolveTimelinePosition, type Sequence } from "@/lib/sequence";
-import { type PlaybackStep, stepCard, stepRecording } from "@/lib/sequencePlayback";
+import {
+	nextPlayableClip,
+	type PlaybackStep,
+	stepCard,
+	stepRecording,
+} from "@/lib/sequencePlayback";
+import {
+	combineOverlays,
+	DEFAULT_TRANSITION_MS,
+	overlayAfterSeam,
+	overlayBeforeSeam,
+	type TransitionOverlay,
+} from "@/lib/transitions";
+import { wallpaperBackgroundStyle } from "@/lib/wallpaper";
 import VideoPlayback, { type VideoPlaybackProps, type VideoPlaybackRef } from "./VideoPlayback";
 
 /**
@@ -126,9 +139,16 @@ function useRecordingDurations(
 	}, [entries, activeClipId, activeDurationMs, probed]);
 }
 
-function CardFrame({ title, aspectRatio }: { title?: string; aspectRatio: number }) {
-	const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
+function CardFrame({
+	title,
+	aspectRatio,
+	canvasRef,
+}: {
+	title?: string;
+	aspectRatio: number;
+	/** Held by the preview so a card can be snapshotted when it gives way to the next clip. */
+	canvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
+}) {
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
@@ -145,7 +165,7 @@ function CardFrame({ title, aspectRatio }: { title?: string; aspectRatio: number
 		const observer = new ResizeObserver(draw);
 		observer.observe(canvas);
 		return () => observer.disconnect();
-	}, [title]);
+	}, [title, canvasRef]);
 
 	return (
 		<canvas
@@ -290,8 +310,19 @@ export function SequencePreview({
 	const playbackRef = useRef<VideoPlaybackRef>(null);
 	/** The recording whose player has a frame up; time reports from any other are stale. */
 	const readyClipRef = useRef<string | null>(null);
+	const entriesRef = useRef(entries);
+	const lookRef = useRef(look);
+	const cardCanvasRef = useRef<HTMLCanvasElement | null>(null);
+	/** When the clip on screen gave way to the next one, or null when nothing is fading. */
+	const boundaryAtRef = useRef<number | null>(null);
+	const frozenHolderRef = useRef<HTMLDivElement | null>(null);
+	const frozenPictureRef = useRef<HTMLDivElement | null>(null);
+	const frozenWallpaperRef = useRef<HTMLDivElement | null>(null);
+	const blackHolderRef = useRef<HTMLDivElement | null>(null);
 
 	sequenceRef.current = sequence;
+	entriesRef.current = entries;
+	lookRef.current = look;
 
 	const position = ready ? resolveTimelinePosition(sequence, timelineMs) : null;
 	const currentEntry = position
@@ -329,6 +360,72 @@ export function SequencePreview({
 		video.currentTime = seconds;
 	}, []);
 
+	/**
+	 * The picture of the clip that is leaving, copied out before it is taken down.
+	 *
+	 * A card is a canvas this component owns; a recording is the Pixi stage of the
+	 * player, reached through the ref it already holds. Both are copied rather than
+	 * moved — React owns the card's canvas, and the extract hands back a fresh one.
+	 */
+	const snapshotOutgoing = useCallback((clipId: string | null): HTMLCanvasElement | null => {
+		const entry = entriesRef.current?.find((candidate) => candidate.id === clipId);
+		if (!entry) return null;
+
+		if (entry.clip.kind === "card") {
+			const card = cardCanvasRef.current;
+			if (!card || card.width === 0 || card.height === 0) return null;
+			const copy = document.createElement("canvas");
+			copy.width = card.width;
+			copy.height = card.height;
+			copy.getContext("2d")?.drawImage(card, 0, 0);
+			return copy;
+		}
+
+		const app = playbackRef.current?.app;
+		if (!app?.renderer?.extract) return null;
+		try {
+			return app.renderer.extract.canvas(app.stage) as HTMLCanvasElement;
+		} catch {
+			// Better a hard join than a held frame that never clears.
+			return null;
+		}
+	}, []);
+
+	/**
+	 * One clip just gave way to the next. Note when, and keep what was on screen.
+	 *
+	 * A recording's snapshot is of its stage alone — the wallpaper is a DOM layer
+	 * underneath. Across a trim that does not matter, since the same wallpaper is on
+	 * both sides; across a clip boundary it does, because the next clip may be a card
+	 * that covers the frame. So the held picture carries a wallpaper of its own.
+	 */
+	const captureBoundary = useCallback(
+		(outgoingClipId: string | null) => {
+			const style = lookRef.current.transitionStyle ?? "none";
+			if (style === "none" || !playingRef.current) return;
+			boundaryAtRef.current = performance.now();
+			if (style !== "dissolve") return;
+
+			const picture = frozenPictureRef.current;
+			const snapshot = picture ? snapshotOutgoing(outgoingClipId) : null;
+			if (!picture || !snapshot) {
+				boundaryAtRef.current = null;
+				return;
+			}
+			snapshot.style.width = "100%";
+			snapshot.style.height = "100%";
+			snapshot.style.display = "block";
+			picture.replaceChildren(snapshot);
+
+			const outgoing = entriesRef.current?.find((entry) => entry.id === outgoingClipId);
+			const wallpaperLayer = frozenWallpaperRef.current;
+			if (wallpaperLayer) {
+				wallpaperLayer.style.display = outgoing?.clip.kind === "recording" ? "block" : "none";
+			}
+		},
+		[snapshotOutgoing],
+	);
+
 	const applyStep = useCallback(
 		(step: PlaybackStep) => {
 			if (step.kind === "continue") {
@@ -341,11 +438,12 @@ export function SequencePreview({
 				moveTimeline(step.timelineMs);
 				return;
 			}
+			captureBoundary(currentClipIdRef.current);
 			moveTimeline(step.timelineMs);
 			// Crossing into another recording remounts the player; it cues itself once it
 			// has a frame. A card needs nothing: its clock picks the new time up.
 		},
-		[moveTimeline, setPlaying],
+		[moveTimeline, setPlaying, captureBoundary],
 	);
 
 	const handleVideoReady = useCallback(() => {
@@ -403,6 +501,65 @@ export function SequencePreview({
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
 	}, [isPlaying, currentIsCard, applyStep]);
+
+	/**
+	 * Smoothing over the joins between clips, on its own clock.
+	 *
+	 * Its own, because the fade has to keep going through the very gap it exists to
+	 * cover: the incoming player is mounting and reporting nothing yet. Only while
+	 * playing — a seek has no previous clip to fade out of, and stopping mid-fade
+	 * would leave a stale picture over the playhead.
+	 */
+	useEffect(() => {
+		const frozen = frozenHolderRef.current;
+		const black = blackHolderRef.current;
+		const clear = () => {
+			boundaryAtRef.current = null;
+			if (frozen) frozen.style.opacity = "0";
+			if (black) black.style.opacity = "0";
+		};
+		if (!isPlaying || !frozen || !black) {
+			clear();
+			return;
+		}
+
+		let frame = 0;
+		const tick = () => {
+			const style = lookRef.current.transitionStyle ?? "none";
+			let overlay: TransitionOverlay = { frozenAlpha: 0, blackAlpha: 0 };
+			if (style !== "none") {
+				const durationMs = lookRef.current.transitionMs ?? DEFAULT_TRANSITION_MS;
+				const boundaryAt = boundaryAtRef.current;
+				const after =
+					boundaryAt === null
+						? { frozenAlpha: 0, blackAlpha: 0 }
+						: overlayAfterSeam(style, durationMs, performance.now() - boundaryAt);
+				if (boundaryAt !== null && after.frozenAlpha === 0 && after.blackAlpha === 0) {
+					boundaryAtRef.current = null;
+				}
+				overlay = combineOverlays(overlayBeforeSeam(style, durationMs, msUntilNextClip()), after);
+			}
+			frozen.style.opacity = String(overlay.frozenAlpha);
+			black.style.opacity = String(overlay.blackAlpha);
+			frame = requestAnimationFrame(tick);
+		};
+
+		/** Output time left before this clip gives way, or null when none follows. */
+		const msUntilNextClip = (): number | null => {
+			const clipId = currentClipIdRef.current;
+			const seq = sequenceRef.current;
+			if (!clipId || !nextPlayableClip(seq, clipId)) return null;
+			const placed = seq.clips.find((clip) => clip.id === clipId);
+			if (!placed) return null;
+			return placed.outEndMs - timelineRef.current;
+		};
+
+		frame = requestAnimationFrame(tick);
+		return () => {
+			cancelAnimationFrame(frame);
+			clear();
+		};
+	}, [isPlaying]);
 
 	const seek = useCallback(
 		(ms: number) => {
@@ -477,7 +634,11 @@ export function SequencePreview({
 				>
 					{!ready && <span className="text-xs text-slate-400">{t("clips.sequencePreparing")}</span>}
 					{ready && currentEntry?.clip.kind === "card" && (
-						<CardFrame title={currentEntry.clip.card.title} aspectRatio={frameAspectRatio} />
+						<CardFrame
+							title={currentEntry.clip.card.title}
+							aspectRatio={frameAspectRatio}
+							canvasRef={cardCanvasRef}
+						/>
 					)}
 					{ready && recording && currentEntry && (
 						<VideoPlayback
@@ -509,6 +670,27 @@ export function SequencePreview({
 							onZoomFocusChange={noop}
 						/>
 					)}
+					{/* The join between two clips: the picture that was on screen, then black,
+					    both above whatever mounted in its place. */}
+					<div
+						ref={frozenHolderRef}
+						data-testid="testId-clip-transition-frozen"
+						className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm"
+						style={{ zIndex: 50, opacity: 0 }}
+					>
+						<div
+							ref={frozenWallpaperRef}
+							className="absolute inset-0 bg-cover bg-center"
+							style={{ ...wallpaperBackgroundStyle(look.wallpaper), display: "none" }}
+						/>
+						<div ref={frozenPictureRef} className="absolute inset-0" />
+					</div>
+					<div
+						ref={blackHolderRef}
+						data-testid="testId-clip-transition-black"
+						className="pointer-events-none absolute inset-0 rounded-sm bg-black"
+						style={{ zIndex: 51, opacity: 0 }}
+					/>
 				</div>
 			</div>
 

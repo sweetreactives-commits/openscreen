@@ -13,6 +13,7 @@ import type { TransitionStyle } from "@/lib/transitions";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
+import { ClipBoundaryTransition } from "./clipBoundaryTransition";
 import {
 	type ExportCard,
 	type ExportRecording,
@@ -266,22 +267,31 @@ export class GifExporter {
 			});
 			this.gif = gif;
 
+			/** How many output frames a clip is expected to last. */
+			const plannedFrames = (clip: ExportSequenceClip) =>
+				clip.kind === "card"
+					? cardFrameCount(clip.card.durationMs, frameRate)
+					: (loaded.get(clip)?.frames ?? 0);
+
 			// Progress counts every clip, cards included, or it would climb past 100%.
-			const totalFrames = sequence.reduce(
-				(sum, clip) =>
-					sum +
-					(clip.kind === "card"
-						? cardFrameCount(clip.card.durationMs, frameRate)
-						: (loaded.get(clip)?.frames ?? 0)),
-				0,
-			);
+			const totalFrames = sequence.reduce((sum, clip) => sum + plannedFrames(clip), 0);
+
+			// Smoothing over the joins between clips, on the funnel every frame passes
+			// through: a card never reaches the renderer, where a trim's seam is handled.
+			const boundaries = new ClipBoundaryTransition({
+				style: this.config.transitionStyle,
+				durationMs: this.config.transitionMs,
+				frameRate,
+				width: this.config.width,
+				height: this.config.height,
+			});
 
 			let frameIndex = 0;
 			// gif.js wants frame delay in ms
 			const frameDelay = Math.round(1000 / frameRate);
 
 			const addFrame = (canvas: HTMLCanvasElement) => {
-				gif.addFrame(canvas, { delay: frameDelay, copy: true });
+				gif.addFrame(boundaries.paint(canvas, frameIndex), { delay: frameDelay, copy: true });
 				frameIndex++;
 				this.config.onProgress?.({
 					currentFrame: frameIndex,
@@ -393,8 +403,9 @@ export class GifExporter {
 			console.log("[GifExporter] Loop:", this.config.loop ? "infinite" : "once");
 
 			// Phase 2: render the sequence in order.
-			for (const clip of sequence) {
+			for (const [clipIndex, clip] of sequence.entries()) {
 				if (this.cancelled) break;
+				boundaries.beginClip(frameIndex, plannedFrames(clip), clipIndex < sequence.length - 1);
 				if (clip.kind === "card") {
 					emitCard(clip.card);
 				} else {

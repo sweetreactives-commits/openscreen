@@ -35,6 +35,31 @@ export function classifyWallpaper(value: string): WallpaperClassification {
 	return { kind: "color", value: trimmed };
 }
 
+/** A wallpaper as CSS, for the DOM layers that paint one behind the frame. */
+export interface WallpaperBackgroundStyle {
+	background?: string;
+	backgroundImage?: string;
+}
+
+/**
+ * One implementation for every layer that paints the wallpaper.
+ *
+ * The player paints it behind its stage; the sequence preview paints it behind
+ * the frame it holds over a clip boundary. Those two have to agree exactly, or
+ * the held frame would sit on a different background than the one it came from.
+ * Pair it with `bg-cover bg-center`, which is how an image wallpaper is framed.
+ */
+export function wallpaperBackgroundStyle(wallpaper?: string): WallpaperBackgroundStyle {
+	const classified = classifyWallpaper(wallpaper || DEFAULT_WALLPAPER);
+	if (classified.kind !== "image") return { background: classified.value };
+	try {
+		return { backgroundImage: `url(${resolveImageWallpaperUrl(classified.path)})` };
+	} catch (err) {
+		console.warn("[wallpaper] resolve failed:", err);
+		return { background: "" };
+	}
+}
+
 const ALLOWED_IMAGE_PREFIX = "/wallpapers/";
 
 export class UnsafeImagePrefixError extends Error {

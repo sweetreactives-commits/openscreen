@@ -13,6 +13,7 @@ import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
 import { AudioProcessor, type SequenceAudioClip } from "./audioEncoder";
+import { ClipBoundaryTransition } from "./clipBoundaryTransition";
 import {
 	type ExportCard,
 	type ExportRecording,
@@ -380,15 +381,25 @@ export class VideoExporter {
 		this.muxer = muxer;
 		await muxer.initialize();
 
+		/** How many output frames a clip is expected to last. */
+		const plannedFrames = (clip: ExportSequenceClip) =>
+			clip.kind === "card"
+				? cardFrameCount(clip.card.durationMs, frameRate)
+				: (loaded.get(clip)?.frames ?? 0);
+
 		// Progress counts every clip, cards included, or it would climb past 100%.
-		const totalFrames = sequence.reduce(
-			(sum, clip) =>
-				sum +
-				(clip.kind === "card"
-					? cardFrameCount(clip.card.durationMs, frameRate)
-					: (loaded.get(clip)?.frames ?? 0)),
-			0,
-		);
+		const totalFrames = sequence.reduce((sum, clip) => sum + plannedFrames(clip), 0);
+
+		// Smoothing over the joins between clips, the way trims are smoothed inside
+		// the renderer. Cards never reach the renderer, so this sits on the funnel
+		// every output frame goes through instead.
+		const boundaries = new ClipBoundaryTransition({
+			style: this.config.transitionStyle,
+			durationMs: this.config.transitionMs,
+			frameRate,
+			width: this.config.width,
+			height: this.config.height,
+		});
 
 		const frameDuration = 1_000_000 / frameRate;
 		let frameIndex = 0;
@@ -409,18 +420,19 @@ export class VideoExporter {
 				throw this.fatalEncoderError;
 			}
 			const timestamp = frameIndex * frameDuration;
+			const source = boundaries.paint(canvas, frameIndex);
 
 			let exportFrame: VideoFrame;
 
 			// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
 			// silently, producing empty frames, so we force a CPU readback instead.
 			if (platform === "linux") {
-				const canvasCtx = canvas.getContext("2d")!;
-				const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+				const canvasCtx = source.getContext("2d")!;
+				const imageData = canvasCtx.getImageData(0, 0, source.width, source.height);
 				exportFrame = new VideoFrame(imageData.data.buffer, {
 					format: "RGBA",
-					codedWidth: canvas.width,
-					codedHeight: canvas.height,
+					codedWidth: source.width,
+					codedHeight: source.height,
 					timestamp,
 					duration: frameDuration,
 					colorSpace: {
@@ -431,7 +443,7 @@ export class VideoExporter {
 					},
 				});
 			} else {
-				exportFrame = new VideoFrame(canvas, { timestamp, duration: frameDuration });
+				exportFrame = new VideoFrame(source, { timestamp, duration: frameDuration });
 			}
 
 			while (this.encoder && this.encoder.encodeQueueSize >= maxEncodeQueue && !this.cancelled) {
@@ -566,8 +578,9 @@ export class VideoExporter {
 		// Phase 2: render the sequence in order, remembering where each recording
 		// started so its sound can be placed under it.
 		const startFrames = new Map<LoadedRecording, number>();
-		for (const clip of sequence) {
+		for (const [clipIndex, clip] of sequence.entries()) {
 			if (this.cancelled) break;
+			boundaries.beginClip(frameIndex, plannedFrames(clip), clipIndex < sequence.length - 1);
 			if (clip.kind === "card") {
 				await emitCard(clip.card);
 			} else {

@@ -51,7 +51,7 @@ import {
 	seamsFromTrims,
 	type TransitionStyle,
 } from "@/lib/transitions";
-import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
+import { wallpaperBackgroundStyle } from "@/lib/wallpaper";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
 import {
@@ -1943,17 +1943,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			videoReadyRafRef.current = requestAnimationFrame(waitForRenderableFrame);
 		};
 
-		const resolvedWallpaper = useMemo<string | null>(() => {
-			const source = wallpaper || DEFAULT_WALLPAPER;
-			const classified = classifyWallpaper(source);
-			if (classified.kind !== "image") return classified.value;
-			try {
-				return resolveImageWallpaperUrl(classified.path);
-			} catch (err) {
-				console.warn("[VideoPlayback] wallpaper resolve failed:", err);
-				return null;
-			}
-		}, [wallpaper]);
+		const backgroundStyle = useMemo(() => wallpaperBackgroundStyle(wallpaper), [wallpaper]);
 		const webcamCssBoxShadow = useMemo(
 			() => getWebcamLayoutCssBoxShadow(webcamLayoutPreset),
 			[webcamLayoutPreset],
@@ -2037,17 +2027,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				}
 			};
 		}, []);
-
-		const isImageUrl = Boolean(
-			resolvedWallpaper &&
-				(resolvedWallpaper.startsWith("file://") ||
-					resolvedWallpaper.startsWith("http") ||
-					resolvedWallpaper.startsWith("/") ||
-					resolvedWallpaper.startsWith("data:")),
-		);
-		const backgroundStyle = isImageUrl
-			? { backgroundImage: `url(${resolvedWallpaper || ""})` }
-			: { background: resolvedWallpaper || "" };
 
 		return (
 			<div
