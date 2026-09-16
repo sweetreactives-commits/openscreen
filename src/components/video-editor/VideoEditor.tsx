@@ -1988,6 +1988,30 @@ export default function VideoEditor() {
 	);
 
 	/**
+	 * A recording's cursor files, read once per file.
+	 *
+	 * Only the open recording's cursor data is loaded by the editor itself; the rest
+	 * is read on demand — by the export, the sequence preview and an agent asking
+	 * about another clip. None of it changes once recorded, so it is cached.
+	 */
+	const loadClipCursorFiles = useCallback((sourcePath: string) => {
+		let files = inactiveCursorCacheRef.current.get(sourcePath);
+		if (!files) {
+			files = Promise.all([
+				nativeBridgeClient.cursor.getTelemetry(sourcePath).catch(() => []),
+				nativeBridgeClient.cursor.getRecordingData(sourcePath).catch(() => null),
+			]);
+			inactiveCursorCacheRef.current.set(sourcePath, files);
+		}
+		return files;
+	}, []);
+
+	const loadClipTelemetry = useCallback(
+		async (sourcePath: string) => (await loadClipCursorFiles(sourcePath))[0],
+		[loadClipCursorFiles],
+	);
+
+	/**
 	 * Every clip in order, as both the export and the sequence preview need it.
 	 *
 	 * The open recording contributes what the editor already has loaded. Every other
@@ -2035,15 +2059,7 @@ export default function VideoEditor() {
 
 			if (!clip.media || !clip.editor) continue;
 			const sourcePath = clip.media.screenVideoPath;
-			let cursorFiles = inactiveCursorCacheRef.current.get(sourcePath);
-			if (!cursorFiles) {
-				cursorFiles = Promise.all([
-					nativeBridgeClient.cursor.getTelemetry(sourcePath).catch(() => []),
-					nativeBridgeClient.cursor.getRecordingData(sourcePath).catch(() => null),
-				]);
-				inactiveCursorCacheRef.current.set(sourcePath, cursorFiles);
-			}
-			const [telemetry, recordingData] = await cursorFiles;
+			const [telemetry, recordingData] = await loadClipCursorFiles(sourcePath);
 			const overlay = hasEditableCursorOverlay(
 				clip.media.cursorCaptureMode,
 				nativePlatform,
@@ -2087,6 +2103,7 @@ export default function VideoEditor() {
 		cursorTelemetry,
 		cursorClickTimestamps,
 		nativePlatform,
+		loadClipCursorFiles,
 	]);
 
 	/**
@@ -2664,6 +2681,15 @@ export default function VideoEditor() {
 		},
 		cursorTelemetry,
 		videoUrl: videoPath,
+		getClipTelemetry: loadClipTelemetry,
+		// An agent moves between recordings the same way the user does, undo history
+		// and all; there is no back door that edits a recording nobody can see.
+		openClip: (clipId: string) => {
+			const clip = clips.find((entry) => entry.id === clipId && entry.kind === "recording");
+			if (!clip?.media) return false;
+			handleActivateRecording(clipId);
+			return true;
+		},
 		// pushState, not updateState: an agent's batch should be one undo step.
 		applyPatch: pushState,
 		runExport: runExportForAgent,

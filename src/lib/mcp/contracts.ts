@@ -20,6 +20,7 @@ export type McpCommand =
 	| "get_audio_profile"
 	| "get_frame"
 	| "get_transcript"
+	| "open_clip"
 	| "apply_commands"
 	| "export_video"
 	| "export_walkthrough";

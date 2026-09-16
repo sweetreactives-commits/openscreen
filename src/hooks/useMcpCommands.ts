@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import { toFileUrl } from "@/components/video-editor/projectPersistence";
 import type { CursorTelemetryPoint } from "@/components/video-editor/types";
 import { decodeAudioPeaks, getCachedAudioPeaks } from "@/hooks/useAudioPeaks";
 import type { EditorState } from "@/hooks/useEditorHistory";
 import { buildAudioProfile } from "@/lib/mcp/audioProfile";
+import { type ClipTarget, isClipTargetError, resolveClipTarget } from "@/lib/mcp/clipTargets";
 import type { McpCommandRequest } from "@/lib/mcp/contracts";
 import { summarizeCursorEvents } from "@/lib/mcp/cursorEvents";
 import { applyCommands, type EditorCommand } from "@/lib/mcp/editorCommands";
@@ -18,6 +20,7 @@ import {
 	validateSteps,
 	type WalkthroughStep,
 } from "@/lib/mcp/walkthrough";
+import { probeMediaDurationMs } from "@/lib/mediaDuration";
 import type { ProjectMedia } from "@/lib/recordingSession";
 
 /**
@@ -48,6 +51,10 @@ export interface McpCommandSources {
 	runExport: ExportRunner;
 	/** The user's chosen export folder, or null to fall back to the recordings folder. */
 	exportFolder: string | null;
+	/** Cursor telemetry of a recording that is not the open one, read from its files. */
+	getClipTelemetry: (sourcePath: string) => Promise<readonly CursorTelemetryPoint[]>;
+	/** Opens another recording for editing, as clicking it in the strip does. */
+	openClip: (clipId: string) => boolean;
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -60,6 +67,10 @@ export function useMcpCommands(sources: McpCommandSources): void {
 	const sourcesRef = useRef(sources);
 	sourcesRef.current = sources;
 
+	// Lengths of the recordings the editor does not have open, read from the files
+	// once each: a recording does not change length, and get_project is asked often.
+	const clipDurationsRef = useRef(new Map<string, Promise<number | null>>());
+
 	useEffect(() => {
 		if (!window.electronAPI?.onMcpCommand) return;
 
@@ -67,9 +78,43 @@ export function useMcpCommands(sources: McpCommandSources): void {
 			const current = sourcesRef.current;
 			const args = request.args ?? {};
 
+			/** The recording a read is about: the open one unless another is named. */
+			const target = (): ClipTarget | { error: string } =>
+				resolveClipTarget(
+					current.editor.clips,
+					current.editor.activeClipId,
+					current.videoUrl,
+					current.media?.screenVideoPath ?? null,
+					args.clipId,
+				);
+
+			const clipDuration = async (clip: ClipTarget): Promise<number> => {
+				if (clip.open || !clip.sourcePath) return current.durationMs;
+				return (await clipDurationsRef.current.get(clip.sourcePath)) ?? current.durationMs;
+			};
+
 			switch (request.command) {
 				case "get_project": {
 					const dimensions = current.getSourceDimensions();
+					// Every other recording's length, so the clips can be laid out on the
+					// finished video's clock. The open one's comes from its own player.
+					const durations: Record<string, number | null> = {};
+					await Promise.all(
+						current.editor.clips.map(async (clip) => {
+							if (clip.kind !== "recording" || clip.id === current.editor.activeClipId) return;
+							const sourcePath = clip.media?.screenVideoPath;
+							if (!sourcePath) {
+								durations[clip.id] = null;
+								return;
+							}
+							let probe = clipDurationsRef.current.get(sourcePath);
+							if (!probe) {
+								probe = probeMediaDurationMs(toFileUrl(sourcePath));
+								clipDurationsRef.current.set(sourcePath, probe);
+							}
+							durations[clip.id] = await probe;
+						}),
+					);
 					// Don't decode audio just to answer this: report what is already known
 					// and let get_audio_profile settle it.
 					const cachedPeaks = getCachedAudioPeaks(current.videoUrl ?? undefined);
@@ -82,33 +127,74 @@ export function useMcpCommands(sources: McpCommandSources): void {
 						sourceHeight: dimensions.height,
 						hasCursorTelemetry: current.cursorTelemetry.length > 0,
 						hasAudio: cachedPeaks ? true : null,
+						clipDurationsMs: durations,
 					});
 				}
 
-				case "get_cursor_events":
-					return summarizeCursorEvents(current.cursorTelemetry, {
-						minIdleMs: asNumber(args.minIdleMs),
-						movementThreshold: asNumber(args.movementThreshold),
-						maxClicks: asNumber(args.maxClicks),
-					});
+				case "get_cursor_events": {
+					const clip = target();
+					if (isClipTargetError(clip)) throw new Error(clip.error);
+					const telemetry = clip.open
+						? current.cursorTelemetry
+						: clip.sourcePath
+							? await current.getClipTelemetry(clip.sourcePath)
+							: [];
+					return {
+						clipId: clip.clipId,
+						...summarizeCursorEvents(telemetry, {
+							minIdleMs: asNumber(args.minIdleMs),
+							movementThreshold: asNumber(args.movementThreshold),
+							maxClicks: asNumber(args.maxClicks),
+						}),
+					};
+				}
 
 				case "get_audio_profile": {
+					const clip = target();
+					if (isClipTargetError(clip)) throw new Error(clip.error);
 					// Decodes on first ask and caches, so the waveform being off costs nothing
 					// and a second call is free.
-					const peaks = current.videoUrl ? await decodeAudioPeaks(current.videoUrl) : null;
-					return buildAudioProfile(peaks, current.durationMs, {
-						bucketCount: asNumber(args.bucketCount),
-						silenceThreshold: asNumber(args.silenceThreshold),
-						minSilenceMs: asNumber(args.minSilenceMs),
-					});
+					const peaks = await decodeAudioPeaks(clip.videoUrl);
+					return {
+						clipId: clip.clipId,
+						...buildAudioProfile(peaks, await clipDuration(clip), {
+							bucketCount: asNumber(args.bucketCount),
+							silenceThreshold: asNumber(args.silenceThreshold),
+							minSilenceMs: asNumber(args.minSilenceMs),
+						}),
+					};
 				}
 
 				case "get_frame": {
-					if (!current.videoUrl) throw new Error("No video is loaded");
-					return grabFrame(current.videoUrl, asNumber(args.timeMs) ?? 0, {
+					const clip = target();
+					if (isClipTargetError(clip)) throw new Error(clip.error);
+					const frame = await grabFrame(clip.videoUrl, asNumber(args.timeMs) ?? 0, {
 						maxWidth: asNumber(args.maxWidth),
 						quality: asNumber(args.quality),
 					});
+					return { ...frame, clipId: clip.clipId };
+				}
+
+				/**
+				 * Opens another recording for editing.
+				 *
+				 * Editing has no clipId of its own: it goes through the editor's undo
+				 * history, which belongs to whatever recording is open. This moves that,
+				 * and starts a new undo history in doing so — exactly as the user clicking
+				 * the clip in the strip would.
+				 */
+				case "open_clip": {
+					const clipId = typeof args.clipId === "string" ? args.clipId : "";
+					if (!clipId) return { ok: false, message: "Name the clip to open." };
+					if (clipId === current.editor.activeClipId) {
+						return { ok: true, activeClipId: clipId, alreadyOpen: true };
+					}
+					const clip = target();
+					if (isClipTargetError(clip)) return { ok: false, message: clip.error };
+					if (!current.openClip(clipId)) {
+						return { ok: false, message: `Could not open clip "${clipId}".` };
+					}
+					return { ok: true, activeClipId: clipId, alreadyOpen: false };
 				}
 
 				case "apply_commands": {
@@ -224,9 +310,13 @@ export function useMcpCommands(sources: McpCommandSources): void {
 				}
 
 				case "get_transcript": {
-					if (!current.videoUrl) throw new Error("No video is loaded");
+					const clip = target();
+					if (isClipTargetError(clip)) throw new Error(clip.error);
 					// Returns the current state without waiting; Whisper runs for minutes.
-					return requestTranscript(current.videoUrl, { restart: args.restart === true });
+					const state = await requestTranscript(clip.videoUrl, {
+						restart: args.restart === true,
+					});
+					return { ...state, clipId: clip.clipId };
 				}
 
 				default:

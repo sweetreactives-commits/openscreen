@@ -181,3 +181,74 @@ describe("buildProjectSummary", () => {
 		expect(summary.cursor.visible).toBe(false);
 	});
 });
+
+describe("buildProjectSummary: a project of several clips", () => {
+	const project = () =>
+		input({
+			editor: {
+				...INITIAL_EDITOR_STATE,
+				clips: [
+					{ id: "card-1", kind: "card", durationMs: 2_000, title: "Intro" },
+					{ id: "clip-1", kind: "recording" },
+					{
+						id: "clip-2",
+						kind: "recording",
+						media: { screenVideoPath: "C:/recordings/two.webm" },
+						editor: {
+							cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+							zoomRegions: [],
+							trimRegions: [{ id: "trim-9", startMs: 0, endMs: 1_000 }],
+							speedRegions: [],
+							annotationRegions: [],
+						},
+					},
+				],
+				activeClipId: "clip-1",
+			},
+			durationMs: 10_000,
+			clipDurationsMs: { "clip-2": 5_000 },
+		});
+
+	it("lays the clips out on the finished video's clock", () => {
+		const { sequence } = buildProjectSummary(project());
+
+		expect(sequence.clips.map((clip) => [clip.id, clip.outStartMs, clip.outEndMs])).toEqual([
+			["card-1", 0, 2_000],
+			["clip-1", 2_000, 12_000],
+			// Its own second is trimmed away, so it contributes four.
+			["clip-2", 12_000, 16_000],
+		]);
+		expect(sequence.durationMs).toBe(16_000);
+	});
+
+	it("says which recording the edits and the read tools are about", () => {
+		const { sequence } = buildProjectSummary(project());
+		expect(sequence.clips.filter((clip) => clip.open).map((clip) => clip.id)).toEqual(["clip-1"]);
+		expect(sequence.note).toContain("clipId");
+	});
+
+	it("describes a card by what it is: a title and a length", () => {
+		const card = buildProjectSummary(project()).sequence.clips[0];
+		expect(card).toMatchObject({ kind: "card", title: "Intro", sourceDurationMs: 2_000 });
+		expect(card.screenVideoPath).toBeUndefined();
+	});
+
+	it("counts another recording's edits without spelling them out", () => {
+		const other = buildProjectSummary(project()).sequence.clips[2];
+		expect(other.regionCounts).toEqual({ zooms: 0, trims: 1, speeds: 0, annotations: 0 });
+		expect(other.screenVideoPath).toBe("C:/recordings/two.webm");
+	});
+
+	it("reports the whole video's length as the output duration", () => {
+		expect(buildProjectSummary(project()).output.durationMs).toBe(16_000);
+	});
+
+	it("withholds positions rather than guessing when a length could not be read", () => {
+		const unknown = project();
+		const summary = buildProjectSummary({ ...unknown, clipDurationsMs: { "clip-2": null } });
+
+		expect(summary.sequence.durationMs).toBeNull();
+		expect(summary.sequence.clips.map((clip) => clip.outStartMs)).toEqual([null, null, null]);
+		expect(summary.sequence.clips[2].sourceDurationMs).toBeNull();
+	});
+});

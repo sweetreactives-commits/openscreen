@@ -157,12 +157,16 @@ function buildMcpServer(): McpServer {
 		{
 			title: "Read the open project",
 			description:
-				"The recording and every edit currently applied to it: source dimensions and " +
-				"duration, layout, cursor and webcam settings, and all zoom, trim, speed and " +
-				"annotation regions with their ids. Also returns the segments that survive " +
-				"trimming and the resulting output duration, so you never have to work those " +
-				"out yourself. All timestamps are milliseconds on the original recording's " +
-				"clock — adding a trim does not shift anything around it." +
+				"The open project: the recording being edited and every edit applied to it — " +
+				"source dimensions and duration, layout, cursor and webcam settings, and all " +
+				"zoom, trim, speed and annotation regions with their ids. A project can hold " +
+				"several recordings and title cards: `sequence` lists them in order with their " +
+				"place in the finished video, while `regions` and every read tool are about " +
+				"the clip marked open. Also returns the segments that survive trimming and the " +
+				"resulting duration, so you never have to work those out yourself. Region and " +
+				"command timestamps are milliseconds on a recording's own clock — adding a " +
+				"trim does not shift anything around it — while sequence positions are on the " +
+				"finished video's clock." +
 				UNTRUSTED_TOOL_WARNING,
 			annotations: { readOnlyHint: true },
 		},
@@ -180,6 +184,10 @@ function buildMcpServer(): McpServer {
 				"useful on Linux, where the browser capture pipeline records no telemetry — " +
 				"check capabilities.cursorTelemetry in get_project first.",
 			inputSchema: z.object({
+				clipId: z
+					.string()
+					.optional()
+					.describe("Which recording to read. Defaults to the one the editor has open."),
 				minIdleMs: z
 					.number()
 					.optional()
@@ -205,6 +213,10 @@ function buildMcpServer(): McpServer {
 				"so it costs nothing extra. Returns an empty profile when the recording has no " +
 				"audio track.",
 			inputSchema: z.object({
+				clipId: z
+					.string()
+					.optional()
+					.describe("Which recording to read. Defaults to the one the editor has open."),
 				bucketCount: z.number().optional().describe("Points in the loudness curve. Default 120."),
 				silenceThreshold: z
 					.number()
@@ -234,6 +246,10 @@ function buildMcpServer(): McpServer {
 				"planning to trim away." +
 				UNTRUSTED_TOOL_WARNING,
 			inputSchema: z.object({
+				clipId: z
+					.string()
+					.optional()
+					.describe("Which recording to read. Defaults to the one the editor has open."),
 				restart: z
 					.boolean()
 					.optional()
@@ -256,9 +272,11 @@ function buildMcpServer(): McpServer {
 				"get_cursor_events, say) rather than sampling the timeline." +
 				UNTRUSTED_TOOL_WARNING,
 			inputSchema: z.object({
-				timeMs: z
-					.number()
-					.describe("When to grab, in milliseconds on the source recording's clock."),
+				clipId: z
+					.string()
+					.optional()
+					.describe("Which recording to read. Defaults to the one the editor has open."),
+				timeMs: z.number().describe("When to grab, in milliseconds on that recording's own clock."),
 				maxWidth: z
 					.number()
 					.optional()
@@ -299,6 +317,9 @@ function buildMcpServer(): McpServer {
 	// that always refuses.
 	if (currentMcpMode() === "full") {
 		registerEditTool(server);
+		// Moving between clips changes what the user is looking at, so it belongs with
+		// editing rather than with the read tools that take a clipId.
+		registerOpenClipTool(server);
 		// Exporting writes a file, so it belongs with editing rather than reading.
 		registerExportTool(server);
 		registerWalkthroughTool(server);
@@ -440,13 +461,67 @@ const commandSchema = z.discriminatedUnion("op", [
 	}),
 ]);
 
+function registerOpenClipTool(server: McpServer): void {
+	server.registerTool(
+		"open_clip",
+		{
+			title: "Open another recording for editing",
+			description:
+				"Moves the editor to another recording in this project, by the id get_project " +
+				"gives it. Editing tools have no clip of their own: they always apply to the " +
+				"recording that is open, which is also the one the user is looking at. Reading " +
+				"tools do not need this — they take a clipId. Opening a recording starts a new " +
+				"undo history, exactly as the user clicking it in the clip strip does, so do " +
+				"not move between clips more than the work needs.",
+			inputSchema: z.object({
+				clipId: z.string().describe("The recording to open, from get_project's sequence."),
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+		},
+		async (args) => {
+			const response = await callEditor<{
+				ok: boolean;
+				activeClipId?: string;
+				alreadyOpen?: boolean;
+				message?: string;
+			}>("open_clip", args);
+
+			if (!response.ok) {
+				return { isError: true, content: [{ type: "text" as const, text: response.message }] };
+			}
+			if (!response.data.ok) {
+				return {
+					isError: true,
+					content: [
+						{ type: "text" as const, text: response.data.message ?? "Could not open that clip." },
+					],
+				};
+			}
+
+			const { activeClipId, alreadyOpen } = response.data;
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: alreadyOpen
+							? `${activeClipId} was already open.`
+							: `Opened ${activeClipId}. Edits now apply to it, and its undo history starts fresh.`,
+					},
+				],
+				structuredContent: response.data as Record<string, unknown>,
+			};
+		},
+	);
+}
+
 function registerExportTool(server: McpServer): void {
 	server.registerTool(
 		"export_video",
 		{
 			title: "Render the project to a file",
 			description:
-				"Renders the open project and writes it to the user's export folder. " +
+				"Renders the open project — every clip of it, in order — and writes it to the " +
+				"user's export folder. " +
 				"Rendering takes a while, so this never waits: it starts the job and reports " +
 				"where it stands. Call it again with no arguments to check progress, until " +
 				'status is "ready". You choose the file name, not the folder, and an ' +
@@ -570,7 +645,9 @@ function registerWalkthroughTool(server: McpServer): void {
 				"— read get_transcript for what was said and get_cursor_events for where the " +
 				"clicks were, then decide what each one is doing. Saved to the user's export " +
 				"folder; you choose the file name, not the folder, and an existing file is " +
-				"never overwritten. Times are milliseconds on the source recording's clock.",
+				"never overwritten. Times are milliseconds on the open recording's own clock: " +
+				"in a project of several recordings this documents the one that is open, so " +
+				"write one document per recording if you need them all.",
 			inputSchema: z.object({
 				fileName: z.string().describe("Plain file name ending in .md, with no folders in it."),
 				title: z.string().optional().describe("Heading for the document."),
@@ -625,11 +702,12 @@ function registerEditTool(server: McpServer): void {
 			description:
 				"Applies a list of edits to the project the user has open. The whole list is " +
 				"one undo step for them, and it is all or nothing — if any command is invalid, " +
-				"nothing is applied and the reply names the one at fault. Timestamps are " +
-				"milliseconds on the source recording's clock, the same clock every read tool " +
-				"reports. Note that remove_range CUTS OUT the span you give it. Do not invent " +
-				"ids: new regions get ids back in createdIds, and existing ones come from " +
-				"get_project.",
+				"nothing is applied and the reply names the one at fault. Edits apply to the " +
+				"recording that is open — the clip marked open in get_project's sequence; use " +
+				"open_clip to work on another. Timestamps are milliseconds on that recording's " +
+				"own clock, the same clock the read tools report for it. Note that remove_range " +
+				"CUTS OUT the span you give it. Do not invent ids: new regions get ids back in " +
+				"createdIds, and existing ones come from get_project.",
 			inputSchema: z.object({
 				commands: z.array(commandSchema).describe("Edits to apply, in order."),
 			}),
