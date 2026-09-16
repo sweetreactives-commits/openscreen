@@ -59,7 +59,12 @@
 		"on": "acceso",
 		"shadow": "Ombra",
 		"roundness": "Arrotondamento",
-		"padding": "Spaziatura"
+		"padding": "Spaziatura",
+		"transitions": "Transizioni sui tagli",
+		"transition_none": "Nessuna",
+		"transition_dissolve": "Dissolvenza",
+		"transition_dip": "Dissolvenza al nero",
+		"transitionsHint": "Ammorbidisce le giunzioni lasciate dai tagli. Si vede in riproduzione e nell'esportazione."
 	},
 	"background": {
 		"title": "Sfondo",

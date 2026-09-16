@@ -59,7 +59,12 @@
 		"on": "تشغيل",
 		"shadow": "ظل",
 		"roundness": "الاستدارة",
-		"padding": "المسافة البادئة"
+		"padding": "المسافة البادئة",
+		"transitions": "انتقالات القص",
+		"transition_none": "بلا",
+		"transition_dissolve": "تلاشٍ متداخل",
+		"transition_dip": "تعتيم",
+		"transitionsHint": "يخفّف مواضع الوصل التي تتركها الاقتصاصات، أثناء التشغيل وفي التصدير."
 	},
 	"background": {
 		"title": "الخلفية",

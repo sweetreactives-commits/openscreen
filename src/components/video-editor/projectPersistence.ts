@@ -5,6 +5,11 @@ import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { normalizeProjectMedia, projectMediaList } from "@/lib/recordingSession";
 import type { SequenceClipInput } from "@/lib/sequence";
+import {
+	normalizeTransitionMs,
+	normalizeTransitionStyle,
+	type TransitionStyle,
+} from "@/lib/transitions";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { type ClipEntry, INITIAL_CLIPS } from "./clips";
@@ -156,6 +161,8 @@ export interface ProjectEditorState {
 	shadowIntensity: number;
 	showBlur: boolean;
 	showTrimWaveform: boolean;
+	transitionStyle: TransitionStyle;
+	transitionMs: number;
 	motionBlurAmount: number;
 	borderRadius: number;
 	padding: number;
@@ -802,6 +809,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			typeof editor.showTrimWaveform === "boolean"
 				? editor.showTrimWaveform
 				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showTrimWaveform,
+		// Absent in a project saved before transitions existed, and off is what that
+		// project looked like.
+		transitionStyle: normalizeTransitionStyle(editor.transitionStyle),
+		transitionMs: normalizeTransitionMs(editor.transitionMs),
 		motionBlurAmount: isFiniteNumber(editor.motionBlurAmount)
 			? clamp(editor.motionBlurAmount, 0, 1)
 			: typeof (editor as { motionBlurEnabled?: unknown }).motionBlurEnabled === "boolean"

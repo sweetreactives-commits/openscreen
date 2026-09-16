@@ -19,6 +19,13 @@ interface VideoEventHandlersParams {
 	isScrubbingRef?: React.MutableRefObject<boolean>;
 	scrubEndTimerRef?: React.MutableRefObject<number | null>;
 	onScrubChange?: (scrubbing: boolean) => void;
+	/**
+	 * Called the moment playback jumps a trim — the cut itself.
+	 *
+	 * Nobody else can see it happen: the jump is a `currentTime` assignment, and by
+	 * the time anything downstream looks, the video is already on the far side of it.
+	 */
+	onSeam?: () => void;
 }
 
 export function createVideoEventHandlers(params: VideoEventHandlersParams) {
@@ -36,6 +43,7 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 		isScrubbingRef,
 		scrubEndTimerRef,
 		onScrubChange,
+		onSeam,
 	} = params;
 
 	const clearScrubEndTimer = () => {
@@ -83,6 +91,7 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 			} else {
 				video.currentTime = skipToTime;
 				emitTime(skipToTime);
+				onSeam?.();
 			}
 		} else {
 			const activeSpeedRegion = findActiveSpeedRegion(currentTimeMs);
@@ -148,6 +157,7 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 			} else {
 				video.currentTime = skipToTime;
 				emitTime(skipToTime);
+				onSeam?.();
 			}
 		} else {
 			if (!isPlayingRef.current && !video.paused) {

@@ -231,6 +231,8 @@ export default function VideoEditor() {
 		showBlur,
 		showTrimWaveform,
 		motionBlurAmount,
+		transitionStyle,
+		transitionMs,
 		borderRadius,
 		padding,
 		aspectRatio,
@@ -446,6 +448,8 @@ export default function VideoEditor() {
 				showBlur: normalizedEditor.showBlur,
 				showTrimWaveform: normalizedEditor.showTrimWaveform,
 				motionBlurAmount: normalizedEditor.motionBlurAmount,
+				transitionStyle: normalizedEditor.transitionStyle,
+				transitionMs: normalizedEditor.transitionMs,
 				borderRadius: normalizedEditor.borderRadius,
 				padding: normalizedEditor.padding,
 				cropRegion: normalizedEditor.cropRegion,
@@ -2262,6 +2266,8 @@ export default function VideoEditor() {
 						shadowIntensity,
 						showBlur,
 						motionBlurAmount,
+						transitionStyle,
+						transitionMs,
 						borderRadius,
 						padding,
 						videoPadding: padding,
@@ -2369,6 +2375,8 @@ export default function VideoEditor() {
 						shadowIntensity,
 						showBlur,
 						motionBlurAmount,
+						transitionStyle,
+						transitionMs,
 						borderRadius,
 						padding,
 						cropRegion,
@@ -2490,6 +2498,8 @@ export default function VideoEditor() {
 			shadowIntensity,
 			showBlur,
 			motionBlurAmount,
+			transitionStyle,
+			transitionMs,
 			borderRadius,
 			padding,
 			cropRegion,
@@ -3120,6 +3130,8 @@ export default function VideoEditor() {
 													shadowIntensity={shadowIntensity}
 													showBlur={showBlur}
 													motionBlurAmount={motionBlurAmount}
+													transitionStyle={transitionStyle}
+													transitionMs={transitionMs}
 													borderRadius={borderRadius}
 													padding={padding}
 													cropRegion={cropRegion}
@@ -3181,6 +3193,8 @@ export default function VideoEditor() {
 													shadowIntensity,
 													showBlur,
 													motionBlurAmount,
+													transitionStyle,
+													transitionMs,
 													borderRadius,
 													padding,
 													showCursor,
@@ -3274,6 +3288,11 @@ export default function VideoEditor() {
 										motionBlurAmount={motionBlurAmount}
 										onMotionBlurChange={(v) => updateState({ motionBlurAmount: v })}
 										onMotionBlurCommit={commitState}
+										transitionStyle={transitionStyle}
+										onTransitionStyleChange={(style) => pushState({ transitionStyle: style })}
+										transitionMs={transitionMs}
+										onTransitionMsChange={(value) => updateState({ transitionMs: value })}
+										onTransitionMsCommit={commitState}
 										borderRadius={borderRadius}
 										onBorderRadiusChange={(v) => updateState({ borderRadius: v })}
 										onBorderRadiusCommit={commitState}

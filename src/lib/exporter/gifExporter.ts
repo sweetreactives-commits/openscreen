@@ -9,6 +9,7 @@ import type {
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { cardFrameCount, drawCardFrame } from "@/lib/cardFrame";
+import type { TransitionStyle } from "@/lib/transitions";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
@@ -51,6 +52,8 @@ interface GifExporterConfig {
 	shadowIntensity: number;
 	showBlur: boolean;
 	motionBlurAmount?: number;
+	transitionStyle?: TransitionStyle;
+	transitionMs?: number;
 	borderRadius?: number;
 	padding?: number;
 	videoPadding?: number;
@@ -220,6 +223,9 @@ export class GifExporter {
 				shadowIntensity: this.config.shadowIntensity,
 				showBlur: this.config.showBlur,
 				motionBlurAmount: this.config.motionBlurAmount,
+				transitionStyle: this.config.transitionStyle,
+				transitionMs: this.config.transitionMs,
+				frameRate: this.config.frameRate,
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
 				cursorScale: this.config.cursorScale,

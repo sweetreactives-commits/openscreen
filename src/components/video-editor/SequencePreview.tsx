@@ -46,6 +46,8 @@ export type SequenceLook = Pick<
 	| "shadowIntensity"
 	| "showBlur"
 	| "motionBlurAmount"
+	| "transitionStyle"
+	| "transitionMs"
 	| "borderRadius"
 	| "padding"
 	| "showCursor"

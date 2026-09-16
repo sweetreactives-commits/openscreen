@@ -23,6 +23,11 @@ import {
 	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 } from "@/components/video-editor/types";
 import { SINGLE_CLIP_ID } from "@/lib/sequence";
+import {
+	DEFAULT_TRANSITION_MS,
+	DEFAULT_TRANSITION_STYLE,
+	type TransitionStyle,
+} from "@/lib/transitions";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 // Undoable state. Selection IDs are excluded, since undoing a selection change
@@ -52,6 +57,9 @@ export interface EditorState {
 	showTrimWaveform: boolean;
 	motionBlurAmount: number;
 	borderRadius: number;
+	/** How the seams left by trims are smoothed over. Sequence-wide, like the look. */
+	transitionStyle: TransitionStyle;
+	transitionMs: number;
 	padding: number;
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
@@ -86,6 +94,8 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	showBlur: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showBlur,
 	showTrimWaveform: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showTrimWaveform,
 	motionBlurAmount: DEFAULT_EDITOR_APPEARANCE_SETTINGS.motionBlurAmount,
+	transitionStyle: DEFAULT_TRANSITION_STYLE,
+	transitionMs: DEFAULT_TRANSITION_MS,
 	borderRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.borderRadius,
 	padding: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,

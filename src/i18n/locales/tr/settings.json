@@ -59,7 +59,12 @@
 		"shadow": "Gölge",
 		"roundness": "Yuvarlaklık",
 		"padding": "Dolgu",
-		"on": "açık"
+		"on": "açık",
+		"transitions": "Kesme geçişleri",
+		"transition_none": "Yok",
+		"transition_dissolve": "Çözülme",
+		"transition_dip": "Karartma",
+		"transitionsHint": "Kesmelerin bıraktığı ekleri yumuşatır. Oynatmada ve dışa aktarmada görünür."
 	},
 	"background": {
 		"title": "Arka Plan",

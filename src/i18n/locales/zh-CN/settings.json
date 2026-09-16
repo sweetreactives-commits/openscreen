@@ -59,7 +59,12 @@
 		"shadow": "阴影",
 		"roundness": "圆角",
 		"padding": "内边距",
-		"on": "开"
+		"on": "开",
+		"transitions": "剪切过渡",
+		"transition_none": "无",
+		"transition_dissolve": "溶解",
+		"transition_dip": "渐黑",
+		"transitionsHint": "柔化裁剪留下的接缝。播放和导出时都会生效。"
 	},
 	"background": {
 		"title": "背景",

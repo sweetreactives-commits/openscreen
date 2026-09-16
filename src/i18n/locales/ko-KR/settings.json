@@ -59,7 +59,12 @@
 		"on": "켜기",
 		"shadow": "그림자",
 		"roundness": "모서리 둥글기",
-		"padding": "여백"
+		"padding": "여백",
+		"transitions": "컷 전환",
+		"transition_none": "없음",
+		"transition_dissolve": "디졸브",
+		"transition_dip": "암전",
+		"transitionsHint": "잘라낸 자리의 이음매를 부드럽게 합니다. 재생과 내보내기에 모두 적용됩니다."
 	},
 	"background": {
 		"title": "배경",

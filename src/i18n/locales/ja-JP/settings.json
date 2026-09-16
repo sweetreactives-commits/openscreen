@@ -59,7 +59,12 @@
 		"shadow": "影",
 		"roundness": "丸み",
 		"padding": "余白",
-		"on": "オン"
+		"on": "オン",
+		"transitions": "カットのトランジション",
+		"transition_none": "なし",
+		"transition_dissolve": "ディゾルブ",
+		"transition_dip": "暗転",
+		"transitionsHint": "カットの継ぎ目をなめらかにします。再生時と書き出しの両方に適用されます。"
 	},
 	"background": {
 		"title": "背景",

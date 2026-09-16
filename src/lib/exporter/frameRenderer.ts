@@ -13,6 +13,7 @@ import type {
 	CropRegion,
 	Rotation3D,
 	SpeedRegion,
+	TrimRegion,
 	WebcamLayoutPreset,
 	WebcamSizePreset,
 	ZoomRegion,
@@ -62,6 +63,17 @@ import {
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
 } from "@/lib/cursor/nativeCursor";
+import {
+	combineOverlays,
+	DEFAULT_TRANSITION_MS,
+	outputMsUntilSeam,
+	overlayAfterSeam,
+	overlayBeforeSeam,
+	type Seam,
+	seamBetween,
+	seamsFromTrims,
+	type TransitionStyle,
+} from "@/lib/transitions";
 import { BackgroundLoadError, classifyWallpaper, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { drawCanvasClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
@@ -106,6 +118,14 @@ export interface FrameRenderConfig {
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
 	speedRegions?: SpeedRegion[];
+	/** The recording's own trims. Cut by the decoder; here only to find the seams. */
+	trimRegions?: TrimRegion[];
+	/** Length of this recording, so a trim at either end counts as an edge, not a cut. */
+	videoDurationMs?: number;
+	transitionStyle?: TransitionStyle;
+	transitionMs?: number;
+	/** Output frames per second, which is how long one rendered frame lasts. */
+	frameRate?: number;
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
@@ -148,6 +168,8 @@ export type FrameClipContext = Pick<
 	| "webcamSize"
 	| "annotationRegions"
 	| "speedRegions"
+	| "trimRegions"
+	| "videoDurationMs"
 >;
 
 function initialAnimationState(): AnimationState {
@@ -194,6 +216,14 @@ export class FrameRenderer {
 	private zoomSpringState = createZoomSpringState();
 	private prevTargetProgress = 0;
 	private isLinux = false;
+	/** Where this recording's trims leave a cut, worked out once per clip. */
+	private seams: Seam[] | null = null;
+	private previousSourceMs: number | null = null;
+	/** Frames rendered since the last cut, or null when no transition is running. */
+	private framesSinceSeam: number | null = null;
+	/** The last frame before the cut, held so a dissolve has something to fade out. */
+	private frozenCanvas: HTMLCanvasElement | null = null;
+	private frozenCtx: CanvasRenderingContext2D | null = null;
 
 	constructor(config: FrameRenderConfig) {
 		this.config = config;
@@ -235,6 +265,99 @@ export class FrameRenderer {
 		this.currentRotation3D = { ...DEFAULT_ROTATION_3D };
 		this.layoutCache = null;
 		this.currentVideoTime = 0;
+		// A cut belongs to the recording it was made in: the next clip's first frame is
+		// a clip boundary, which is a transition of its own (see multiclip.md, stage 9).
+		this.seams = null;
+		this.previousSourceMs = null;
+		this.framesSinceSeam = null;
+	}
+
+	/** The seams of the recording being rendered, worked out on first use. */
+	private clipSeams(): Seam[] {
+		if (!this.seams) {
+			this.seams = seamsFromTrims(
+				this.config.videoDurationMs ?? Number.POSITIVE_INFINITY,
+				this.config.trimRegions,
+			);
+		}
+		return this.seams;
+	}
+
+	/**
+	 * Notices a cut between this frame and the last one, and keeps the frame before it.
+	 *
+	 * The canvas still holds the previous frame at this point — nothing of the new one
+	 * has been drawn yet — so the copy taken here is exactly the outgoing picture.
+	 */
+	private trackSeam(sourceMs: number): void {
+		const style = this.config.transitionStyle ?? "none";
+		if (style === "none") return;
+
+		const previous = this.previousSourceMs;
+		this.previousSourceMs = sourceMs;
+		if (previous === null) return;
+
+		if (seamBetween(this.clipSeams(), previous, sourceMs)) {
+			this.framesSinceSeam = 0;
+			if (style === "dissolve") this.holdCurrentFrame();
+			return;
+		}
+		if (this.framesSinceSeam !== null) this.framesSinceSeam += 1;
+	}
+
+	private holdCurrentFrame(): void {
+		if (!this.compositeCanvas) return;
+		if (!this.frozenCanvas || !this.frozenCtx) {
+			this.frozenCanvas = document.createElement("canvas");
+			this.frozenCanvas.width = this.config.width;
+			this.frozenCanvas.height = this.config.height;
+			this.frozenCtx = this.frozenCanvas.getContext("2d");
+		}
+		if (!this.frozenCtx) return;
+		this.frozenCtx.clearRect(0, 0, this.config.width, this.config.height);
+		this.frozenCtx.drawImage(this.compositeCanvas, 0, 0);
+	}
+
+	/**
+	 * Draws whatever the transition calls for over the finished frame.
+	 *
+	 * Over the finished frame, not inside the Pixi stage, so a dip darkens the
+	 * wallpaper too — anything less would dim the recording against a bright
+	 * background that stayed put.
+	 */
+	private applyTransition(sourceMs: number): void {
+		const style = this.config.transitionStyle ?? "none";
+		if (style === "none" || !this.compositeCtx) return;
+
+		const durationMs = this.config.transitionMs ?? DEFAULT_TRANSITION_MS;
+		const frameMs = 1000 / (this.config.frameRate || 30);
+		const seams = this.clipSeams();
+		// The first frame after the cut is already one frame into the transition:
+		// holding it at full strength would show the outgoing frame a second time.
+		const after =
+			this.framesSinceSeam === null
+				? { frozenAlpha: 0, blackAlpha: 0 }
+				: overlayAfterSeam(style, durationMs, (this.framesSinceSeam + 1) * frameMs);
+		const before = overlayBeforeSeam(
+			style,
+			durationMs,
+			outputMsUntilSeam(seams, sourceMs, this.config.speedRegions),
+		);
+		const overlay = combineOverlays(before, after);
+
+		if (overlay.frozenAlpha > 0 && this.frozenCanvas) {
+			this.compositeCtx.save();
+			this.compositeCtx.globalAlpha = overlay.frozenAlpha;
+			this.compositeCtx.drawImage(this.frozenCanvas, 0, 0);
+			this.compositeCtx.restore();
+		}
+		if (overlay.blackAlpha > 0) {
+			this.compositeCtx.save();
+			this.compositeCtx.globalAlpha = overlay.blackAlpha;
+			this.compositeCtx.fillStyle = "#000000";
+			this.compositeCtx.fillRect(0, 0, this.config.width, this.config.height);
+			this.compositeCtx.restore();
+		}
 	}
 
 	async initialize(): Promise<void> {
@@ -445,6 +568,8 @@ export class FrameRenderer {
 		}
 
 		this.currentVideoTime = timestamp / 1000000;
+		// Before anything of this frame is drawn: the canvas still holds the last one.
+		this.trackSeam(timestamp / 1000);
 
 		if (!this.videoSprite) {
 			const texture = Texture.from(videoFrame as unknown as TextureSourceLike);
@@ -584,6 +709,10 @@ export class FrameRenderer {
 			// Flat path or 3D-without-shadow: stamp foreground directly
 			this.compositeCtx.drawImage(this.foregroundCanvas, 0, 0);
 		}
+
+		// Last of all, over the finished picture: a cut is smoothed over everything,
+		// wallpaper included.
+		this.applyTransition(timeMs);
 	}
 
 	// Video's on-screen boundary including the zoom camera transform. The PIXI mask

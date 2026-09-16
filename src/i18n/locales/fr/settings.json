@@ -59,7 +59,12 @@
 		"shadow": "Ombre",
 		"roundness": "Arrondi",
 		"padding": "Marge",
-		"on": "activé"
+		"on": "activé",
+		"transitions": "Transitions aux coupes",
+		"transition_none": "Aucune",
+		"transition_dissolve": "Fondu enchaîné",
+		"transition_dip": "Fondu au noir",
+		"transitionsHint": "Adoucit les raccords laissés par les coupes. Visible à la lecture et à l'export."
 	},
 	"background": {
 		"title": "Arrière-plan",

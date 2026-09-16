@@ -59,7 +59,12 @@
 		"shadow": "Sombra",
 		"roundness": "Redondez",
 		"padding": "Relleno",
-		"on": "activado"
+		"on": "activado",
+		"transitions": "Transiciones en los cortes",
+		"transition_none": "Ninguna",
+		"transition_dissolve": "Disolución",
+		"transition_dip": "Fundido",
+		"transitionsHint": "Suaviza las uniones que dejan los recortes. Se ve al reproducir y en la exportación."
 	},
 	"background": {
 		"title": "Fondo",

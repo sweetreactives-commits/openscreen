@@ -59,7 +59,12 @@
 		"shadow": "Bóng đổ",
 		"roundness": "Độ bo tròn",
 		"padding": "Phần đệm",
-		"on": "bật"
+		"on": "bật",
+		"transitions": "Chuyển cảnh tại chỗ cắt",
+		"transition_none": "Không",
+		"transition_dissolve": "Hòa tan",
+		"transition_dip": "Tối dần",
+		"transitionsHint": "Làm mềm các mối nối do cắt để lại. Thấy khi phát và khi xuất."
 	},
 	"background": {
 		"title": "Nền",

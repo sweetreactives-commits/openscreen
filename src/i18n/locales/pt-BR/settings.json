@@ -59,7 +59,12 @@
 		"on": "ativado",
 		"shadow": "Sombra",
 		"roundness": "Arredondamento",
-		"padding": "Espaçamento"
+		"padding": "Espaçamento",
+		"transitions": "Transições nos cortes",
+		"transition_none": "Nenhuma",
+		"transition_dissolve": "Dissolução",
+		"transition_dip": "Escurecimento",
+		"transitionsHint": "Suaviza as emendas deixadas pelos cortes. Aparece na reprodução e na exportação."
 	},
 	"background": {
 		"title": "Fundo",

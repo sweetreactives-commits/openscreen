@@ -60,7 +60,12 @@
 		"shadow": "陰影",
 		"roundness": "圓角",
 		"padding": "內邊距",
-		"on": "開"
+		"on": "開",
+		"transitions": "剪接轉場",
+		"transition_none": "無",
+		"transition_dissolve": "溶解",
+		"transition_dip": "淡黑",
+		"transitionsHint": "柔化裁剪留下的接縫。播放與匯出時都會生效。"
 	},
 	"background": {
 		"title": "背景",

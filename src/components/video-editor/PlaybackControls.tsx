@@ -41,6 +41,7 @@ export default function PlaybackControls({
 		<div className="flex items-center gap-2 px-1 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 shadow-xl transition-all duration-300 hover:bg-black/70 hover:border-white/20">
 			<Button
 				onClick={onTogglePlayPause}
+				data-testid="testId-play-pause-button"
 				size="icon"
 				className={cn(
 					"w-8 h-8 rounded-full transition-all duration-200 border border-white/10",

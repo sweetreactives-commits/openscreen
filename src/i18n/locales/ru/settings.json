@@ -59,7 +59,12 @@
 		"on": "вкл",
 		"shadow": "Тень",
 		"roundness": "Скругление",
-		"padding": "Отступ"
+		"padding": "Отступ",
+		"transitions": "Переходы на склейках",
+		"transition_none": "Нет",
+		"transition_dissolve": "Растворение",
+		"transition_dip": "Затемнение",
+		"transitionsHint": "Сглаживает стыки, которые оставляют вырезки. Видно при воспроизведении и в экспорте."
 	},
 	"background": {
 		"title": "Фон",

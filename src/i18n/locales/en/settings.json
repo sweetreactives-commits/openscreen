@@ -59,7 +59,12 @@
 		"on": "on",
 		"shadow": "Shadow",
 		"roundness": "Roundness",
-		"padding": "Padding"
+		"padding": "Padding",
+		"transitions": "Cut transitions",
+		"transition_none": "None",
+		"transition_dissolve": "Dissolve",
+		"transition_dip": "Dip",
+		"transitionsHint": "Softens the joins your trims leave. Plays back during playback and in the export."
 	},
 	"background": {
 		"title": "Background",

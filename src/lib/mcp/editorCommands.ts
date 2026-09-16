@@ -22,6 +22,7 @@ import {
 	type ZoomRegion,
 } from "@/components/video-editor/types";
 import type { EditorState } from "@/hooks/useEditorHistory";
+import { normalizeTransitionMs, TRANSITION_STYLES, type TransitionStyle } from "@/lib/transitions";
 import { isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 
 /**
@@ -110,6 +111,8 @@ export type EditorCommand =
 			borderRadius?: number;
 			shadowIntensity?: number;
 			wallpaper?: string;
+			transitionStyle?: string;
+			transitionMs?: number;
 	  }
 	| ({
 			op: "add_blur";
@@ -522,6 +525,21 @@ function applyOne(
 					return fail("invalid-value", "Wallpaper must be a non-empty string.");
 				}
 				next.wallpaper = command.wallpaper;
+			}
+			if (command.transitionStyle !== undefined) {
+				if (!TRANSITION_STYLES.includes(command.transitionStyle as TransitionStyle)) {
+					return fail(
+						"invalid-value",
+						`Transition style must be one of: ${TRANSITION_STYLES.join(", ")}.`,
+					);
+				}
+				next.transitionStyle = command.transitionStyle as TransitionStyle;
+			}
+			if (command.transitionMs !== undefined) {
+				if (!isFinitePositive(command.transitionMs)) {
+					return fail("invalid-value", "Transition length must be a number of milliseconds.");
+				}
+				next.transitionMs = normalizeTransitionMs(command.transitionMs);
 			}
 			return next;
 		}

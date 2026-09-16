@@ -449,6 +449,17 @@ const commandSchema = z.discriminatedUnion("op", [
 		borderRadius: z.number().optional(),
 		shadowIntensity: z.number().optional(),
 		wallpaper: z.string().optional(),
+		transitionStyle: z
+			.enum(["none", "dissolve", "dip"])
+			.optional()
+			.describe(
+				"How the joins left by removed ranges are smoothed over: a dissolve from " +
+					"the frame before the cut, or a dip through black. Applies to every cut.",
+			),
+		transitionMs: z
+			.number()
+			.optional()
+			.describe("How long one transition takes, 80 to 800 ms. Default 250."),
 	}),
 	z.object({
 		op: z.literal("set_cursor"),

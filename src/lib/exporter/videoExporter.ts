@@ -8,6 +8,7 @@ import type {
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { cardFrameCount, drawCardFrame } from "@/lib/cardFrame";
+import type { TransitionStyle } from "@/lib/transitions";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
@@ -53,6 +54,9 @@ export interface VideoExporterConfig extends ExportConfig {
 	shadowIntensity: number;
 	showBlur: boolean;
 	motionBlurAmount?: number;
+	/** How the seams left by trims are smoothed over. */
+	transitionStyle?: TransitionStyle;
+	transitionMs?: number;
 	borderRadius?: number;
 	padding?: number;
 	videoPadding?: number;
@@ -152,6 +156,9 @@ export function getSourceCopyFastPathBlockers(
 	}
 	if (config.showBlur) blockers.push("background blur is enabled");
 	if ((config.motionBlurAmount ?? 0) > SOURCE_COPY_EPSILON) blockers.push("motion blur is enabled");
+	if ((config.transitionStyle ?? "none") !== "none") {
+		blockers.push("the cuts have a transition on them");
+	}
 
 	return blockers;
 }
@@ -311,6 +318,8 @@ export class VideoExporter {
 				: null,
 			annotationRegions: entry.recording.annotationRegions,
 			speedRegions: entry.recording.speedRegions,
+			trimRegions: entry.recording.trimRegions,
+			videoDurationMs: entry.info.duration * 1000,
 		});
 
 		const renderer = new FrameRenderer({
@@ -321,6 +330,9 @@ export class VideoExporter {
 			shadowIntensity: this.config.shadowIntensity,
 			showBlur: this.config.showBlur,
 			motionBlurAmount: this.config.motionBlurAmount,
+			transitionStyle: this.config.transitionStyle,
+			transitionMs: this.config.transitionMs,
+			frameRate,
 			borderRadius: this.config.borderRadius,
 			padding: this.config.padding,
 			cursorScale: this.config.cursorScale,

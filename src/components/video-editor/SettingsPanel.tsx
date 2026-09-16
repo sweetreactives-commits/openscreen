@@ -51,6 +51,14 @@ import {
 	GIF_FRAME_RATES,
 	GIF_SIZE_PRESETS,
 } from "@/lib/exporter";
+import {
+	DEFAULT_TRANSITION_MS,
+	DEFAULT_TRANSITION_STYLE,
+	MAX_TRANSITION_MS,
+	MIN_TRANSITION_MS,
+	TRANSITION_STYLES,
+	type TransitionStyle,
+} from "@/lib/transitions";
 import { cn } from "@/lib/utils";
 import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
@@ -274,6 +282,11 @@ interface SettingsPanelProps {
 	showTrimWaveform?: boolean;
 	onTrimWaveformChange?: (show: boolean) => void;
 	motionBlurAmount?: number;
+	transitionStyle?: TransitionStyle;
+	onTransitionStyleChange?: (style: TransitionStyle) => void;
+	transitionMs?: number;
+	onTransitionMsChange?: (value: number) => void;
+	onTransitionMsCommit?: () => void;
 	onMotionBlurChange?: (amount: number) => void;
 	onMotionBlurCommit?: () => void;
 	borderRadius?: number;
@@ -422,6 +435,11 @@ export function SettingsPanel({
 	showTrimWaveform = false,
 	onTrimWaveformChange,
 	motionBlurAmount = 0,
+	transitionStyle = DEFAULT_TRANSITION_STYLE,
+	onTransitionStyleChange,
+	transitionMs = DEFAULT_TRANSITION_MS,
+	onTransitionMsChange,
+	onTransitionMsCommit,
 	onMotionBlurChange,
 	onMotionBlurCommit,
 	borderRadius = 0,
@@ -1558,6 +1576,49 @@ export function SettingsPanel({
 															className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 														/>
 													</div>
+												</div>
+
+												<div className="p-2 mt-2 rounded-lg editor-control-surface">
+													<div className="flex items-center justify-between mb-1.5">
+														<div className="text-[10px] font-medium text-slate-300">
+															{t("effects.transitions")}
+														</div>
+														<span className="text-[10px] text-slate-500 font-mono">
+															{transitionStyle === "none" ? t("effects.off") : `${transitionMs} ms`}
+														</span>
+													</div>
+													<div className="flex gap-1" data-testid="testId-transition-style">
+														{TRANSITION_STYLES.map((style) => (
+															<button
+																key={style}
+																type="button"
+																onClick={() => onTransitionStyleChange?.(style)}
+																data-testid={`testId-transition-${style}`}
+																data-active={style === transitionStyle ? "true" : "false"}
+																className={`flex-1 rounded-md px-2 py-1 text-[10px] transition-colors ${
+																	style === transitionStyle
+																		? "bg-[#34B27B]/20 text-slate-100 ring-1 ring-[#34B27B]/60"
+																		: "bg-white/[0.04] text-slate-400 hover:text-slate-200"
+																}`}
+															>
+																{t(`effects.transition_${style}`)}
+															</button>
+														))}
+													</div>
+													{transitionStyle !== "none" && (
+														<Slider
+															value={[transitionMs]}
+															onValueChange={(values) => onTransitionMsChange?.(values[0])}
+															onValueCommit={() => onTransitionMsCommit?.()}
+															min={MIN_TRANSITION_MS}
+															max={MAX_TRANSITION_MS}
+															step={10}
+															className="w-full mt-2 [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+														/>
+													)}
+													<p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+														{t("effects.transitionsHint")}
+													</p>
 												</div>
 											</>
 										)}

@@ -41,6 +41,16 @@ import {
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
 } from "@/lib/cursor/nativeCursor";
+import {
+	combineOverlays,
+	DEFAULT_TRANSITION_MS,
+	outputMsUntilSeam,
+	overlayAfterSeam,
+	overlayBeforeSeam,
+	type Seam,
+	seamsFromTrims,
+	type TransitionStyle,
+} from "@/lib/transitions";
 import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
@@ -157,6 +167,9 @@ export interface VideoPlaybackProps {
 	 * necessarily the shape of the clip on screen.
 	 */
 	nativeAspectRatio?: number;
+	/** How the seams left by trims are smoothed over during playback. */
+	transitionStyle?: TransitionStyle;
+	transitionMs?: number;
 	/** Called once the video has a frame to show and the canvas is ready to draw it. */
 	onVideoReady?: () => void;
 }
@@ -286,6 +299,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
 			isPreviewingZoom = false,
 			nativeAspectRatio,
+			transitionStyle = "none",
+			transitionMs = DEFAULT_TRANSITION_MS,
 			onVideoReady,
 		},
 		ref,
@@ -389,6 +404,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const nativeCursorMotionBlurStateRef = useRef(createNativeCursorMotionBlurState());
 		const nativeCursorClipRef = useRef<HTMLDivElement | null>(null);
 		const borderRadiusRef = useRef<number>(0);
+		// The cut being smoothed over: when it happened, and the picture from just
+		// before it. Only playback has a "just before" — a seek has nothing to fade.
+		const transitionStyleRef = useRef(transitionStyle);
+		const transitionMsRef = useRef(transitionMs);
+		const seamsRef = useRef<Seam[]>([]);
+		const seamAtRef = useRef<number | null>(null);
+		const frozenFrameRef = useRef<HTMLCanvasElement | null>(null);
+		const transitionFrozenRef = useRef<HTMLDivElement | null>(null);
+		const transitionBlackRef = useRef<HTMLDivElement | null>(null);
 
 		const hasNativeCursorRecording = useMemo(
 			() => hasNativeCursorRecordingData(cursorRecordingData),
@@ -809,6 +833,21 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			trimRegionsRef.current = trimRegions;
+		}, [trimRegions]);
+
+		useEffect(() => {
+			transitionStyleRef.current = transitionStyle;
+			transitionMsRef.current = transitionMs;
+		}, [transitionStyle, transitionMs]);
+
+		// Recomputed whenever the trims change, so a cut added mid-playback is smoothed
+		// like any other.
+		useEffect(() => {
+			const durationMs = (lastResolvedDurationRef.current ?? 0) * 1000;
+			seamsRef.current = seamsFromTrims(
+				durationMs > 0 ? durationMs : Number.POSITIVE_INFINITY,
+				trimRegions,
+			);
 		}, [trimRegions]);
 
 		useEffect(() => {
@@ -1248,6 +1287,34 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			layoutVideoContentRef.current?.();
 			video.pause();
 
+			/**
+			 * A cut just happened. Note when, and keep the picture from before it.
+			 *
+			 * The snapshot is of the stage, not of the whole frame: the wallpaper behind
+			 * it is a DOM layer that does not change across a cut, so fading the composite
+			 * over it looks the same and costs one render instead of a screen grab.
+			 */
+			const captureSeam = () => {
+				if (transitionStyleRef.current === "none" || !isPlayingRef.current) return;
+				seamAtRef.current = performance.now();
+				if (transitionStyleRef.current !== "dissolve") return;
+
+				const app = appRef.current;
+				const holder = transitionFrozenRef.current;
+				if (!app?.renderer?.extract || !holder) return;
+				try {
+					const snapshot = app.renderer.extract.canvas(app.stage) as HTMLCanvasElement;
+					snapshot.style.width = "100%";
+					snapshot.style.height = "100%";
+					snapshot.style.display = "block";
+					holder.replaceChildren(snapshot);
+					frozenFrameRef.current = snapshot;
+				} catch {
+					// Nothing to fade from; better a hard cut than a frozen frame that never clears.
+					seamAtRef.current = null;
+				}
+			};
+
 			const { handlePlay, handlePause, handleSeeked, handleSeeking } = createVideoEventHandlers({
 				video,
 				isSeekingRef,
@@ -1262,6 +1329,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				isScrubbingRef,
 				scrubEndTimerRef,
 				onScrubChange: (scrubbing) => setIsScrubbing(scrubbing),
+				onSeam: captureSeam,
 			});
 
 			video.addEventListener("play", handlePlay);
@@ -1745,6 +1813,44 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					hideNativeCursorPreview();
 				}
 
+				// Smoothing over a cut. Only while playing: a seek has no frame before the
+				// cut to fade out, and holding one over a scrub would misreport the frame.
+				const frozenEl = transitionFrozenRef.current;
+				const blackEl = transitionBlackRef.current;
+				if (frozenEl && blackEl) {
+					let overlay = { frozenAlpha: 0, blackAlpha: 0 };
+					const style = transitionStyleRef.current;
+					if (
+						style !== "none" &&
+						isPlayingRef.current &&
+						!isSeekingRef.current &&
+						!isScrubbingRef.current
+					) {
+						const seamAt = seamAtRef.current;
+						const after =
+							seamAt === null
+								? { frozenAlpha: 0, blackAlpha: 0 }
+								: overlayAfterSeam(style, transitionMsRef.current, performance.now() - seamAt);
+						if (seamAt !== null && after.frozenAlpha === 0 && after.blackAlpha === 0) {
+							seamAtRef.current = null;
+						}
+						overlay = combineOverlays(
+							overlayBeforeSeam(
+								style,
+								transitionMsRef.current,
+								outputMsUntilSeam(
+									seamsRef.current,
+									currentTimeRef.current,
+									speedRegionsRef.current,
+								),
+							),
+							after,
+						);
+					}
+					frozenEl.style.opacity = String(overlay.frozenAlpha);
+					blackEl.style.opacity = String(overlay.blackAlpha);
+				}
+
 				const composite3D = composite3DRef.current;
 				const outerWrapper = outerWrapperRef.current;
 				if (composite3D && outerWrapper) {
@@ -2169,6 +2275,20 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						</div>
 					)}
 				</div>
+				{/* Smoothing over a cut: the held frame, then black, both above everything
+			    else in the frame — a cut is smoothed over the wallpaper too. */}
+				<div
+					ref={transitionFrozenRef}
+					data-testid="testId-transition-frozen"
+					className="absolute inset-0 overflow-hidden"
+					style={{ zIndex: 40, pointerEvents: "none", opacity: 0 }}
+				/>
+				<div
+					className="absolute inset-0 bg-black"
+					ref={transitionBlackRef}
+					data-testid="testId-transition-black"
+					style={{ zIndex: 41, pointerEvents: "none", opacity: 0 }}
+				/>
 				{/* Native cursor clip. Lives outside composite3DRef (preserve-3d) so clip-path
 				    keeps working during 3D zoom rotations; bounds are set dynamically. */}
 				<div
