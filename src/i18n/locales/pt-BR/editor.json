@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "Voltar ao Gravador",
-		"description": "Sua sessão atual foi salva.",
+		"description": "A gravação que você fizer será adicionada a este projeto, depois da atual. Suas edições são mantidas.",
 		"cancel": "Cancelar",
 		"confirm": "Confirmar"
 	},

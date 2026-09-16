@@ -152,6 +152,35 @@ export function addRecording(clips: readonly ClipEntry[], media: ProjectMedia): 
 }
 
 /**
+ * Adds a freshly recorded take at the end and opens it for editing.
+ *
+ * This is the retake: the take just made is the one the user wants to look at, so
+ * it becomes active, with no edits on it yet. The recording that was open hands
+ * its media and edits to its own entry on the way out, the same as switching does.
+ *
+ * The new entry holds nothing itself — the active recording's media lives in the
+ * editor, which has the take loaded already.
+ */
+export function checkoutNewRecording(
+	clips: readonly ClipEntry[],
+	activeClipId: string,
+	activeMedia: ProjectMedia,
+	activeEditor: ClipEditorState,
+): { clips: ClipEntry[]; activeClipId: string } {
+	const id = nextRecordingId(clips);
+	const kept = clips.map(
+		(clip): ClipEntry =>
+			clip.id === activeClipId && clip.kind === "recording"
+				? { id: clip.id, kind: "recording", media: activeMedia, editor: activeEditor }
+				: clip,
+	);
+	return {
+		clips: [...kept, { id, kind: "recording" }],
+		activeClipId: id,
+	};
+}
+
+/**
  * Removes a recording that is not the one being edited.
  *
  * The active recording cannot go this way — the editor would be left showing a

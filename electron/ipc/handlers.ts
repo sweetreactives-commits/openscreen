@@ -47,6 +47,15 @@ import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./reco
 
 const PROJECT_FILE_EXTENSION = "openscreen";
 export const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
+/**
+ * Where a project waits while the user records another take.
+ *
+ * Not the user's own project file: leaving for the recorder must not write into
+ * it behind their back, and the commonest retake — record, dislike it, record
+ * again — has no file of its own yet. One fixed path, removed once used and at
+ * every startup, so a project parked here can never outlive the app that parked it.
+ */
+const RETAKE_STASH_FILE = path.join(app.getPath("userData"), "retake-pending.openscreen");
 const RECORDING_FILE_PREFIX = "recording-";
 const RECORDING_SESSION_SUFFIX = ".session.json";
 const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([
@@ -376,6 +385,32 @@ let selectedDesktopSource: DesktopCapturerSource | null = null;
 let lastEnumeratedSources = new Map<string, DesktopCapturerSource>();
 let currentProjectPath: string | null = null;
 let currentRecordingSession: RecordingSession | null = null;
+
+/**
+ * A retake in flight: the editor has handed the app to the recorder, and the take
+ * about to be made belongs to this project.
+ *
+ * Memory only. A pending retake that survived a restart would one day glue a fresh
+ * recording onto a project the user last saw days ago.
+ */
+let pendingRetake: { projectPath: string | null; stashPath: string | null } | null = null;
+
+function clearPendingRetake() {
+	const stash = pendingRetake?.stashPath;
+	pendingRetake = null;
+	if (stash) void fs.rm(stash, { force: true }).catch(() => undefined);
+}
+
+/**
+ * Remembers the open project across the trip to the recorder, when its file on
+ * disk is already up to date. Used by the agent's `start_recording`, which only
+ * gets this far with nothing unsaved.
+ */
+export function beginRetakeForCurrentProject(): boolean {
+	if (!currentProjectPath) return false;
+	pendingRetake = { projectPath: currentProjectPath, stashPath: null };
+	return true;
+}
 
 // Cached source from the user's pick. Used by setDisplayMediaRequestHandler in main.ts for cursor-free capture.
 export function getSelectedDesktopSource(): DesktopCapturerSource | null {
@@ -1287,6 +1322,10 @@ export function registerIpcHandlers(
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 	_switchToHud?: () => void,
 ) {
+	// A project parked for a retake that never happened would otherwise sit here
+	// forever; the memory of it does not survive a restart, so neither should it.
+	void fs.rm(RETAKE_STASH_FILE, { force: true }).catch(() => undefined);
+
 	async function requestScreenAccess() {
 		if (process.platform !== "darwin") {
 			return { success: true, granted: true, status: "granted" };
@@ -2757,6 +2796,8 @@ export function registerIpcHandlers(
 			const filePath = result.filePaths[0];
 			const content = await fs.readFile(filePath, "utf-8");
 			const project = JSON.parse(content);
+			// Opening another project ends any retake that was still expected.
+			clearPendingRetake();
 			currentProjectPath = filePath;
 			setCurrentRecordingSessionState(await getApprovedProjectSession(project, filePath));
 
@@ -2794,6 +2835,7 @@ export function registerIpcHandlers(
 			}
 			const content = await fs.readFile(filePath, "utf-8");
 			const project = JSON.parse(content);
+			clearPendingRetake();
 			currentProjectPath = filePath;
 
 			// Approve session paths but tolerate failures (e.g. video moved outside trusted
@@ -2851,6 +2893,63 @@ export function registerIpcHandlers(
 		return setCurrentVideoPath(path);
 	});
 
+	ipcMain.handle(
+		"begin-retake",
+		async (_, payload: { projectData?: unknown; projectPath?: string | null }) => {
+			const projectPath = isTrustedProjectPath(payload?.projectPath) ? currentProjectPath : null;
+			clearPendingRetake();
+
+			if (payload?.projectData === undefined || payload?.projectData === null) {
+				// Nothing to park: the file on disk already says everything the editor knows.
+				if (!projectPath) return { success: false };
+				pendingRetake = { projectPath, stashPath: null };
+				return { success: true };
+			}
+
+			try {
+				await fs.writeFile(
+					RETAKE_STASH_FILE,
+					JSON.stringify(payload.projectData, null, 2),
+					"utf-8",
+				);
+			} catch (error) {
+				console.error("Failed to park the project for a retake:", error);
+				return { success: false };
+			}
+			pendingRetake = { projectPath, stashPath: RETAKE_STASH_FILE };
+			return { success: true };
+		},
+	);
+
+	/**
+	 * Hands the parked project to the editor that just opened, once.
+	 *
+	 * The recording the user has just made is the current session, as after any
+	 * recording; this only says which project it belongs to.
+	 */
+	ipcMain.handle("consume-pending-retake", async (): Promise<ProjectFileResult> => {
+		const retake = pendingRetake;
+		if (!retake) return { success: false, message: "No retake pending" };
+
+		const source = retake.stashPath ?? retake.projectPath;
+		if (!source) {
+			clearPendingRetake();
+			return { success: false, message: "No retake pending" };
+		}
+
+		try {
+			const project = JSON.parse(await fs.readFile(source, "utf-8"));
+			// In-place save trusts this path, so the project keeps saving where it did.
+			currentProjectPath = retake.projectPath;
+			clearPendingRetake();
+			return { success: true, path: retake.projectPath ?? undefined, project };
+		} catch (error) {
+			console.error("Failed to read the parked project:", error);
+			clearPendingRetake();
+			return { success: false, message: "Failed to read the parked project" };
+		}
+	});
+
 	ipcMain.handle("set-current-recording-session", (_, session: RecordingSession | null) => {
 		const normalizedSession = normalizeRecordingSession(session);
 		setCurrentRecordingSessionState(normalizedSession);
@@ -2900,6 +2999,7 @@ export function registerIpcHandlers(
 	});
 
 	function clearCurrentVideoPath(): ProjectPathResult {
+		clearPendingRetake();
 		currentVideoPath = null;
 		currentProjectPath = null;
 		setCurrentRecordingSessionState(null);

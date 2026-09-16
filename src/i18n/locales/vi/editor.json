@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "Quay lại Trình ghi",
-		"description": "Phiên hiện tại của bạn đã được lưu.",
+		"description": "Bản ghi tiếp theo sẽ được thêm vào dự án này, sau bản hiện tại. Các chỉnh sửa của bạn được giữ nguyên.",
 		"cancel": "Hủy",
 		"confirm": "Xác nhận"
 	},

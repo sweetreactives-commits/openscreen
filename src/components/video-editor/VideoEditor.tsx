@@ -56,7 +56,7 @@ import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ExportRunner } from "@/lib/mcp/exportJob";
 import { acceptProposals, countProposals, discardProposals } from "@/lib/mcp/proposals";
 import { lastPathSegment } from "@/lib/mcp/walkthrough";
-import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
+import type { CursorCaptureMode, ProjectMedia, RecordingSession } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
 	getExportFolder,
@@ -79,7 +79,9 @@ import {
 	addOutroCard,
 	addRecording,
 	type ClipEntry,
+	checkoutNewRecording,
 	checkoutRecording,
+	emptyClipEditor,
 	isCardEntry,
 	moveClip,
 	recordingEntries,
@@ -315,7 +317,7 @@ export default function VideoEditor() {
 	);
 
 	const [confirmDialogVariant, setConfirmDialogVariant] = useState<
-		"newProject" | "loadProject" | "newRecording" | null
+		"newProject" | "loadProject" | null
 	>(null);
 	const playerContainerRef = useRef<HTMLDivElement | null>(null);
 	const cursorTelemetrySourcePath = videoSourcePath ?? (videoPath ? fromFileUrl(videoPath) : null);
@@ -395,20 +397,20 @@ export default function VideoEditor() {
 	]);
 
 	const applyLoadedProject = useCallback(
-		async (candidate: unknown, path?: string | null) => {
+		async (candidate: unknown, path?: string | null, openAtClipId?: string) => {
 			if (!validateProjectData(candidate)) {
 				return false;
 			}
 
 			const project = candidate;
-			const projectMedia = resolveProjectMedia(project);
+			const projectMedia = resolveProjectMedia(project, openAtClipId);
 			if (!projectMedia) {
 				return false;
 			}
 			const sourcePath = projectMedia.screenVideoPath;
 			const webcamSourcePath = projectMedia.webcamVideoPath ?? null;
 			const projectCursorCaptureMode = projectMedia.cursorCaptureMode ?? null;
-			const normalizedEditor = resolveProjectEditor(project);
+			const normalizedEditor = resolveProjectEditor(project, openAtClipId);
 			const inferredDurationMs = Math.max(
 				0,
 				...normalizedEditor.zoomRegions.map((region) => region.endMs),
@@ -520,6 +522,48 @@ export default function VideoEditor() {
 		[pushState],
 	);
 
+	/**
+	 * Puts a project back with the take just recorded appended and open.
+	 *
+	 * The project is loaded exactly as it was parked, so the recording that was open
+	 * then keeps its edits; the new take goes on the end, becomes the one being
+	 * edited, and starts with nothing on it. The project reads as unsaved
+	 * afterwards, which it is — the file on disk has no such take in it.
+	 */
+	const applyRetake = useCallback(
+		async (project: unknown, path: string | null, session: RecordingSession) => {
+			if (!validateProjectData(project)) return false;
+			const openedMedia = resolveProjectMedia(project);
+			if (!openedMedia) return false;
+			if (!(await applyLoadedProject(project, path))) return false;
+
+			const screenVideoPath = fromFileUrl(session.screenVideoPath);
+			const webcamVideoPath = session.webcamVideoPath ? fromFileUrl(session.webcamVideoPath) : null;
+			pushState((prev) => {
+				const result = checkoutNewRecording(prev.clips, prev.activeClipId, openedMedia, {
+					cropRegion: prev.cropRegion,
+					zoomRegions: prev.zoomRegions,
+					trimRegions: prev.trimRegions,
+					speedRegions: prev.speedRegions,
+					annotationRegions: prev.annotationRegions,
+				});
+				return { clips: result.clips, activeClipId: result.activeClipId, ...emptyClipEditor() };
+			});
+
+			setVideoSourcePath(screenVideoPath);
+			setVideoPath(toFileUrl(screenVideoPath));
+			setWebcamVideoSourcePath(webcamVideoPath);
+			setWebcamVideoPath(webcamVideoPath ? toFileUrl(webcamVideoPath) : null);
+			setRecordingCursorCaptureMode(session.cursorCaptureMode ?? null);
+			setCurrentTime(0);
+			setDuration(0);
+			// A take that has just been recorded gets zoom suggestions like any other.
+			autoProcessedSourceRef.current = null;
+			return true;
+		},
+		[applyLoadedProject, pushState],
+	);
+
 	// What gets written to the project file: the undoable editor state plus the export
 	// settings, which sit outside history. Built in one place so the snapshot and the
 	// save path can't drift apart as fields are added.
@@ -547,6 +591,19 @@ export default function VideoEditor() {
 	useEffect(() => {
 		async function loadInitialData() {
 			try {
+				// A take just recorded for an open project: put the project back, with the
+				// new take appended and open. Asked before anything else, because the
+				// recording handoff has already made that take the current session.
+				const retake = await window.electronAPI.consumePendingRetake();
+				if (retake.success && retake.project) {
+					const sessionResult = await window.electronAPI.getCurrentRecordingSession();
+					const session = sessionResult.success ? sessionResult.session : null;
+					if (session) {
+						const applied = await applyRetake(retake.project, retake.path ?? null, session);
+						if (applied) return;
+					}
+				}
+
 				const currentProjectResult = await nativeBridgeClient.project.loadCurrentProjectFile();
 				if (currentProjectResult.success && currentProjectResult.project) {
 					const restored = await applyLoadedProject(
@@ -606,7 +663,7 @@ export default function VideoEditor() {
 		}
 
 		loadInitialData();
-	}, [applyLoadedProject]);
+	}, [applyLoadedProject, applyRetake]);
 
 	// Avoid overwriting saved prefs with defaults before they've loaded.
 	const [prefsHydrated, setPrefsHydrated] = useState(false);
@@ -727,6 +784,19 @@ export default function VideoEditor() {
 	 * caller has to have dealt with unsaved work already — see handleNewRecording.
 	 */
 	const doNewRecording = useCallback(async () => {
+		// Park the project first: the editor window is about to be destroyed, and the
+		// take the user is going away to record belongs to this project. A saved file
+		// with nothing unsaved on top of it needs no copy — it already says all this.
+		if (currentProjectMedia) {
+			const upToDateOnDisk = Boolean(currentProjectPath) && !hasUnsavedChanges;
+			await window.electronAPI.beginRetake({
+				projectData: upToDateOnDisk
+					? null
+					: createProjectData(currentProjectMedia, projectEditorState),
+				projectPath: currentProjectPath,
+			});
+		}
+
 		const result = await window.electronAPI.startNewRecording();
 		if (result.success) {
 			setShowNewRecordingDialog(false);
@@ -734,36 +804,19 @@ export default function VideoEditor() {
 			console.error("Failed to start new recording:", result.error);
 			setError("Failed to start new recording: " + (result.error || "Unknown error"));
 		}
-	}, []);
+	}, [currentProjectMedia, currentProjectPath, hasUnsavedChanges, projectEditorState]);
 
 	/**
-	 * "Back to recording" — asks about unsaved work first.
+	 * "Back to recording" — record another take for this project.
 	 *
-	 * Without this the editor went straight to the recorder and the force-close
-	 * took every unsaved edit with it, while the confirmation said the session had
-	 * been saved: true of the recorded video, false of the edits on top of it.
+	 * Nothing is at stake any more: the project is parked before the editor window
+	 * goes away, and the take that comes back is appended to it. Before that it
+	 * asked what to do about unsaved work, because the force-close took every
+	 * unsaved edit with it.
 	 */
 	const handleNewRecording = useCallback(() => {
-		if (hasUnsavedChanges) {
-			setConfirmDialogVariant("newRecording");
-			return;
-		}
 		setShowNewRecordingDialog(true);
-	}, [hasUnsavedChanges]);
-
-	const handleNewRecordingConfirmSave = useCallback(async () => {
-		setConfirmDialogVariant(null);
-		const saved = await saveProject(false);
-		// A cancelled save dialog means the user is not ready to leave after all.
-		if (saved) {
-			await doNewRecording();
-		}
-	}, [saveProject, doNewRecording]);
-
-	const handleNewRecordingConfirmDiscard = useCallback(async () => {
-		setConfirmDialogVariant(null);
-		await doNewRecording();
-	}, [doNewRecording]);
+	}, []);
 
 	const doLoadProject = useCallback(async () => {
 		const result = await nativeBridgeClient.project.loadProjectFile(getProjectFolder());
@@ -865,15 +918,12 @@ export default function VideoEditor() {
 		await doNewProject();
 	}, [doNewProject]);
 
-	// One dialog serves three departures, so the pair of handlers is looked up
-	// rather than picked apart with nested conditionals at the call site.
+	// One dialog serves both departures that can cost unsaved work, so the pair of
+	// handlers is looked up rather than picked apart with nested conditionals at the
+	// call site. Going to the recorder is no longer one of them: it parks the project.
 	const confirmHandlers = {
 		newProject: { save: handleNewProjectConfirmSave, discard: handleNewProjectConfirmDiscard },
 		loadProject: { save: handleLoadProjectConfirmSave, discard: handleLoadProjectConfirmDiscard },
-		newRecording: {
-			save: handleNewRecordingConfirmSave,
-			discard: handleNewRecordingConfirmDiscard,
-		},
 	}[confirmDialogVariant ?? "newProject"];
 
 	useEffect(() => {

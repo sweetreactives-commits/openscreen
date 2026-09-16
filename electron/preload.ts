@@ -51,6 +51,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	startNewRecording: () => {
 		return ipcRenderer.invoke("start-new-recording");
 	},
+	beginRetake: (payload: { projectData?: unknown; projectPath?: string | null }) => {
+		return ipcRenderer.invoke("begin-retake", payload);
+	},
+	consumePendingRetake: () => {
+		return ipcRenderer.invoke("consume-pending-retake");
+	},
 	openSourceSelector: () => {
 		return ipcRenderer.invoke("open-source-selector");
 	},

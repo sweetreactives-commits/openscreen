@@ -40,7 +40,7 @@
 	"loadingEditor": "Editör yükleniyor...",
 	"newRecording": {
 		"title": "Kaydediciye Dön",
-		"description": "Mevcut oturumunuz kaydedildi.",
+		"description": "Şimdi kaydedeceğiniz çekim, mevcut çekimden sonra bu projeye eklenir. Düzenlemeleriniz korunur.",
 		"cancel": "İptal",
 		"confirm": "Onayla"
 	},

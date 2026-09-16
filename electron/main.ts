@@ -18,7 +18,11 @@ import {
 	unregisterAllGlobalShortcuts,
 } from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
-import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
+import {
+	beginRetakeForCurrentProject,
+	getSelectedDesktopSource,
+	registerIpcHandlers,
+} from "./ipc/handlers";
 import { registerExportPathHandler } from "./mcp/exportPath";
 import { registerImageReader } from "./mcp/imageReader";
 import { registerMcpIpc } from "./mcp/ipc";
@@ -500,7 +504,13 @@ app.whenReady().then(async () => {
 		getMainWindow: () => mainWindow,
 		hasUnsavedChanges: () => editorHasUnsavedChanges,
 		isRecording: () => isRecording,
-		switchToRecorder: switchToHudWrapper,
+		switchToRecorder: () => {
+			// The agent only gets here with nothing unsaved, so the project file on disk
+			// is current: remember it, and the take it is about to record joins it
+			// instead of starting a project of its own.
+			beginRetakeForCurrentProject();
+			switchToHudWrapper();
+		},
 	});
 	registerWalkthroughWriter();
 	registerImageReader();

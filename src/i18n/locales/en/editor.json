@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "Return to Recorder",
-		"description": "Your current session has been saved.",
+		"description": "The take you record next is added to this project, after the current one. Your edits are kept.",
 		"cancel": "Cancel",
 		"confirm": "Confirm"
 	},

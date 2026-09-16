@@ -40,7 +40,7 @@
 	"loadingEditor": "Cargando editor...",
 	"newRecording": {
 		"title": "Volver a la grabadora",
-		"description": "Tu sesión actual ha sido guardada.",
+		"description": "La toma que grabes a continuación se añadirá a este proyecto, después de la actual. Tus ediciones se conservan.",
 		"cancel": "Cancelar",
 		"confirm": "Confirmar"
 	},

@@ -357,11 +357,39 @@ export function validateProjectData(candidate: unknown): candidate is EditorProj
 
 export function resolveProjectMedia(
 	candidate: Partial<EditorProjectData> | { media?: unknown; videoPath?: unknown },
+	openAtClipId?: string,
 ): ProjectMedia | null {
-	// The editor still shows one recording at a time, so this answers with the
-	// first clip. Reading every format lives in projectMediaList, which the main
-	// process shares — the two must never disagree about what a project points at.
+	// The editor still shows one recording at a time, so this answers with the clip
+	// it opens at — the first one, unless a caller asks for another (a retake opens
+	// at the take just recorded). Reading every format lives in projectMediaList,
+	// which the main process shares — the two must never disagree about what a
+	// project points at.
+	const chosen = openAtClipId ? findRecordingClip(candidate, openAtClipId) : null;
+	if (chosen) {
+		const media = normalizeProjectMedia(chosen.media);
+		if (media) return media;
+	}
 	return projectMediaList(candidate)[0] ?? null;
+}
+
+/** The clip with this id, if the file has it as a recording with media. */
+function findRecordingClip(candidate: unknown, clipId: string): ProjectClipData | null {
+	const clips = (candidate as Partial<EditorProjectData> | null)?.clips;
+	if (!Array.isArray(clips)) return null;
+	const clip = clips.find((entry) => entry?.id === clipId && !isCardClip(entry)) ?? null;
+	return clip && normalizeProjectMedia(clip.media) ? clip : null;
+}
+
+/** Which recording the editor opens at, given what the caller asked for. */
+function openAtRecordingId(
+	candidate: Partial<EditorProjectData>,
+	openAtClipId?: string,
+): string | null {
+	if (openAtClipId && findRecordingClip(candidate, openAtClipId)) return openAtClipId;
+	const clips = candidate.clips;
+	if (!Array.isArray(clips)) return null;
+	const first = clips.find((clip) => !isCardClip(clip));
+	return first ? String(first.id) : null;
 }
 
 /**
@@ -377,13 +405,16 @@ export function resolveProjectMedia(
  * A file with no recording at all would leave the editor with nowhere to put the
  * video it has open, so the recording is put back if the file somehow lacks one.
  */
-export function resolveProjectClips(candidate: Partial<EditorProjectData>): ClipEntry[] {
+export function resolveProjectClips(
+	candidate: Partial<EditorProjectData>,
+	openAtClipId?: string,
+): ClipEntry[] {
 	const stored = candidate.clips;
 	if (!Array.isArray(stored) || stored.length === 0) return [...INITIAL_CLIPS];
 
-	// The first recording opens as the active one, so its media and edits go to the
-	// editor's own state; every later recording keeps its own in its entry.
-	let seenRecording = false;
+	// One recording opens as the active one, so its media and edits go to the
+	// editor's own state; every other recording keeps its own in its entry.
+	const activeId = openAtRecordingId(candidate, openAtClipId);
 	const clips: ClipEntry[] = [];
 	for (const clip of stored) {
 		if (isCardClip(clip)) {
@@ -395,8 +426,7 @@ export function resolveProjectClips(candidate: Partial<EditorProjectData>): Clip
 			});
 			continue;
 		}
-		if (!seenRecording) {
-			seenRecording = true;
+		if (String(clip.id) === activeId) {
 			clips.push({ id: String(clip.id), kind: "recording" });
 			continue;
 		}
@@ -414,13 +444,22 @@ export function resolveProjectClips(candidate: Partial<EditorProjectData>): Clip
 	return clips.some((clip) => clip.kind === "recording") ? clips : [...INITIAL_CLIPS, ...clips];
 }
 
-export function resolveProjectEditor(candidate: Partial<EditorProjectData>): ProjectEditorState {
+export function resolveProjectEditor(
+	candidate: Partial<EditorProjectData>,
+	openAtClipId?: string,
+): ProjectEditorState {
 	const sequence = (candidate.editor ?? {}) as Partial<ProjectEditorState>;
-	// The recording's own edits, which is not necessarily the first clip: a project
-	// that opens with an intro card has one before it.
-	const clipEditor = candidate.clips?.find((clip) => !isCardClip(clip))?.editor;
-	const clips = resolveProjectClips(candidate);
-	const activeClipId = clips.find((clip) => clip.kind === "recording")?.id;
+	// The open recording's own edits. Which recording that is need not be the first
+	// clip: a project that opens with an intro card has one before it, and a retake
+	// opens at the take just recorded.
+	const openAtId = openAtRecordingId(candidate, openAtClipId);
+	const clipEditor = candidate.clips?.find(
+		(clip) => !isCardClip(clip) && String(clip.id) === openAtId,
+	)?.editor;
+	const clips = resolveProjectClips(candidate, openAtClipId);
+	const activeClipId =
+		clips.find((clip) => clip.kind === "recording" && clip.id === openAtId)?.id ??
+		clips.find((clip) => clip.kind === "recording")?.id;
 	return normalizeProjectEditor({ ...sequence, ...(clipEditor ?? {}), clips, activeClipId });
 }
 

@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "Retour à l'enregistreur",
-		"description": "Votre session actuelle a été enregistrée.",
+		"description": "La prise que vous allez enregistrer sera ajoutée à ce projet, après l'actuelle. Vos modifications sont conservées.",
 		"cancel": "Annuler",
 		"confirm": "Confirmer"
 	},

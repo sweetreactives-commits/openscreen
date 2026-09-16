@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "返回录屏",
-		"description": "当前会话已保存。",
+		"description": "接下来录制的片段会添加到本项目中，排在当前片段之后。你的编辑会保留。",
 		"cancel": "取消",
 		"confirm": "确认"
 	},

@@ -31,6 +31,18 @@ interface Window {
 		switchToEditor: () => Promise<void>;
 		switchToHud: () => Promise<void>;
 		startNewRecording: () => Promise<{ success: boolean; error?: string }>;
+		/** Parks the open project so the take about to be recorded joins it. */
+		beginRetake: (payload: {
+			projectData?: unknown;
+			projectPath?: string | null;
+		}) => Promise<{ success: boolean }>;
+		/** The parked project, handed over once, to the editor that just opened. */
+		consumePendingRetake: () => Promise<{
+			success: boolean;
+			project?: unknown;
+			path?: string;
+			message?: string;
+		}>;
 		openSourceSelector: () => Promise<{
 			opened: boolean;
 			reason?: string;

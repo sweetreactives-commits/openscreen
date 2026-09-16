@@ -9,7 +9,7 @@ import {
 import { useScopedT } from "@/contexts/I18nContext";
 
 /** What the user was trying to do when the unsaved work got in the way. */
-export type UnsavedChangesVariant = "close" | "newProject" | "loadProject" | "newRecording";
+export type UnsavedChangesVariant = "close" | "newProject" | "loadProject";
 
 /**
  * Which strings each variant uses. Written out rather than assembled from the
@@ -30,11 +30,6 @@ const COPY: Record<UnsavedChangesVariant, { detail: string; save: string; discar
 		detail: "unsavedChanges.detailLoadProject",
 		save: "unsavedChanges.saveAndLoadProject",
 		discard: "unsavedChanges.discardAndLoadProject",
-	},
-	newRecording: {
-		detail: "unsavedChanges.detailNewRecording",
-		save: "unsavedChanges.saveAndNewRecording",
-		discard: "unsavedChanges.discardAndNewRecording",
 	},
 };
 

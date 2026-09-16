@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "Torna al registratore",
-		"description": "La sessione corrente è stata salvata.",
+		"description": "La ripresa che registrerai verrà aggiunta a questo progetto, dopo quella attuale. Le modifiche vengono mantenute.",
 		"cancel": "Annulla",
 		"confirm": "Conferma"
 	},

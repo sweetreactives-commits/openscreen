@@ -5,6 +5,7 @@ import {
 	addOutroCard,
 	addRecording,
 	type ClipEntry,
+	checkoutNewRecording,
 	checkoutRecording,
 	emptyClipEditor,
 	INITIAL_CLIPS,
@@ -170,5 +171,33 @@ describe("several recordings", () => {
 		expect(checkoutRecording(clips, "clip-1", takeOneMedia, editor, "clip-1")).toBeNull();
 		expect(checkoutRecording(clips, "clip-1", takeOneMedia, editor, "card-1")).toBeNull();
 		expect(checkoutRecording(clips, "clip-1", takeOneMedia, editor, "ghost")).toBeNull();
+	});
+});
+
+describe("checkoutNewRecording (a retake)", () => {
+	const media = { screenVideoPath: "C:/takes/one.webm" };
+	const edits = { ...emptyClipEditor(), zoomRegions: [{ id: "zoom-1" }] } as never;
+
+	it("adds the new take at the end and opens it, with no edits on it", () => {
+		const result = checkoutNewRecording([recording], "clip-1", media, edits);
+
+		expect(ids(result.clips)).toEqual(["clip-1", "clip-2"]);
+		expect(result.activeClipId).toBe("clip-2");
+		// The active entry never holds data of its own; the editor has it.
+		expect(result.clips[1]).toEqual({ id: "clip-2", kind: "recording" });
+	});
+
+	it("leaves the take that was open holding its own media and edits", () => {
+		const result = checkoutNewRecording([recording], "clip-1", media, edits);
+
+		expect(result.clips[0]).toEqual({ id: "clip-1", kind: "recording", media, editor: edits });
+	});
+
+	it("keeps cards where they are and takes an id nothing else uses", () => {
+		const withCard = addIntroCard([recording], { title: "Intro" });
+		const result = checkoutNewRecording(withCard, "clip-1", media, edits);
+
+		expect(result.clips.map((clip) => clip.kind)).toEqual(["card", "recording", "recording"]);
+		expect(new Set(ids(result.clips)).size).toBe(3);
 	});
 });

@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "返回錄影",
-		"description": "目前工作階段已儲存。",
+		"description": "接下來錄製的片段會加入本專案，排在目前片段之後。你的編輯會保留。",
 		"cancel": "取消",
 		"confirm": "確認"
 	},

@@ -1,7 +1,7 @@
 {
 	"newRecording": {
 		"title": "녹화로 돌아가기",
-		"description": "현재 세션이 저장되었습니다.",
+		"description": "다음에 녹화하는 테이크는 현재 테이크 뒤에 이 프로젝트로 추가됩니다. 편집 내용은 유지됩니다.",
 		"cancel": "취소",
 		"confirm": "확인"
 	},
