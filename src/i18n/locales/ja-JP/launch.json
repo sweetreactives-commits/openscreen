@@ -10,7 +10,8 @@
 		"openProject": "プロジェクトを開く",
 		"useVerticalTray": "縦型トレイを使用",
 		"useHorizontalTray": "横型トレイを使用",
-		"openStudio": "スタジオを開く"
+		"openStudio": "スタジオを開く",
+		"library": "録画ライブラリ"
 	},
 	"audio": {
 		"enableSystemAudio": "システム音声を有効にする",

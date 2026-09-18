@@ -35,7 +35,8 @@
 		"services": "Serviços",
 		"hide": "Ocultar OpenScreen",
 		"hideOthers": "Ocultar Outros",
-		"unhide": "Mostrar Todos"
+		"unhide": "Mostrar Todos",
+		"library": "Biblioteca…"
 	},
 	"playback": {
 		"play": "Play",

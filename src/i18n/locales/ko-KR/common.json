@@ -35,7 +35,8 @@
 		"services": "서비스",
 		"hide": "OpenScreen 숨기기",
 		"hideOthers": "다른 항목 숨기기",
-		"unhide": "모두 보기"
+		"unhide": "모두 보기",
+		"library": "라이브러리…"
 	},
 	"playback": {
 		"play": "재생",

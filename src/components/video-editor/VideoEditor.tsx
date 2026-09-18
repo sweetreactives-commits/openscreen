@@ -115,6 +115,7 @@ import {
 	toFileUrl,
 	validateProjectData,
 } from "./projectPersistence";
+import { RecordingsLibrary } from "./RecordingsLibrary";
 import { type SequenceEntry, SequencePreview } from "./SequencePreview";
 import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
@@ -985,12 +986,16 @@ export default function VideoEditor() {
 		const removeLoadListener = window.electronAPI.onMenuLoadProject(handleLoadProject);
 		const removeSaveListener = window.electronAPI.onMenuSaveProject(handleSaveProject);
 		const removeSaveAsListener = window.electronAPI.onMenuSaveProjectAs(handleSaveProjectAs);
+		const removeLibraryListener = window.electronAPI.onMenuOpenLibrary?.(() =>
+			setLibraryOpen(true),
+		);
 
 		return () => {
 			removeNewProjectListener?.();
 			removeLoadListener?.();
 			removeSaveListener?.();
 			removeSaveAsListener?.();
+			removeLibraryListener?.();
 		};
 	}, [handleNewProject, handleLoadProject, handleSaveProject, handleSaveProjectAs]);
 
@@ -2150,6 +2155,17 @@ export default function VideoEditor() {
 			);
 		}
 	}, [unsavedExport, handleExportSaved]);
+
+	/** Everything recorded so far, opened from the File menu or the launch screen. */
+	const [libraryOpen, setLibraryOpen] = useState(false);
+
+	/** Same landing place as picking a file, minus the file dialog. */
+	const handleInsertFromLibrary = useCallback(
+		(picked: string) => {
+			pushState((prev) => ({ clips: addRecording(prev.clips, { screenVideoPath: picked }) }));
+		},
+		[pushState],
+	);
 
 	/** Adds a video file as another recording at the end, without switching to it. */
 	const handleAddVideoClip = useCallback(async () => {
@@ -3831,6 +3847,12 @@ export default function VideoEditor() {
 				onSaveAndClose={confirmHandlers.save}
 				onDiscardAndClose={confirmHandlers.discard}
 				onCancel={() => setConfirmDialogVariant(null)}
+			/>
+
+			<RecordingsLibrary
+				open={libraryOpen}
+				onOpenChange={setLibraryOpen}
+				onInsert={handleInsertFromLibrary}
 			/>
 		</div>
 	);

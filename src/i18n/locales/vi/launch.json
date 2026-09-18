@@ -10,7 +10,8 @@
 		"openProject": "Mở dự án",
 		"useVerticalTray": "Dùng khay dọc",
 		"useHorizontalTray": "Dùng khay ngang",
-		"openStudio": "Mở Studio"
+		"openStudio": "Mở Studio",
+		"library": "Thư viện bản ghi"
 	},
 	"audio": {
 		"enableSystemAudio": "Bật âm thanh hệ thống",

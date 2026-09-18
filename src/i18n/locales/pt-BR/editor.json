@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "Não Foi Possível Abrir o Arquivo",
 			"couldNotOpenMessage": "Não foi possível abrir o arquivo de projeto. O vídeo ao qual ele se refere pode ter sido movido ou excluído."
 		}
+	},
+	"library": {
+		"title": "Biblioteca",
+		"loading": "Lendo a pasta de gravações…",
+		"loadFailed": "Não foi possível ler a pasta de gravações.",
+		"emptyTitle": "Nada gravado ainda",
+		"emptyDescription": "As tomadas que você gravar aparecem aqui, prontas para um projeto.",
+		"insert": "Inserir",
+		"inserted": "{{name}} adicionada ao projeto",
+		"delete": "Excluir",
+		"deleteConfirm": "Tem certeza?",
+		"deleteHint": "Move a tomada e seus arquivos para a lixeira",
+		"deleted": "{{name}} movida para a lixeira",
+		"deleteFailed": "Não foi possível excluir essa tomada.",
+		"withWebcam": "Webcam",
+		"withCursor": "Cursor"
 	}
 }

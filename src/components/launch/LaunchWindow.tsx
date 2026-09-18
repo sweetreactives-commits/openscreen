@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Clapperboard, Columns3, Languages, Rows3 } from "lucide-react";
+import { Check, ChevronDown, Clapperboard, Columns3, Film, Languages, Rows3 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
@@ -937,6 +937,20 @@ export function LaunchWindow() {
 				<div
 					className={`${trayLayout === "vertical" ? hudSidebarVerticalClasses : hudSidebarClasses} ${styles.electronNoDrag}`}
 				>
+					{/*
+					 * Reaching an earlier take before there is any project to put it in. The
+					 * library itself lives in the editor window, which this opens on the way.
+					 */}
+					<button
+						type="button"
+						aria-label={t("tooltips.library")}
+						title={t("tooltips.library")}
+						onClick={() => void window.electronAPI?.openLibrary?.()}
+						className={`flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/85 shadow-none transition-colors hover:bg-white/10 ${styles.electronNoDrag}`}
+					>
+						<Film size={13} className="text-white/70" />
+					</button>
+
 					<div className={`${styles.languageMenuContainer} ${styles.electronNoDrag}`}>
 						<button
 							ref={languageTriggerRef}

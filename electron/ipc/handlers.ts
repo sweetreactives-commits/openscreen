@@ -47,6 +47,7 @@ import { patchWebmDurationOnDisk } from "../recording/webm-duration";
 import { planClipImport } from "./clipImport";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
+import { collectLibraryEntries } from "./recordingsLibrary";
 
 const PROJECT_FILE_EXTENSION = "openscreen";
 export const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
@@ -2582,6 +2583,83 @@ export function registerIpcHandlers(
 		} catch (error) {
 			console.error("Failed to add a video clip:", error);
 			return { success: false, message: "Failed to add the video", error: String(error) };
+		}
+	});
+
+	ipcMain.handle("list-recordings", async () => {
+		try {
+			await fs.mkdir(RECORDINGS_DIR, { recursive: true });
+			const names = await fs.readdir(RECORDINGS_DIR);
+			const files = await Promise.all(
+				names.map(async (name) => {
+					try {
+						const stats = await fs.stat(path.join(RECORDINGS_DIR, name));
+						if (!stats.isFile()) return null;
+						return { name, sizeBytes: stats.size, modifiedAtMs: stats.mtimeMs };
+					} catch {
+						// A file that vanished between listing and stat is simply not there.
+						return null;
+					}
+				}),
+			);
+
+			return {
+				success: true,
+				entries: collectLibraryEntries(
+					files.filter((file): file is NonNullable<typeof file> => file !== null),
+					RECORDINGS_DIR,
+				),
+			};
+		} catch (error) {
+			console.error("Failed to list recordings:", error);
+			return { success: false, message: "Failed to list recordings", entries: [] };
+		}
+	});
+
+	/**
+	 * Throws a whole take away, companions included.
+	 *
+	 * Takes the name rather than the paths: the group is worked out here from the
+	 * folder itself, so nothing the renderer sends can name a file outside it. The
+	 * files go to the OS trash, because a recording is not something to lose to a
+	 * misclick.
+	 */
+	ipcMain.handle("delete-recording", async (_, name: unknown) => {
+		try {
+			if (typeof name !== "string" || name !== path.basename(name) || name.length === 0) {
+				return { success: false, message: "Invalid recording name" };
+			}
+
+			const names = await fs.readdir(RECORDINGS_DIR);
+			const files = await Promise.all(
+				names.map(async (entryName) => {
+					try {
+						const stats = await fs.stat(path.join(RECORDINGS_DIR, entryName));
+						if (!stats.isFile()) return null;
+						return { name: entryName, sizeBytes: stats.size, modifiedAtMs: stats.mtimeMs };
+					} catch {
+						return null;
+					}
+				}),
+			);
+			const entry = collectLibraryEntries(
+				files.filter((file): file is NonNullable<typeof file> => file !== null),
+				RECORDINGS_DIR,
+			).find((candidate) => candidate.name === name);
+
+			if (!entry) {
+				return { success: false, message: "Recording not found" };
+			}
+
+			for (const filePath of entry.files) {
+				await shell.trashItem(filePath);
+				approvedPaths.delete(path.resolve(filePath));
+			}
+
+			return { success: true, name: entry.name };
+		} catch (error) {
+			console.error("Failed to delete a recording:", error);
+			return { success: false, message: "Failed to delete the recording", error: String(error) };
 		}
 	});
 

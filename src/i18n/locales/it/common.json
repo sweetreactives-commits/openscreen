@@ -35,7 +35,8 @@
 		"services": "Servizi",
 		"hide": "Nascondi OpenScreen",
 		"hideOthers": "Nascondi gli altri",
-		"unhide": "Mostra tutto"
+		"unhide": "Mostra tutto",
+		"library": "Libreria…"
 	},
 	"playback": {
 		"play": "Riproduci",

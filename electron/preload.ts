@@ -172,6 +172,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	pickVideoClip: () => {
 		return ipcRenderer.invoke("pick-video-clip");
 	},
+	listRecordings: () => {
+		return ipcRenderer.invoke("list-recordings");
+	},
+	deleteRecording: (name: string) => {
+		return ipcRenderer.invoke("delete-recording", name);
+	},
 	setCurrentVideoPath: (path: string) => {
 		return ipcRenderer.invoke("set-current-video-path", path);
 	},
@@ -236,6 +242,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		const listener = () => callback();
 		ipcRenderer.on("menu-save-project-as", listener);
 		return () => ipcRenderer.removeListener("menu-save-project-as", listener);
+	},
+	onMenuOpenLibrary: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("menu-open-library", listener);
+		return () => ipcRenderer.removeListener("menu-open-library", listener);
+	},
+	openLibrary: () => {
+		return ipcRenderer.invoke("open-library");
 	},
 	getPlatform: () => {
 		return ipcRenderer.invoke("get-platform");

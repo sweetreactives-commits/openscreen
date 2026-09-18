@@ -10,7 +10,8 @@
 		"openProject": "Открыть проект",
 		"useVerticalTray": "Использовать вертикальную панель",
 		"useHorizontalTray": "Использовать горизонтальную панель",
-		"openStudio": "Открыть студию"
+		"openStudio": "Открыть студию",
+		"library": "Библиотека записей"
 	},
 	"audio": {
 		"enableSystemAudio": "Включить системное аудио",

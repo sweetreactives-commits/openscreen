@@ -10,7 +10,8 @@
 		"openProject": "Ouvrir un projet",
 		"useVerticalTray": "Utiliser la barre verticale",
 		"useHorizontalTray": "Utiliser la barre horizontale",
-		"openStudio": "Ouvrir Studio"
+		"openStudio": "Ouvrir Studio",
+		"library": "Bibliothèque d'enregistrements"
 	},
 	"audio": {
 		"enableSystemAudio": "Activer l'audio système",

@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "Impossibile aprire il file",
 			"couldNotOpenMessage": "Non è stato possibile aprire il file di progetto. Il video a cui fa riferimento potrebbe essere stato spostato o eliminato."
 		}
+	},
+	"library": {
+		"title": "Libreria",
+		"loading": "Lettura della cartella delle registrazioni…",
+		"loadFailed": "Impossibile leggere la cartella delle registrazioni.",
+		"emptyTitle": "Nessuna registrazione",
+		"emptyDescription": "Le riprese che registri finiscono qui, pronte per un progetto.",
+		"insert": "Inserisci",
+		"inserted": "{{name}} aggiunta al progetto",
+		"delete": "Elimina",
+		"deleteConfirm": "Sicuro?",
+		"deleteHint": "Sposta la ripresa e i suoi file nel cestino",
+		"deleted": "{{name}} spostata nel cestino",
+		"deleteFailed": "Impossibile eliminare questa ripresa.",
+		"withWebcam": "Webcam",
+		"withCursor": "Cursore"
 	}
 }

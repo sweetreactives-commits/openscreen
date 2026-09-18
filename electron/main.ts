@@ -127,7 +127,12 @@ function isEditorWindow(window: BrowserWindow) {
 }
 
 function sendEditorMenuAction(
-	channel: "menu-load-project" | "menu-save-project" | "menu-save-project-as" | "menu-new-project",
+	channel:
+		| "menu-load-project"
+		| "menu-save-project"
+		| "menu-save-project-as"
+		| "menu-new-project"
+		| "menu-open-library",
 ) {
 	let targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
 
@@ -206,6 +211,12 @@ function setupApplicationMenu() {
 					label: mainT("dialogs", "unsavedChanges.saveProjectAs") || "Save Project As…",
 					accelerator: "CmdOrCtrl+Shift+S",
 					click: () => sendEditorMenuAction("menu-save-project-as"),
+				},
+				{ type: "separator" as const },
+				{
+					label: mainT("common", "actions.library") || "Library…",
+					accelerator: "CmdOrCtrl+L",
+					click: () => sendEditorMenuAction("menu-open-library"),
 				},
 				...(isMac
 					? []
@@ -574,6 +585,12 @@ app.whenReady().then(async () => {
 
 	ipcMain.on("hud-overlay-close", () => {
 		app.quit();
+	});
+	// The library lives in the editor window, so opening it from the launch HUD is
+	// the same errand as the menu item: hand it to the editor, creating it if the
+	// HUD is all there is yet.
+	ipcMain.handle("open-library", () => {
+		sendEditorMenuAction("menu-open-library");
 	});
 	ipcMain.handle("set-locale", (_, locale: string) => {
 		setMainLocale(locale);

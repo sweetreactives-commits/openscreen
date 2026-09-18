@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "Dosya Açılamadı",
 			"couldNotOpenMessage": "Proje dosyası açılamadı. Başvurulan video taşınmış veya silinmiş olabilir."
 		}
+	},
+	"library": {
+		"title": "Kitaplık",
+		"loading": "Kayıt klasörü okunuyor…",
+		"loadFailed": "Kayıt klasörü okunamadı.",
+		"emptyTitle": "Henüz kayıt yok",
+		"emptyDescription": "Aldığın kayıtlar burada birikir, projeye eklemeye hazır.",
+		"insert": "Ekle",
+		"inserted": "{{name}} projeye eklendi",
+		"delete": "Sil",
+		"deleteConfirm": "Emin misin?",
+		"deleteHint": "Kaydı ve ilgili dosyalarını çöp kutusuna taşır",
+		"deleted": "{{name}} çöp kutusuna taşındı",
+		"deleteFailed": "Bu kayıt silinemedi.",
+		"withWebcam": "Kamera",
+		"withCursor": "İmleç"
 	}
 }

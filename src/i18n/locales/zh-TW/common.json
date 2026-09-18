@@ -35,7 +35,8 @@
 		"services": "服務",
 		"hide": "隱藏 OpenScreen",
 		"hideOthers": "隱藏其他",
-		"unhide": "全部顯示"
+		"unhide": "全部顯示",
+		"library": "媒體庫…"
 	},
 	"playback": {
 		"play": "播放",

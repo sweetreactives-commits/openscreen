@@ -10,7 +10,8 @@
 		"openProject": "Proje aç",
 		"useVerticalTray": "Dikey araç çubuğunu kullan",
 		"useHorizontalTray": "Yatay araç çubuğunu kullan",
-		"openStudio": "Stüdyoyu Aç"
+		"openStudio": "Stüdyoyu Aç",
+		"library": "Kayıt kitaplığı"
 	},
 	"audio": {
 		"enableSystemAudio": "Sistem sesini etkinleştir",

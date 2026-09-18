@@ -211,6 +211,17 @@ interface Window {
 			canceled?: boolean;
 			message?: string;
 		}>;
+		listRecordings: () => Promise<{
+			success: boolean;
+			entries: import("./ipc/recordingsLibrary").LibraryEntry[];
+			message?: string;
+		}>;
+		deleteRecording: (name: string) => Promise<{
+			success: boolean;
+			name?: string;
+			message?: string;
+			error?: string;
+		}>;
 		setCurrentVideoPath: (path: string) => Promise<{ success: boolean }>;
 		setCurrentRecordingSession: (
 			session: import("../src/lib/recordingSession").RecordingSession | null,
@@ -278,6 +289,8 @@ interface Window {
 		onMenuLoadProject: (callback: () => void) => () => void;
 		onMenuSaveProject: (callback: () => void) => () => void;
 		onMenuSaveProjectAs: (callback: () => void) => () => void;
+		onMenuOpenLibrary: (callback: () => void) => () => void;
+		openLibrary: () => Promise<void>;
 		getPlatform: () => Promise<string>;
 		revealInFolder: (
 			filePath: string,

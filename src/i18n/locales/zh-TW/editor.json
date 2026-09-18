@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "無法開啟檔案",
 			"couldNotOpenMessage": "無法開啟專案檔案。它所參照的影片可能已被移動或刪除。"
 		}
+	},
+	"library": {
+		"title": "媒體庫",
+		"loading": "正在讀取錄製資料夾…",
+		"loadFailed": "無法讀取錄製資料夾。",
+		"emptyTitle": "尚無錄製",
+		"emptyDescription": "錄好的片段會出現在這裡，可直接加入專案。",
+		"insert": "插入",
+		"inserted": "已將 {{name}} 加入專案",
+		"delete": "刪除",
+		"deleteConfirm": "確定？",
+		"deleteHint": "將該片段及其附帶檔案移到垃圾桶",
+		"deleted": "已將 {{name}} 移到垃圾桶",
+		"deleteFailed": "無法刪除該片段。",
+		"withWebcam": "攝影機",
+		"withCursor": "游標"
 	}
 }

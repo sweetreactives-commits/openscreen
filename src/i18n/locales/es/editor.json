@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "No se pudo abrir el archivo",
 			"couldNotOpenMessage": "No se pudo abrir el archivo de proyecto. El video al que hace referencia puede haber sido movido o eliminado."
 		}
+	},
+	"library": {
+		"title": "Biblioteca",
+		"loading": "Leyendo la carpeta de grabaciones…",
+		"loadFailed": "No se pudo leer la carpeta de grabaciones.",
+		"emptyTitle": "Aún no hay grabaciones",
+		"emptyDescription": "Las tomas que grabes aparecerán aquí, listas para añadir a un proyecto.",
+		"insert": "Insertar",
+		"inserted": "{{name}} añadida al proyecto",
+		"delete": "Eliminar",
+		"deleteConfirm": "¿Seguro?",
+		"deleteHint": "Envía la toma y sus archivos a la papelera",
+		"deleted": "{{name}} enviada a la papelera",
+		"deleteFailed": "No se pudo eliminar esa toma.",
+		"withWebcam": "Cámara",
+		"withCursor": "Cursor"
 	}
 }

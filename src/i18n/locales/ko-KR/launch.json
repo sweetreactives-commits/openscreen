@@ -10,7 +10,8 @@
 		"openProject": "프로젝트 열기",
 		"useVerticalTray": "세로 트레이 사용",
 		"useHorizontalTray": "가로 트레이 사용",
-		"openStudio": "스튜디오 열기"
+		"openStudio": "스튜디오 열기",
+		"library": "녹화 라이브러리"
 	},
 	"audio": {
 		"enableSystemAudio": "시스템 오디오 활성화",

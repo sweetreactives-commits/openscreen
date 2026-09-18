@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "ファイルを開けませんでした",
 			"couldNotOpenMessage": "プロジェクトファイルを開けませんでした。参照している動画が移動または削除された可能性があります。"
 		}
+	},
+	"library": {
+		"title": "ライブラリ",
+		"loading": "録画フォルダを読み込んでいます…",
+		"loadFailed": "録画フォルダを読み込めませんでした。",
+		"emptyTitle": "まだ録画がありません",
+		"emptyDescription": "録画したテイクはここに並び、プロジェクトに追加できます。",
+		"insert": "挿入",
+		"inserted": "{{name}} をプロジェクトに追加しました",
+		"delete": "削除",
+		"deleteConfirm": "本当に?",
+		"deleteHint": "テイクと関連ファイルをゴミ箱へ移動します",
+		"deleted": "{{name}} をゴミ箱に移動しました",
+		"deleteFailed": "このテイクを削除できませんでした。",
+		"withWebcam": "カメラ",
+		"withCursor": "カーソル"
 	}
 }

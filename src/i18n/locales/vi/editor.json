@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "Không thể mở tệp",
 			"couldNotOpenMessage": "Không thể mở tệp dự án. Video mà nó tham chiếu có thể đã bị di chuyển hoặc xóa."
 		}
+	},
+	"library": {
+		"title": "Thư viện",
+		"loading": "Đang đọc thư mục bản ghi…",
+		"loadFailed": "Không đọc được thư mục bản ghi.",
+		"emptyTitle": "Chưa có bản ghi nào",
+		"emptyDescription": "Các bản ghi của bạn sẽ nằm ở đây, sẵn sàng thêm vào dự án.",
+		"insert": "Chèn",
+		"inserted": "Đã thêm {{name}} vào dự án",
+		"delete": "Xóa",
+		"deleteConfirm": "Chắc chứ?",
+		"deleteHint": "Chuyển bản ghi và các tệp đi kèm vào thùng rác",
+		"deleted": "Đã chuyển {{name}} vào thùng rác",
+		"deleteFailed": "Không xóa được bản ghi này.",
+		"withWebcam": "Webcam",
+		"withCursor": "Con trỏ"
 	}
 }

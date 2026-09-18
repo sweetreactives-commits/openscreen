@@ -77,5 +77,21 @@
 			"couldNotOpenTitle": "Impossible d'ouvrir le fichier",
 			"couldNotOpenMessage": "Le fichier de projet n'a pas pu être ouvert. La vidéo qu'il référence a peut-être été déplacée ou supprimée."
 		}
+	},
+	"library": {
+		"title": "Bibliothèque",
+		"loading": "Lecture du dossier d'enregistrements…",
+		"loadFailed": "Impossible de lire le dossier d'enregistrements.",
+		"emptyTitle": "Aucun enregistrement pour l'instant",
+		"emptyDescription": "Vos prises apparaîtront ici, prêtes à être ajoutées à un projet.",
+		"insert": "Insérer",
+		"inserted": "{{name}} ajoutée au projet",
+		"delete": "Supprimer",
+		"deleteConfirm": "Confirmer ?",
+		"deleteHint": "Met la prise et ses fichiers à la corbeille",
+		"deleted": "{{name}} mise à la corbeille",
+		"deleteFailed": "Impossible de supprimer cette prise.",
+		"withWebcam": "Webcam",
+		"withCursor": "Curseur"
 	}
 }

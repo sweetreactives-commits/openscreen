@@ -35,7 +35,8 @@
 		"services": "Servisler",
 		"hide": "OpenScreen’i Gizle",
 		"hideOthers": "Diğerlerini Gizle",
-		"unhide": "Tümünü Göster"
+		"unhide": "Tümünü Göster",
+		"library": "Kitaplık…"
 	},
 	"playback": {
 		"play": "Oynat",

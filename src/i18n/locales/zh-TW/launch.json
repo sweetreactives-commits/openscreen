@@ -10,7 +10,8 @@
 		"openProject": "開啟專案",
 		"useVerticalTray": "使用直向托盤",
 		"useHorizontalTray": "使用橫向托盤",
-		"openStudio": "開啟工作室"
+		"openStudio": "開啟工作室",
+		"library": "錄製媒體庫"
 	},
 	"audio": {
 		"enableSystemAudio": "啟用系統音訊",
