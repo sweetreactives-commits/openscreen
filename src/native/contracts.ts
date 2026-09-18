@@ -2,7 +2,15 @@ export const NATIVE_BRIDGE_CHANNEL = "native-bridge:invoke";
 export const NATIVE_BRIDGE_VERSION = 1;
 
 export type NativePlatform = "darwin" | "win32" | "linux";
-export type CursorProviderKind = "native" | "none";
+/**
+ * Where a recording's cursor data came from.
+ *
+ * `native`: the platform helper, with cursor bitmaps — the editor can draw its
+ * own cursor. `sampled`: positions polled from Electron's `screen` because the
+ * helper was unavailable; enough for zoom suggestions, but the system cursor is
+ * still in the picture, so drawing over it would show two. `none`: no data.
+ */
+export type CursorProviderKind = "native" | "sampled" | "none";
 export type NativeCursorType =
 	| "arrow"
 	| "text"

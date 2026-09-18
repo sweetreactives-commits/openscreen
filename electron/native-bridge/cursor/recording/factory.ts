@@ -44,3 +44,29 @@ export function createCursorRecordingSession(
 		startTimeMs: options.startTimeMs,
 	});
 }
+
+/**
+ * The position-only session to fall back on when the platform helper will not start.
+ *
+ * A missing or unspawnable helper used to cost the recording its cursor data
+ * outright, and with it every feature built on that data — zoom suggestions
+ * first among them. Linux has always run on exactly this session, so the
+ * fallback is a path that already works rather than a second implementation.
+ *
+ * Returns null on Linux, where this session is the primary one and retrying it
+ * would only repeat the same failure.
+ */
+export function createFallbackCursorRecordingSession(
+	options: CreateCursorRecordingSessionOptions,
+): CursorRecordingSession | null {
+	if (options.platform !== "win32" && options.platform !== "darwin") {
+		return null;
+	}
+
+	return new TelemetryRecordingSession({
+		getDisplayBounds: options.getDisplayBounds,
+		maxSamples: options.maxSamples,
+		sampleIntervalMs: options.sampleIntervalMs,
+		startTimeMs: options.startTimeMs,
+	});
+}

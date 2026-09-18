@@ -37,7 +37,10 @@ import type {
 } from "../../src/native/contracts";
 import { mainT } from "../i18n";
 import { RECORDINGS_DIR } from "../main";
-import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
+import {
+	createCursorRecordingSession,
+	createFallbackCursorRecordingSession,
+} from "../native-bridge/cursor/recording/factory";
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
@@ -570,7 +573,8 @@ async function readCursorRecordingFile(targetVideoPath: string): Promise<CursorR
 		return {
 			version:
 				typeof parsed?.version === "number" && Number.isFinite(parsed.version) ? parsed.version : 1,
-			provider: parsed?.provider === "native" ? "native" : "none",
+			provider:
+				parsed?.provider === "native" || parsed?.provider === "sampled" ? parsed.provider : "none",
 			samples,
 			assets,
 		};
@@ -843,7 +847,7 @@ async function startCursorRecording(recordingId?: number) {
 	}
 
 	pendingCursorRecordingData = null;
-	cursorRecordingSession = createCursorRecordingSession({
+	const sessionOptions = {
 		getDisplayBounds: getSelectedSourceBounds,
 		maxSamples: MAX_CURSOR_SAMPLES,
 		platform: process.platform,
@@ -851,12 +855,33 @@ async function startCursorRecording(recordingId?: number) {
 		sourceId: getSelectedSourceId(),
 		startTimeMs:
 			typeof recordingId === "number" && Number.isFinite(recordingId) ? recordingId : undefined,
-	});
+	};
+	cursorRecordingSession = createCursorRecordingSession(sessionOptions);
 
 	try {
 		await cursorRecordingSession.start();
+		return;
 	} catch (error) {
 		console.error("Failed to start cursor recording session:", error);
+		cursorRecordingSession = null;
+	}
+
+	// The helper is missing or would not spawn. Rather than record with no cursor
+	// data at all — which silently costs the take its zoom suggestions — poll the
+	// pointer position, the way Linux always has.
+	const fallbackSession = createFallbackCursorRecordingSession(sessionOptions);
+	if (!fallbackSession) {
+		return;
+	}
+
+	try {
+		await fallbackSession.start();
+		cursorRecordingSession = fallbackSession;
+		console.warn(
+			"[cursor] native cursor helper unavailable; recording sampled cursor positions instead",
+		);
+	} catch (error) {
+		console.error("Failed to start fallback cursor recording session:", error);
 		cursorRecordingSession = null;
 	}
 }

@@ -37,7 +37,10 @@ export class TelemetryRecordingSession implements CursorRecordingSession {
 
 		return {
 			version: 2,
-			provider: "none",
+			// Positions only, no cursor bitmaps. Marked `sampled` rather than `none`
+			// so the editor reads the telemetry but leaves its own cursor overlay
+			// off: this path never strips the system cursor from the picture.
+			provider: "sampled",
 			samples: this.samples,
 			assets: [],
 		};
