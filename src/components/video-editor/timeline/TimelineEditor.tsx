@@ -66,6 +66,8 @@ interface TimelineEditorProps {
 	/** Magic-wand auto-zoom toggle state + handler. */
 	autoZoomEnabled?: boolean;
 	onToggleAutoZoom?: (enabled: boolean) => void;
+	/** Whether this recording carries the cursor data the wand reads. */
+	hasCursorTelemetry?: boolean;
 	/** Global Auto-Focus toggle state + handler. */
 	autoFocusAll?: boolean;
 	onToggleAutoFocusAll?: (on: boolean) => void;
@@ -962,6 +964,7 @@ export default function TimelineEditor({
 	onZoomAdded,
 	autoZoomEnabled = true,
 	onToggleAutoZoom,
+	hasCursorTelemetry = true,
 	autoFocusAll = false,
 	onToggleAutoFocusAll,
 	hasSilenceCuts = false,
@@ -1583,7 +1586,13 @@ export default function TimelineEditor({
 							"h-7 w-7 rounded-lg transition-all hover:bg-[#34B27B]/10 hover:text-[#34B27B]",
 							autoZoomEnabled ? "bg-[#34B27B]/15 text-[#34B27B]" : "text-slate-400",
 						)}
-						title={autoZoomEnabled ? t("buttons.autoZoomOn") : t("buttons.autoZoomOff")}
+						title={
+							hasCursorTelemetry
+								? autoZoomEnabled
+									? t("buttons.autoZoomOn")
+									: t("buttons.autoZoomOff")
+								: t("errors.noCursorTelemetry")
+						}
 					>
 						<WandSparkles className="w-4 h-4" />
 					</Button>

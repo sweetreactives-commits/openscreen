@@ -118,7 +118,11 @@ import {
 import { type SequenceEntry, SequencePreview } from "./SequencePreview";
 import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
-import { buildAutoZoomSuggestions } from "./timeline/zoomSuggestionUtils";
+import {
+	type AutoZoomSuggestion,
+	findZoomSuggestions,
+	type ZoomSuggestionScan,
+} from "./timeline/zoomSuggestionUtils";
 import {
 	type AnnotationRegion,
 	type BlurData,
@@ -197,6 +201,21 @@ function buildExportDiagnosticMessage(diagnostics: ExportDiagnostics) {
 const TIMELAPSE_REFUSAL_KEYS = {
 	"no-audio": "silence.noAudio",
 	"nothing-found": "timelapse.nothingFound",
+} as const;
+
+/** Why the wand found nothing to suggest, and what the user can do about it. */
+const AUTO_ZOOM_REFUSAL_KEYS = {
+	"no-cursor-data": "errors.noCursorTelemetry",
+	"unusable-cursor-data": "errors.noUsableTelemetry",
+	"nothing-found": "errors.noDwellMoments",
+	"no-room": "errors.noAutoZoomSlots",
+} as const;
+
+const AUTO_ZOOM_REFUSAL_DESCRIPTION_KEYS = {
+	"no-cursor-data": "errors.noCursorTelemetryDescription",
+	"unusable-cursor-data": "errors.noUsableTelemetryDescription",
+	"nothing-found": "errors.noDwellMomentsDescription",
+	"no-room": "errors.noAutoZoomSlotsDescription",
 } as const;
 
 /** Why a scan for dead air came back with nothing, in words the user can act on. */
@@ -1105,18 +1124,26 @@ export default function VideoEditor() {
 		[pushState, autoFocusAll],
 	);
 
-	// Builds fresh "auto" zoom regions from cursor telemetry without overlapping
-	// existing ones. Used by both the on-load auto-suggest pass and the wand toggle.
-	const buildAutoZoomRegions = useCallback(
-		(existingRegions: ZoomRegion[]): ZoomRegion[] => {
+	// What the cursor did in this recording, read against the zooms already placed.
+	// Shared by the on-load auto-suggest pass and the wand toggle; only the toggle
+	// reports the outcome, since the on-load pass is not something the user asked for.
+	const scanAutoZooms = useCallback(
+		(existingRegions: ZoomRegion[]): ZoomSuggestionScan => {
 			const totalMs = Math.round(duration * 1000);
-			const suggestions = buildAutoZoomSuggestions({
+			return findZoomSuggestions({
 				cursorTelemetry,
+				clickTimesMs: cursorClickTimestamps,
 				totalMs,
 				existingRegions,
 				defaultDurationMs: Math.max(1000, Math.round(totalMs * 0.05)),
 			});
-			return suggestions.map((suggestion) => ({
+		},
+		[cursorTelemetry, cursorClickTimestamps, duration],
+	);
+
+	const zoomRegionsFrom = useCallback(
+		(suggestions: AutoZoomSuggestion[]): ZoomRegion[] =>
+			suggestions.map((suggestion) => ({
 				id: `zoom-${nextZoomIdRef.current++}`,
 				startMs: Math.round(suggestion.span.start),
 				endMs: Math.round(suggestion.span.end),
@@ -1125,9 +1152,8 @@ export default function VideoEditor() {
 				focus: clampFocusToDepth(suggestion.focus, DEFAULT_ZOOM_DEPTH),
 				focusMode: autoFocusAll ? ("auto" as const) : undefined,
 				source: "auto" as const,
-			}));
-		},
-		[cursorTelemetry, duration, autoFocusAll],
+			})),
+		[autoFocusAll],
 	);
 
 	// Auto-suggest zooms once per fresh recording (no existing zooms, telemetry
@@ -1143,9 +1169,10 @@ export default function VideoEditor() {
 			autoProcessedSourceRef.current = cursorTelemetrySourcePath;
 			return;
 		}
-		const newRegions = buildAutoZoomRegions([]);
+		const scan = scanAutoZooms([]);
 		autoProcessedSourceRef.current = cursorTelemetrySourcePath;
-		if (newRegions.length === 0) return;
+		if (!scan.ok) return;
+		const newRegions = zoomRegionsFrom(scan.suggestions);
 		pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, ...newRegions] }));
 	}, [
 		autoZoomEnabled,
@@ -1153,7 +1180,8 @@ export default function VideoEditor() {
 		cursorTelemetry,
 		duration,
 		zoomRegions,
-		buildAutoZoomRegions,
+		scanAutoZooms,
+		zoomRegionsFrom,
 		pushState,
 	]);
 
@@ -1162,20 +1190,41 @@ export default function VideoEditor() {
 	// zooms survive — the user never asked the wand for those).
 	const handleToggleAutoZoom = useCallback(
 		(enabled: boolean) => {
-			if (enabled) {
-				autoProcessedSourceRef.current = cursorTelemetrySourcePath;
-				pushState((prev) => ({
-					autoZoomEnabled: true,
-					zoomRegions: [...prev.zoomRegions, ...buildAutoZoomRegions(prev.zoomRegions)],
-				}));
-			} else {
+			if (!enabled) {
 				pushState((prev) => ({
 					autoZoomEnabled: false,
 					zoomRegions: prev.zoomRegions.filter((region) => region.source !== "auto"),
 				}));
+				return;
 			}
+
+			autoProcessedSourceRef.current = cursorTelemetrySourcePath;
+			const scan = scanAutoZooms(zoomRegions);
+			if (!scan.ok) {
+				// The wand still turns on — it is a standing preference for this project,
+				// not a one-shot — but silence here is what made it look broken.
+				pushState({ autoZoomEnabled: true });
+				toast.info(tTimeline(AUTO_ZOOM_REFUSAL_KEYS[scan.reason]), {
+					description: tTimeline(AUTO_ZOOM_REFUSAL_DESCRIPTION_KEYS[scan.reason]),
+				});
+				return;
+			}
+
+			const newRegions = zoomRegionsFrom(scan.suggestions);
+			pushState((prev) => ({
+				autoZoomEnabled: true,
+				zoomRegions: [...prev.zoomRegions, ...newRegions],
+			}));
+			toast.success(
+				tTimeline(
+					newRegions.length === 1
+						? "success.addedZoomSuggestions"
+						: "success.addedZoomSuggestionsPlural",
+					{ count: String(newRegions.length) },
+				),
+			);
 		},
-		[pushState, buildAutoZoomRegions, cursorTelemetrySourcePath],
+		[pushState, scanAutoZooms, zoomRegionsFrom, zoomRegions, cursorTelemetrySourcePath, tTimeline],
 	);
 
 	// Flip every zoom between auto (cursor-follow) and manual at once.
@@ -3681,6 +3730,7 @@ export default function VideoEditor() {
 									onZoomAdded={handleZoomAdded}
 									autoZoomEnabled={autoZoomEnabled}
 									onToggleAutoZoom={handleToggleAutoZoom}
+									hasCursorTelemetry={cursorTelemetry.length > 0}
 									autoFocusAll={autoFocusAll}
 									onToggleAutoFocusAll={handleToggleAutoFocusAll}
 									hasSilenceCuts={hasSilenceCuts}
