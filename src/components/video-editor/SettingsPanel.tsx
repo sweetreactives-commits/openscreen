@@ -1053,31 +1053,6 @@ export function SettingsPanel({
 									)}
 								</div>
 							)}
-							{zoomEnabled && onZoomPreviewStart && onZoomPreviewEnd && (
-								<Button
-									type="button"
-									onPointerDown={() => onZoomPreviewStart()}
-									onPointerUp={() => onZoomPreviewEnd()}
-									onPointerLeave={() => onZoomPreviewEnd()}
-									onPointerCancel={() => onZoomPreviewEnd()}
-									onKeyDown={(e) => {
-										if ((e.key === " " || e.key === "Enter") && !e.repeat) {
-											e.preventDefault();
-											onZoomPreviewStart();
-										}
-									}}
-									onKeyUp={(e) => {
-										if (e.key === " " || e.key === "Enter") {
-											e.preventDefault();
-											onZoomPreviewEnd();
-										}
-									}}
-									onBlur={() => onZoomPreviewEnd()}
-									className="h-7 w-full select-none rounded-md border border-white/[0.08] bg-white/[0.04] text-[10px] font-semibold text-slate-300 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-slate-100 active:border-[#34B27B]/50 active:bg-[#34B27B] active:text-white cursor-pointer"
-								>
-									{t("zoom.previewHold")}
-								</Button>
-							)}
 							{zoomEnabled &&
 								selectedZoomFocusMode !== "auto" &&
 								selectedZoomFocus &&
@@ -1175,16 +1150,51 @@ export function SettingsPanel({
 								</div>
 							)}
 
+							{/*
+							 * Hold-to-preview and delete share a wrapper so the 30px between them
+							 * survives: the section's own `space-y-3` outranks a plain `mt-*` on a
+							 * direct child, so the gap has to be set one level in.
+							 */}
 							{zoomEnabled && (
-								<Button
-									onClick={handleDeleteClick}
-									variant="destructive"
-									size="sm"
-									className="mt-1 w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
-								>
-									<Trash2 className="w-3 h-3" />
-									{t("zoom.deleteZoom")}
-								</Button>
+								<div>
+									{onZoomPreviewStart && onZoomPreviewEnd && (
+										<Button
+											type="button"
+											onPointerDown={() => onZoomPreviewStart()}
+											onPointerUp={() => onZoomPreviewEnd()}
+											onPointerLeave={() => onZoomPreviewEnd()}
+											onPointerCancel={() => onZoomPreviewEnd()}
+											onKeyDown={(e) => {
+												if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+													e.preventDefault();
+													onZoomPreviewStart();
+												}
+											}}
+											onKeyUp={(e) => {
+												if (e.key === " " || e.key === "Enter") {
+													e.preventDefault();
+													onZoomPreviewEnd();
+												}
+											}}
+											onBlur={() => onZoomPreviewEnd()}
+											className="h-7 w-full select-none rounded-md border border-white/[0.08] bg-white/[0.04] text-[10px] font-semibold text-slate-300 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-slate-100 active:border-[#34B27B]/50 active:bg-[#34B27B] active:text-white cursor-pointer"
+										>
+											{t("zoom.previewHold")}
+										</Button>
+									)}
+									<Button
+										onClick={handleDeleteClick}
+										variant="destructive"
+										size="sm"
+										className={cn(
+											"w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs",
+											onZoomPreviewStart && onZoomPreviewEnd && "mt-[30px]",
+										)}
+									>
+										<Trash2 className="w-3 h-3" />
+										{t("zoom.deleteZoom")}
+									</Button>
+								</div>
 							)}
 						</div>
 					)}
