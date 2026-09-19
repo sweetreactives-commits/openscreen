@@ -37,7 +37,10 @@ target_compile_definitions(wgc-capture PRIVATE
   _WIN32_WINNT=0x0A00
 )
 
-target_compile_options(wgc-capture PRIVATE /EHsc /W4 /utf-8 /await)
+# No /await: it selects the removed <experimental/coroutine>, which is a hard
+# error from MSVC 14.51 on. C++/WinRT picks the standard <coroutine> from
+# CMAKE_CXX_STANDARD 20 instead, which is what every supported toolset has.
+target_compile_options(wgc-capture PRIVATE /EHsc /W4 /utf-8)
 
 target_link_libraries(wgc-capture PRIVATE
   d3d11

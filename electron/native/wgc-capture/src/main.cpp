@@ -20,6 +20,9 @@
 #include <string>
 #include <thread>
 
+// CommandLineToArgvW, for reading the command line as UTF-16.
+#include <shellapi.h>
+
 namespace {
 
 struct CaptureConfig {
@@ -380,8 +383,28 @@ void readCaptureCommands(CaptureControl& control, const std::function<void(bool)
 
 } // namespace
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
+// The narrow `argv` Windows builds is in the active ANSI code page, and every
+// string here is treated as UTF-8 — so a config carrying a path with non-ASCII
+// in it (a user folder named in Cyrillic, say) arrives mangled and the encoder
+// fails to open a file that is plainly there. The real command line is UTF-16;
+// re-encoding it to UTF-8 is what makes the rest of this file's assumption true.
+bool readUtf8Argument(std::string& out) {
+    int argCount = 0;
+    LPWSTR* wideArgv = CommandLineToArgvW(GetCommandLineW(), &argCount);
+    if (!wideArgv) {
+        return false;
+    }
+    const bool hasArgument = argCount >= 2;
+    if (hasArgument) {
+        out = wideToUtf8(wideArgv[1]);
+    }
+    LocalFree(wideArgv);
+    return hasArgument;
+}
+
+int main() {
+    std::string configJson;
+    if (!readUtf8Argument(configJson)) {
         std::cerr << "ERROR: Missing JSON config argument" << std::endl;
         return 1;
     }
@@ -389,7 +412,7 @@ int main(int argc, char* argv[]) {
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
     CaptureConfig config;
-    if (!parseConfig(argv[1], config)) {
+    if (!parseConfig(configJson, config)) {
         std::cerr << "ERROR: Failed to parse config JSON" << std::endl;
         return 1;
     }
