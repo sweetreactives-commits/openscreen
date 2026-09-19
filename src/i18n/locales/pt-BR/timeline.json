@@ -16,7 +16,8 @@
 		"pressTrim": "Pressione T para adicionar recorte",
 		"pressAnnotation": "Pressione A para adicionar anotação",
 		"pressBlur": "Pressione B para adicionar região de desfoque",
-		"pressSpeed": "Pressione S para adicionar velocidade"
+		"pressSpeed": "Pressione S para adicionar velocidade",
+		"noAudio": "Esta gravação não tem som para mostrar"
 	},
 	"labels": {
 		"pan": "Mover",

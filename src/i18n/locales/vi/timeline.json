@@ -16,7 +16,8 @@
 		"pressTrim": "Nhấn T để thêm cắt",
 		"pressAnnotation": "Nhấn A để thêm chú thích",
 		"pressBlur": "Nhấn B để thêm vùng làm mờ",
-		"pressSpeed": "Nhấn S để thêm tốc độ"
+		"pressSpeed": "Nhấn S để thêm tốc độ",
+		"noAudio": "Bản ghi này không có âm thanh để hiển thị"
 	},
 	"labels": {
 		"pan": "Xoay",

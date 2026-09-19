@@ -16,7 +16,8 @@
 		"pressTrim": "اضغط T لإضافة قص",
 		"pressAnnotation": "اضغط A لإضافة شرح",
 		"pressBlur": "اضغط B لإضافة منطقة تمويه",
-		"pressSpeed": "اضغط S لإضافة سرعة"
+		"pressSpeed": "اضغط S لإضافة سرعة",
+		"noAudio": "لا يوجد صوت في هذا التسجيل لعرضه"
 	},
 	"labels": {
 		"pan": "تحريك",

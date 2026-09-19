@@ -16,7 +16,8 @@
 		"pressTrim": "按 T 新增剪輯",
 		"pressAnnotation": "按 A 新增標註",
 		"pressSpeed": "按 S 新增速度",
-		"pressBlur": "按 B 新增模糊區域"
+		"pressBlur": "按 B 新增模糊區域",
+		"noAudio": "此錄製沒有可顯示的聲音"
 	},
 	"labels": {
 		"pan": "平移",

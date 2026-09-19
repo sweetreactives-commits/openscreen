@@ -16,7 +16,8 @@
 		"pressTrim": "T를 눌러 트림 추가",
 		"pressAnnotation": "A를 눌러 주석 추가",
 		"pressSpeed": "S를 눌러 속도 추가",
-		"pressBlur": "B 키를 눌러 블러 영역을 추가하세요"
+		"pressBlur": "B 키를 눌러 블러 영역을 추가하세요",
+		"noAudio": "이 녹화에는 표시할 소리가 없습니다"
 	},
 	"labels": {
 		"pan": "이동",

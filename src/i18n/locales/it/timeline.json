@@ -16,7 +16,8 @@
 		"pressTrim": "Premi T per aggiungere taglio",
 		"pressAnnotation": "Premi A per aggiungere annotazione",
 		"pressBlur": "Premi B per aggiungere regione sfocatura",
-		"pressSpeed": "Premi S per aggiungere velocità"
+		"pressSpeed": "Premi S per aggiungere velocità",
+		"noAudio": "Questa registrazione non ha audio da mostrare"
 	},
 	"labels": {
 		"pan": "Panoramica",

@@ -115,31 +115,50 @@ export async function decodeAudioPeaks(
 }
 
 /**
- * Peaks for the waveform. `null` while decoding, and on no audio track or decode
- * failure. Shares the module-level cache with {@link decodeAudioPeaks}.
+ * What the waveform knows about this recording's sound.
+ *
+ * `null` peaks meant two different things — still decoding, and there is no
+ * audio to decode — which left anything downstream unable to tell a slow answer
+ * from a final one, and so unable to say why a waveform never appeared.
  */
-export function useAudioPeaks(videoUrl?: string): Float32Array | null {
-	const [peaks, setPeaks] = useState<Float32Array | null>(() => getCachedAudioPeaks(videoUrl));
+export type AudioPeaksStatus = "idle" | "loading" | "ready" | "no-audio";
+
+export interface AudioPeaksResult {
+	peaks: Float32Array | null;
+	status: AudioPeaksStatus;
+}
+
+/**
+ * Peaks for the waveform, with the state of the attempt beside them. Shares the
+ * module-level cache with {@link decodeAudioPeaks}.
+ */
+export function useAudioPeaks(videoUrl?: string): AudioPeaksResult {
+	const [result, setResult] = useState<AudioPeaksResult>(() => {
+		const cached = getCachedAudioPeaks(videoUrl);
+		if (!videoUrl) return { peaks: null, status: "idle" };
+		return cached ? { peaks: cached, status: "ready" } : { peaks: null, status: "loading" };
+	});
 
 	useEffect(() => {
 		if (!videoUrl) {
-			setPeaks(null);
+			setResult({ peaks: null, status: "idle" });
 			return;
 		}
 
 		const cached = peaksCache.get(videoUrl);
 		if (cached) {
-			setPeaks(cached);
+			setResult({ peaks: cached, status: "ready" });
 			return;
 		}
 
-		setPeaks(null);
+		setResult({ peaks: null, status: "loading" });
 		let cancelled = false;
 		const controller = new AbortController();
 
 		decodeAudioPeaks(videoUrl, controller.signal)
-			.then((result) => {
-				if (!cancelled) setPeaks(result);
+			.then((peaks) => {
+				if (cancelled) return;
+				setResult(peaks ? { peaks, status: "ready" } : { peaks: null, status: "no-audio" });
 			})
 			.catch(() => {
 				// AbortError only: the effect cleaned up, so no state update needed.
@@ -151,5 +170,5 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 		};
 	}, [videoUrl]);
 
-	return peaks;
+	return result;
 }

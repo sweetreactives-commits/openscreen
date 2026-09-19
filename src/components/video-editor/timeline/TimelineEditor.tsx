@@ -622,7 +622,7 @@ function Timeline({
 	const localTimelineRef = useRef<HTMLDivElement | null>(null);
 	const isScrubbingTimelineRef = useRef(false);
 	const scrubPointerIdRef = useRef<number | null>(null);
-	const peaks = useAudioPeaks(showTrimWaveform ? videoUrl : undefined);
+	const { peaks, status: peaksStatus } = useAudioPeaks(showTrimWaveform ? videoUrl : undefined);
 
 	const setRefs = useCallback(
 		(node: HTMLDivElement | null) => {
@@ -826,13 +826,22 @@ function Timeline({
 				isEmpty={trimItems.length === 0}
 				hint={t("hints.pressTrim")}
 				background={
+					// A take recorded with the microphone and system sound off has no
+					// waveform to show, and saying nothing is how the toggle came to look
+					// broken: it was working, there was simply nothing to draw.
 					showTrimWaveform ? (
-						<BackgroundWaveform
-							peaks={peaks}
-							videoDurationMs={videoDurationMs}
-							topInset={3}
-							bottomInset={3}
-						/>
+						peaksStatus === "no-audio" ? (
+							<div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+								<span className="text-[11px] font-medium text-white/25">{t("hints.noAudio")}</span>
+							</div>
+						) : (
+							<BackgroundWaveform
+								peaks={peaks}
+								videoDurationMs={videoDurationMs}
+								topInset={3}
+								bottomInset={3}
+							/>
+						)
 					) : undefined
 				}
 			>

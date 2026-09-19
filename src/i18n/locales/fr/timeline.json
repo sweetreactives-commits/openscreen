@@ -16,7 +16,8 @@
 		"pressTrim": "Appuyez sur T pour ajouter une coupe",
 		"pressAnnotation": "Appuyez sur A pour ajouter une annotation",
 		"pressSpeed": "Appuyez sur S pour ajouter une vitesse",
-		"pressBlur": "Appuyez sur B pour ajouter une zone de flou"
+		"pressBlur": "Appuyez sur B pour ajouter une zone de flou",
+		"noAudio": "Cet enregistrement n'a pas de son à afficher"
 	},
 	"labels": {
 		"pan": "Panoramique",

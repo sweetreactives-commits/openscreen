@@ -16,7 +16,8 @@
 		"pressTrim": "Kırpma eklemek için T tuşuna basın",
 		"pressAnnotation": "Açıklama eklemek için A tuşuna basın",
 		"pressSpeed": "Hız eklemek için S tuşuna basın",
-		"pressBlur": "Bulanık bölge eklemek için B tuşuna basın"
+		"pressBlur": "Bulanık bölge eklemek için B tuşuna basın",
+		"noAudio": "Bu kayıtta gösterilecek ses yok"
 	},
 	"labels": {
 		"pan": "Kaydır",
