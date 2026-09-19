@@ -2,6 +2,20 @@ export interface ProjectMedia {
 	screenVideoPath: string;
 	webcamVideoPath?: string;
 	cursorCaptureMode?: CursorCaptureMode;
+	/**
+	 * Whether the take's own pointer is baked into the video.
+	 *
+	 * `cursorCaptureMode` is what was asked for; this is what happened. Only the
+	 * native capture paths can actually leave the pointer out, and they are not
+	 * always the ones that run — a missing or unusable platform helper drops the
+	 * recording to the browser pipeline, which keeps the pointer whatever the
+	 * request said. The editor needs the difference: it decides whether drawing a
+	 * cursor of its own would put a second one on screen.
+	 *
+	 * Absent on recordings made before this was tracked, where the old rule —
+	 * trust `cursorCaptureMode` — is the best available answer.
+	 */
+	systemCursorInVideo?: boolean;
 }
 
 export type CursorCaptureMode = "editable-overlay" | "system";
@@ -20,6 +34,8 @@ export interface StoreRecordedSessionInput {
 	webcam?: RecordedVideoAssetInput;
 	createdAt?: number;
 	cursorCaptureMode?: CursorCaptureMode;
+	/** See ProjectMedia.systemCursorInVideo. The browser pipeline always sets it. */
+	systemCursorInVideo?: boolean;
 	/**
 	 * Recording wall-clock duration (ms). The main process patches the WebM Duration
 	 * header on streamed recordings (the renderer no longer holds the bytes). Browser
@@ -56,11 +72,14 @@ export function normalizeProjectMedia(candidate: unknown): ProjectMedia | null {
 
 	const webcamVideoPath = normalizePath(raw.webcamVideoPath);
 	const cursorCaptureMode = normalizeCursorCaptureMode(raw.cursorCaptureMode);
+	const systemCursorInVideo =
+		typeof raw.systemCursorInVideo === "boolean" ? raw.systemCursorInVideo : undefined;
 
 	return {
 		screenVideoPath,
 		...(webcamVideoPath ? { webcamVideoPath } : {}),
 		...(cursorCaptureMode ? { cursorCaptureMode } : {}),
+		...(systemCursorInVideo !== undefined ? { systemCursorInVideo } : {}),
 	};
 }
 

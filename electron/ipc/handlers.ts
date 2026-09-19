@@ -2095,8 +2095,19 @@ export function registerIpcHandlers(
 				}
 			}
 			const session: RecordingSession = webcamVideoPath
-				? { screenVideoPath, webcamVideoPath, createdAt: recordingId, cursorCaptureMode }
-				: { screenVideoPath, createdAt: recordingId, cursorCaptureMode };
+				? {
+						screenVideoPath,
+						webcamVideoPath,
+						createdAt: recordingId,
+						cursorCaptureMode,
+						systemCursorInVideo: cursorCaptureMode === "system",
+					}
+				: {
+						screenVideoPath,
+						createdAt: recordingId,
+						cursorCaptureMode,
+						systemCursorInVideo: cursorCaptureMode === "system",
+					};
 			setCurrentRecordingSessionState(session);
 			currentProjectPath = null;
 
@@ -2254,6 +2265,7 @@ export function registerIpcHandlers(
 					webcamVideoPath,
 					createdAt,
 					...(cursorCaptureMode ? { cursorCaptureMode } : {}),
+					systemCursorInVideo: cursorCaptureMode === "system",
 				};
 				setCurrentRecordingSessionState(session);
 				currentProjectPath = null;
@@ -2304,6 +2316,11 @@ export function registerIpcHandlers(
 				? payload.createdAt
 				: Date.now();
 		const cursorCaptureMode = normalizeCursorCaptureMode(payload.cursorCaptureMode);
+		// This handler only ever receives the browser pipeline's output: the native
+		// paths write their own file and build their own session. Chromium's desktop
+		// capture keeps the pointer in the picture whatever the `cursor` constraint
+		// asked for, so the caller's claim is only trusted when it says the same.
+		const systemCursorInVideo = payload.systemCursorInVideo !== false;
 		const screenVideoPath = resolveRecordingOutputPath(payload.screen.fileName);
 		const screenStreamed = await finalizeRecordingFile(
 			recordingStreams,
@@ -2344,8 +2361,14 @@ export function registerIpcHandlers(
 					webcamVideoPath,
 					createdAt,
 					...(cursorCaptureMode ? { cursorCaptureMode } : {}),
+					systemCursorInVideo,
 				}
-			: { screenVideoPath, createdAt, ...(cursorCaptureMode ? { cursorCaptureMode } : {}) };
+			: {
+					screenVideoPath,
+					createdAt,
+					...(cursorCaptureMode ? { cursorCaptureMode } : {}),
+					systemCursorInVideo,
+				};
 		setCurrentRecordingSessionState(session);
 		currentProjectPath = null;
 
