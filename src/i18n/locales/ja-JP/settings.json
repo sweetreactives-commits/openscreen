@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "バグを報告",
-		"saveDiagnostics": "診断情報を保存",
-		"starOnGithub": "GitHub でスターを付ける"
+		"saveDiagnostics": "診断情報を保存"
 	},
 	"imageUpload": {
 		"invalidFileType": "無効なファイル形式",
@@ -238,13 +237,14 @@
 			"glow": "グロー",
 			"opacity": "不透明度",
 			"size": "サイズ"
-		}
+		},
+		"title": "カーソル"
 	},
 	"language": {
 		"title": "言語"
 	},
 	"timeline": {
-		"title": "タイムライン",
+		"title": "オーディオ設定",
 		"waveform": "トリムトラックにオーディオ波形を表示"
 	},
 	"mcp": {

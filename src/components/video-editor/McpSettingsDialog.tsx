@@ -17,7 +17,7 @@ import { useScopedT } from "@/contexts/I18nContext";
 
 type McpStatus = Awaited<ReturnType<typeof window.electronAPI.getMcpStatus>>;
 
-export function McpSettingsDialog() {
+export function McpSettingsDialog({ triggerClassName }: { triggerClassName?: string }) {
 	const t = useScopedT("settings");
 	const [open, setOpen] = useState(false);
 	const [status, setStatus] = useState<McpStatus | null>(null);
@@ -80,7 +80,7 @@ export function McpSettingsDialog() {
 				type="button"
 				onClick={() => setOpen(true)}
 				title={t("mcp.title")}
-				className="text-slate-500 transition-colors hover:text-[#34B27B]"
+				className={triggerClassName ?? "text-slate-500 transition-colors hover:text-[#34B27B]"}
 			>
 				<Plug className="h-4 w-4" />
 			</button>

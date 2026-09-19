@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "버그 신고",
-		"saveDiagnostics": "Save Diagnostics",
-		"starOnGithub": "GitHub에 Star 남기기"
+		"saveDiagnostics": "Save Diagnostics"
 	},
 	"imageUpload": {
 		"invalidFileType": "지원하지 않는 파일 형식입니다",
@@ -238,13 +237,14 @@
 			"glow": "글로우",
 			"opacity": "불투명도",
 			"size": "크기"
-		}
+		},
+		"title": "커서"
 	},
 	"language": {
 		"title": "언어"
 	},
 	"timeline": {
-		"title": "타임라인",
+		"title": "오디오 설정",
 		"waveform": "트림 트랙에 오디오 파형 표시"
 	},
 	"mcp": {

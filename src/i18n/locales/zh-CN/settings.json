@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "报告错误",
-		"saveDiagnostics": "保存诊断信息",
-		"starOnGithub": "在 GitHub 上加星"
+		"saveDiagnostics": "保存诊断信息"
 	},
 	"imageUpload": {
 		"invalidFileType": "无效的文件类型",
@@ -227,13 +226,14 @@
 			"glow": "光晕",
 			"opacity": "不透明度",
 			"size": "大小"
-		}
+		},
+		"title": "光标"
 	},
 	"language": {
 		"title": "语言"
 	},
 	"timeline": {
-		"title": "时间轴",
+		"title": "音频设置",
 		"waveform": "在剪辑轨道上显示音频波形"
 	},
 	"mcp": {

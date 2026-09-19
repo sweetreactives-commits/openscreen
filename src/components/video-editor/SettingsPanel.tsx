@@ -1,6 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
-	Brackets,
+	AudioLines,
 	Bug,
 	Crop,
 	Download,
@@ -14,7 +14,6 @@ import {
 	Palette,
 	SlidersHorizontal,
 	Sparkles,
-	Star,
 	Trash2,
 	Unlock,
 	Upload,
@@ -188,6 +187,13 @@ function CustomSpeedInput({
  * saturated. White stays first because it is the default and reads on almost
  * anything once the dark contrast pass is drawn under it.
  */
+/** Where a bug report goes. */
+const SUPPORT_EMAIL = "info@launchapps.ru";
+
+/** The look of a rail button that is not one of the panel modes. */
+const RAIL_BUTTON_CLASSES =
+	"flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-all hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200";
+
 const CURSOR_EFFECT_PALETTE = [
 	"#FFFFFF",
 	"#34B27B",
@@ -821,13 +827,14 @@ export function SettingsPanel({
 	}> = [
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
+		// Its one setting is the audio waveform, which brackets said nothing about.
+		{ id: "timeline", label: t("timeline.title"), icon: AudioLines },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
-		{ id: "timeline", label: t("timeline.title"), icon: Brackets },
 		...(hasCursorPanel
 			? [
 					{
 						id: "cursor" as const,
-						label: t("effects.title"),
+						label: t("cursor.title"),
 						icon: MousePointerClick,
 					},
 				]
@@ -917,9 +924,7 @@ export function SettingsPanel({
 			<button
 				type="button"
 				onClick={() => {
-					window.electronAPI?.openExternalUrl(
-						"https://github.com/siddharthvaddem/openscreen/issues/new/choose",
-					);
+					window.electronAPI?.openExternalUrl(`mailto:${SUPPORT_EMAIL}`);
 				}}
 				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 			>
@@ -936,16 +941,6 @@ export function SettingsPanel({
 					{t("support.saveDiagnostics")}
 				</button>
 			)}
-			<button
-				type="button"
-				onClick={() => {
-					window.electronAPI?.openExternalUrl("https://github.com/siddharthvaddem/openscreen");
-				}}
-				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
-			>
-				<Star className="w-3 h-3 text-yellow-400" />
-				{t("support.starOnGithub")}
-			</button>
 		</div>
 	);
 
@@ -1039,6 +1034,10 @@ export function SettingsPanel({
 					>
 						<Crop className="h-4 w-4" />
 					</button>
+					<div className="mt-auto flex flex-col items-center gap-1">
+						<McpSettingsDialog triggerClassName={RAIL_BUTTON_CLASSES} />
+						<KeyboardShortcutsHelp triggerClassName={RAIL_BUTTON_CLASSES} />
+					</div>
 					<button
 						data-testid={getTestId("export-panel-button")}
 						type="button"
@@ -1048,7 +1047,7 @@ export function SettingsPanel({
 							onExportPanelOpen?.();
 						}}
 						className={cn(
-							"mt-auto flex h-8 w-8 items-center justify-center rounded-lg border transition-all",
+							"mt-1 flex h-8 w-8 items-center justify-center rounded-lg border transition-all",
 							activePanelMode === "export" && !hasTimelineSelection
 								? "border-[#34B27B]/50 bg-[#34B27B]/15 text-[#34B27B] shadow-[0_0_0_1px_rgba(52,178,123,0.12)]"
 								: "border-transparent text-slate-500 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200",
@@ -1058,12 +1057,8 @@ export function SettingsPanel({
 					</button>
 				</div>
 				<div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-0">
-					<div className="mb-3 flex items-center justify-between px-1">
+					<div className="mb-3 flex items-center px-1">
 						<span className="text-sm font-semibold text-slate-100">{activeModeLabel}</span>
-						<div className="flex items-center gap-2">
-							<McpSettingsDialog />
-							<KeyboardShortcutsHelp />
-						</div>
 					</div>
 					{zoomEnabled && (
 						<div className="editor-panel-section mb-3 space-y-3 px-1">
@@ -2209,7 +2204,7 @@ export function SettingsPanel({
 								<AccordionItem value="timeline" className="editor-panel-section px-3">
 									<AccordionTrigger className="py-2.5 hover:no-underline">
 										<div className="flex items-center gap-2">
-											<Brackets className="w-4 h-4 text-[#34B27B]" />
+											<AudioLines className="w-4 h-4 text-[#34B27B]" />
 											<span className="text-xs font-medium">{t("timeline.title")}</span>
 										</div>
 									</AccordionTrigger>

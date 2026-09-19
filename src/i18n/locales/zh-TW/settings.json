@@ -118,8 +118,7 @@
 	},
 	"support": {
 		"reportBug": "回報錯誤",
-		"saveDiagnostics": "儲存診斷資料",
-		"starOnGithub": "在 GitHub 上加星"
+		"saveDiagnostics": "儲存診斷資料"
 	},
 	"imageUpload": {
 		"invalidFileType": "無效的檔案類型",
@@ -228,13 +227,14 @@
 			"glow": "光暈",
 			"opacity": "不透明度",
 			"size": "大小"
-		}
+		},
+		"title": "游標"
 	},
 	"language": {
 		"title": "語言"
 	},
 	"timeline": {
-		"title": "時間軸",
+		"title": "音訊設定",
 		"waveform": "在剪輯軌道上顯示音訊波形"
 	},
 	"mcp": {

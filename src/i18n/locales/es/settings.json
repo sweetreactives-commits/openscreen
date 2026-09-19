@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "Reportar error",
-		"saveDiagnostics": "Guardar diagnósticos",
-		"starOnGithub": "Dar estrella en GitHub"
+		"saveDiagnostics": "Guardar diagnósticos"
 	},
 	"imageUpload": {
 		"invalidFileType": "Tipo de archivo no válido",
@@ -238,13 +237,14 @@
 			"glow": "Brillo",
 			"opacity": "Opacidad",
 			"size": "Tamaño"
-		}
+		},
+		"title": "Cursor"
 	},
 	"language": {
 		"title": "Idioma"
 	},
 	"timeline": {
-		"title": "Línea de tiempo",
+		"title": "Ajustes de audio",
 		"waveform": "Mostrar forma de onda en pista de recorte"
 	},
 	"mcp": {

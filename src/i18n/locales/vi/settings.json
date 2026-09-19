@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "Báo cáo lỗi",
-		"saveDiagnostics": "Lưu thông tin chẩn đoán",
-		"starOnGithub": "Đánh giá sao trên GitHub"
+		"saveDiagnostics": "Lưu thông tin chẩn đoán"
 	},
 	"imageUpload": {
 		"invalidFileType": "Loại tệp không hợp lệ",
@@ -227,13 +226,14 @@
 			"glow": "Ánh sáng",
 			"opacity": "Độ mờ",
 			"size": "Kích thước"
-		}
+		},
+		"title": "Con trỏ"
 	},
 	"language": {
 		"title": "Ngôn ngữ"
 	},
 	"timeline": {
-		"title": "Dòng thời gian",
+		"title": "Cài đặt âm thanh",
 		"waveform": "Hiển thị dạng sóng âm thanh trên rãnh cắt"
 	},
 	"mcp": {

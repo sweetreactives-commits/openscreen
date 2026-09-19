@@ -222,7 +222,8 @@
 			"glow": "Brilho",
 			"opacity": "Opacidade",
 			"size": "Tamanho"
-		}
+		},
+		"title": "Cursor"
 	},
 	"language": {
 		"title": "Idioma"
@@ -248,11 +249,10 @@
 	},
 	"support": {
 		"reportBug": "Relatar Bug",
-		"saveDiagnostics": "Salvar Diagnóstico",
-		"starOnGithub": "Dar Estrela no GitHub"
+		"saveDiagnostics": "Salvar Diagnóstico"
 	},
 	"timeline": {
-		"title": "Linha do tempo",
+		"title": "Configurações de áudio",
 		"waveform": "Mostrar forma de onda do áudio na trilha de corte"
 	},
 	"textAnimation": {

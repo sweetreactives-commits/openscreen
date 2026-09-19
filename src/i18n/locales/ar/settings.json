@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "الإبلاغ عن خطأ",
-		"saveDiagnostics": "حفظ التشخيصات",
-		"starOnGithub": "إعطاء نجمة على GitHub"
+		"saveDiagnostics": "حفظ التشخيصات"
 	},
 	"imageUpload": {
 		"invalidFileType": "نوع ملف غير صالح",
@@ -227,13 +226,14 @@
 			"glow": "توهج",
 			"opacity": "العتامة",
 			"size": "الحجم"
-		}
+		},
+		"title": "المؤشر"
 	},
 	"language": {
 		"title": "اللغة"
 	},
 	"timeline": {
-		"title": "المخطط الزمني",
+		"title": "إعدادات الصوت",
 		"waveform": "عرض الموجة الصوتية على مسار القطع"
 	},
 	"mcp": {

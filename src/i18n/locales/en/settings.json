@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "Report Bug",
-		"saveDiagnostics": "Save Diagnostics",
-		"starOnGithub": "Star on GitHub"
+		"saveDiagnostics": "Save Diagnostics"
 	},
 	"imageUpload": {
 		"invalidFileType": "Invalid file type",
@@ -238,13 +237,14 @@
 			"glow": "Glow",
 			"opacity": "Opacity",
 			"size": "Size"
-		}
+		},
+		"title": "Cursor"
 	},
 	"language": {
 		"title": "Language"
 	},
 	"timeline": {
-		"title": "Timeline",
+		"title": "Audio Settings",
 		"waveform": "Show Audio Waveform on Trim Track"
 	},
 	"mcp": {

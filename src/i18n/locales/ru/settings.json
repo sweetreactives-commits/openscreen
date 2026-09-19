@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "Сообщить об ошибке",
-		"saveDiagnostics": "Сохранить диагностику",
-		"starOnGithub": "Звезда на GitHub"
+		"saveDiagnostics": "Сохранить диагностику"
 	},
 	"imageUpload": {
 		"invalidFileType": "Неверный тип файла",
@@ -238,13 +237,14 @@
 			"glow": "Свечение",
 			"opacity": "Прозрачность",
 			"size": "Размер"
-		}
+		},
+		"title": "Курсор"
 	},
 	"language": {
 		"title": "Язык"
 	},
 	"timeline": {
-		"title": "Шкала времени",
+		"title": "Аудио настройки",
 		"waveform": "Показывать форму волны на треке обрезки"
 	},
 	"mcp": {

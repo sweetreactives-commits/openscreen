@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "Signaler un bug",
-		"saveDiagnostics": "Enregistrer les diagnostics",
-		"starOnGithub": "Étoile sur GitHub"
+		"saveDiagnostics": "Enregistrer les diagnostics"
 	},
 	"imageUpload": {
 		"invalidFileType": "Type de fichier invalide",
@@ -238,13 +237,14 @@
 			"glow": "Halo",
 			"opacity": "Opacité",
 			"size": "Taille"
-		}
+		},
+		"title": "Curseur"
 	},
 	"language": {
 		"title": "Langue"
 	},
 	"timeline": {
-		"title": "Montage",
+		"title": "Réglages audio",
 		"waveform": "Afficher la forme d'onde sur la piste de découpe"
 	},
 	"mcp": {

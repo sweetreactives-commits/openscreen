@@ -117,8 +117,7 @@
 	},
 	"support": {
 		"reportBug": "Hata Bildir",
-		"saveDiagnostics": "Teşhis Verilerini Kaydet",
-		"starOnGithub": "GitHub'da Yıldızla"
+		"saveDiagnostics": "Teşhis Verilerini Kaydet"
 	},
 	"imageUpload": {
 		"invalidFileType": "Geçersiz dosya türü",
@@ -227,13 +226,14 @@
 			"glow": "Parıltı",
 			"opacity": "Saydamlık",
 			"size": "Boyut"
-		}
+		},
+		"title": "İmleç"
 	},
 	"language": {
 		"title": "Dil"
 	},
 	"timeline": {
-		"title": "Zaman Tüneli",
+		"title": "Ses ayarları",
 		"waveform": "Kırpma Parçasında Ses Dalgasını Göster"
 	},
 	"mcp": {
