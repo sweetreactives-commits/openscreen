@@ -8,6 +8,8 @@ import type {
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { cardFrameCount, drawCardFrame } from "@/lib/cardFrame";
+import type { ClickEffectStyle } from "@/lib/cursor/clickRipple";
+import type { CursorBackdropStyle } from "@/lib/cursor/cursorBackdrop";
 import type { TransitionStyle } from "@/lib/transitions";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
@@ -74,6 +76,14 @@ export interface VideoExporterConfig extends ExportConfig {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClickRipple?: number;
+	cursorClickStyle?: ClickEffectStyle;
+	cursorClickColor?: string;
+	cursorBackdropStyle?: CursorBackdropStyle;
+	cursorBackdropColor?: string;
+	cursorBackdropOpacity?: number;
+	cursorBackdropSize?: number;
+	cursorMarksEnabled?: boolean;
+	cursorMarkScale?: number;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
 	annotationRegions?: AnnotationRegion[];
@@ -310,6 +320,9 @@ export class VideoExporter {
 			zoomRegions: entry.recording.zoomRegions,
 			cropRegion: entry.recording.cropRegion,
 			cursorRecordingData: entry.recording.cursorRecordingData,
+			// A take with data but no cursor of ours still gets its marks.
+			cursorScale: entry.recording.drawCursor === false ? 0 : this.config.cursorScale,
+			cursorMarksEnabled: Boolean(entry.recording.cursorRecordingData?.samples.length),
 			cursorTelemetry: entry.recording.cursorTelemetry,
 			cursorClickTimestamps: entry.recording.cursorClickTimestamps,
 			videoWidth: entry.info.width,
@@ -341,6 +354,14 @@ export class VideoExporter {
 			cursorMotionBlur: this.config.cursorMotionBlur,
 			cursorClickBounce: this.config.cursorClickBounce,
 			cursorClickRipple: this.config.cursorClickRipple,
+			cursorClickStyle: this.config.cursorClickStyle,
+			cursorClickColor: this.config.cursorClickColor,
+			cursorBackdropStyle: this.config.cursorBackdropStyle,
+			cursorBackdropColor: this.config.cursorBackdropColor,
+			cursorBackdropOpacity: this.config.cursorBackdropOpacity,
+			cursorBackdropSize: this.config.cursorBackdropSize,
+			cursorMarksEnabled: this.config.cursorMarksEnabled,
+			cursorMarkScale: this.config.cursorMarkScale,
 			cursorClipToBounds: this.config.cursorClipToBounds,
 			cursorTheme: this.config.cursorTheme,
 			webcamLayoutPreset: this.config.webcamLayoutPreset,

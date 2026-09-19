@@ -213,7 +213,21 @@
 		"clickBounce": "Tıklama Sıçraması",
 		"clickRipple": "Tıklama Dalgası",
 		"clipToBounds": "Tuvale Kırp",
-		"clipToBoundsDescription": "İmleci video karesinin içinde tutar. Kapattığınızda imleç kenarların dışına taşabilir; yakınlaştırma veya kaydırma sırasında işe yarar."
+		"clipToBoundsDescription": "İmleci video karesinin içinde tutar. Kapattığınızda imleç kenarların dışına taşabilir; yakınlaştırma veya kaydırma sırasında işe yarar.",
+		"effectColor": "Efekt rengi",
+		"clickStyle": {
+			"ring": "Halka",
+			"pulse": "Daire",
+			"echo": "Yankı"
+		},
+		"backdrop": {
+			"title": "İmleç vurgusu",
+			"none": "Yok",
+			"circle": "Daire",
+			"glow": "Parıltı",
+			"opacity": "Saydamlık",
+			"size": "Boyut"
+		}
 	},
 	"language": {
 		"title": "Dil"

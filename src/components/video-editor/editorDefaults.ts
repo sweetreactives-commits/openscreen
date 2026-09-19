@@ -1,3 +1,10 @@
+import { DEFAULT_CLICK_EFFECT_COLOR, DEFAULT_CLICK_EFFECT_STYLE } from "@/lib/cursor/clickRipple";
+import {
+	DEFAULT_CURSOR_BACKDROP_COLOR,
+	DEFAULT_CURSOR_BACKDROP_OPACITY,
+	DEFAULT_CURSOR_BACKDROP_SIZE,
+	DEFAULT_CURSOR_BACKDROP_STYLE,
+} from "@/lib/cursor/cursorBackdrop";
 import { DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import { DEFAULT_WALLPAPER } from "@/lib/wallpaper";
@@ -76,6 +83,12 @@ export const DEFAULT_CURSOR_SETTINGS: CursorVisualSettings & { show: boolean; th
 	motionBlur: DEFAULT_CURSOR_MOTION_BLUR,
 	clickBounce: DEFAULT_CURSOR_CLICK_BOUNCE,
 	clickRipple: DEFAULT_CURSOR_CLICK_RIPPLE,
+	clickStyle: DEFAULT_CLICK_EFFECT_STYLE,
+	clickColor: DEFAULT_CLICK_EFFECT_COLOR,
+	backdropStyle: DEFAULT_CURSOR_BACKDROP_STYLE,
+	backdropColor: DEFAULT_CURSOR_BACKDROP_COLOR,
+	backdropOpacity: DEFAULT_CURSOR_BACKDROP_OPACITY,
+	backdropSize: DEFAULT_CURSOR_BACKDROP_SIZE,
 	clipToBounds: DEFAULT_CURSOR_CLIP_TO_BOUNDS,
 	theme: DEFAULT_CURSOR_THEME_ID,
 };

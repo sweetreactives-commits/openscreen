@@ -2,9 +2,21 @@ import { Assets, BlurFilter, Container, Graphics, Sprite, Texture } from "pixi.j
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import {
 	CLICK_RIPPLE_DURATION_MS,
+	type ClickEffectStyle,
+	DEFAULT_CLICK_EFFECT_COLOR,
+	DEFAULT_CLICK_EFFECT_STYLE,
 	drawClickRippleOnGraphics,
 	getClickRippleVisual,
 } from "@/lib/cursor/clickRipple";
+import {
+	type CursorBackdropStyle,
+	DEFAULT_CURSOR_BACKDROP_COLOR,
+	DEFAULT_CURSOR_BACKDROP_OPACITY,
+	DEFAULT_CURSOR_BACKDROP_SIZE,
+	DEFAULT_CURSOR_BACKDROP_STYLE,
+	drawCursorBackdropOnGraphics,
+	getCursorBackdropVisual,
+} from "@/lib/cursor/cursorBackdrop";
 import type { CursorTelemetryPoint } from "../types";
 import {
 	createSpringState,
@@ -60,6 +72,14 @@ export interface CursorRenderConfig {
 	clickBounce: number;
 	/** Click ripple ring intensity (0-1, 0 disables it). */
 	clickRipple: number;
+	/** Which click mark is drawn, and in what colour. */
+	clickStyle: ClickEffectStyle;
+	clickColor: string;
+	/** The mark drawn under the cursor for as long as it is on screen. */
+	backdropStyle: CursorBackdropStyle;
+	backdropColor: string;
+	backdropOpacity: number;
+	backdropSize: number;
 }
 
 export const DEFAULT_CURSOR_CONFIG: CursorRenderConfig = {
@@ -71,6 +91,12 @@ export const DEFAULT_CURSOR_CONFIG: CursorRenderConfig = {
 	motionBlur: 0,
 	clickBounce: 1,
 	clickRipple: 0,
+	clickStyle: DEFAULT_CLICK_EFFECT_STYLE,
+	clickColor: DEFAULT_CLICK_EFFECT_COLOR,
+	backdropStyle: DEFAULT_CURSOR_BACKDROP_STYLE,
+	backdropColor: DEFAULT_CURSOR_BACKDROP_COLOR,
+	backdropOpacity: DEFAULT_CURSOR_BACKDROP_OPACITY,
+	backdropSize: DEFAULT_CURSOR_BACKDROP_SIZE,
 };
 
 const REFERENCE_WIDTH = 1920;
@@ -505,13 +531,15 @@ function drawClickRing(
 	h: number,
 	progress: number,
 	intensity: number,
+	style: ClickEffectStyle,
+	color: string,
 ) {
-	const visual = getClickRippleVisual(progress, intensity);
+	const visual = getClickRippleVisual(progress, intensity, style);
 	if (!visual) {
 		return;
 	}
 
-	drawClickRippleOnGraphics(graphics, px, py, h, visual);
+	drawClickRippleOnGraphics(graphics, px, py, h, visual, color);
 }
 
 export class PixiCursorOverlay {
@@ -596,12 +624,31 @@ export class PixiCursorOverlay {
 		this.config.clickRipple = Math.max(0, clickRipple);
 	}
 
+	setClickEffect(style: ClickEffectStyle, color: string) {
+		this.config.clickStyle = style;
+		this.config.clickColor = color;
+	}
+
+	setBackdrop(style: CursorBackdropStyle, color: string, opacity: number, size: number) {
+		this.config.backdropStyle = style;
+		this.config.backdropColor = color;
+		this.config.backdropOpacity = opacity;
+		this.config.backdropSize = size;
+	}
+
+	/**
+	 * @param visible whether the overlay draws anything at all.
+	 * @param drawCursor whether the cursor itself is ours to draw. False on a take
+	 * whose own pointer is already in the picture: the marks still belong here,
+	 * because they only need the position, but a second cursor does not.
+	 */
 	update(
 		samples: CursorTelemetryPoint[],
 		timeMs: number,
 		viewport: CursorViewportRect,
 		visible: boolean,
 		freeze = false,
+		drawCursor = true,
 	): void {
 		if (!visible || samples.length === 0 || viewport.width <= 0 || viewport.height <= 0) {
 			this.container.visible = false;
@@ -623,8 +670,11 @@ export class PixiCursorOverlay {
 			this.lastRenderedTimeMs !== null &&
 			Math.abs(timeMs - this.lastRenderedTimeMs) > CURSOR_TIME_DISCONTINUITY_MS;
 
-		if (freeze || hasTimeDiscontinuity) {
-			if (!sameFrameTime || !this.lastRenderedPoint) {
+		// Smoothing lags by design, which is invisible while it carries the cursor and
+		// its marks together. With no cursor of ours to carry, the marks would trail
+		// behind the pointer already in the picture, so the smoothing is skipped.
+		if (freeze || hasTimeDiscontinuity || !drawCursor) {
+			if (!sameFrameTime || !this.lastRenderedPoint || !drawCursor) {
 				this.state.snapTo(target.cx, target.cy, timeMs);
 			}
 		} else {
@@ -650,18 +700,44 @@ export class PixiCursorOverlay {
 		const scaledH = h;
 
 		this.clickRingGraphics.clear();
-		drawClickRing(this.clickRingGraphics, px, py, h, clickProgress, this.config.clickRipple);
+		// Both marks share one Graphics, drawn in the order they stack: the backdrop
+		// sits under the click mark, and the cursor sprite over both.
+		const backdropVisual = getCursorBackdropVisual(
+			this.config.backdropStyle,
+			this.config.backdropOpacity,
+			this.config.backdropSize,
+		);
+		if (backdropVisual) {
+			drawCursorBackdropOnGraphics(
+				this.clickRingGraphics,
+				px,
+				py,
+				h,
+				backdropVisual,
+				this.config.backdropColor,
+			);
+		}
+		drawClickRing(
+			this.clickRingGraphics,
+			px,
+			py,
+			h,
+			clickProgress,
+			this.config.clickRipple,
+			this.config.clickStyle,
+			this.config.clickColor,
+		);
 
 		for (const [key, currentShadowSprite] of Object.entries(this.cursorShadowSprites) as Array<
 			[CursorAssetKey, Sprite]
 		>) {
-			currentShadowSprite.visible = key === spriteKey;
+			currentShadowSprite.visible = drawCursor && key === spriteKey;
 		}
 
 		for (const [key, currentSprite] of Object.entries(this.cursorSprites) as Array<
 			[CursorAssetKey, Sprite]
 		>) {
-			currentSprite.visible = key === spriteKey;
+			currentSprite.visible = drawCursor && key === spriteKey;
 		}
 
 		if (shadowSprite) {

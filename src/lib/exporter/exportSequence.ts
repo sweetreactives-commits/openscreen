@@ -28,6 +28,11 @@ export interface ExportRecording {
 	annotationRegions?: AnnotationRegion[];
 	cropRegion: CropRegion;
 	cursorRecordingData?: CursorRecordingData | null;
+	/**
+	 * Whether this take's cursor is OpenScreen's to draw. False when its own
+	 * pointer is already in the picture — the marks around it still are.
+	 */
+	drawCursor?: boolean;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
 }
@@ -65,6 +70,7 @@ export function resolveExportSequence(config: ExportSequenceSource): ExportSeque
 			annotationRegions: config.annotationRegions,
 			cropRegion: config.cropRegion,
 			cursorRecordingData: config.cursorRecordingData,
+			drawCursor: config.drawCursor,
 			cursorTelemetry: config.cursorTelemetry,
 			cursorClickTimestamps: config.cursorClickTimestamps,
 		},

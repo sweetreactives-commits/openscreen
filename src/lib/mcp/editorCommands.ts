@@ -22,6 +22,17 @@ import {
 	type ZoomRegion,
 } from "@/components/video-editor/types";
 import type { EditorState } from "@/hooks/useEditorHistory";
+import {
+	CLICK_EFFECT_STYLES,
+	type ClickEffectStyle,
+	parseHexColor,
+} from "@/lib/cursor/clickRipple";
+import {
+	CURSOR_BACKDROP_STYLES,
+	type CursorBackdropStyle,
+	MAX_CURSOR_BACKDROP_SIZE,
+	MIN_CURSOR_BACKDROP_SIZE,
+} from "@/lib/cursor/cursorBackdrop";
 import { normalizeTransitionMs, TRANSITION_STYLES, type TransitionStyle } from "@/lib/transitions";
 import { isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 
@@ -147,6 +158,12 @@ export type EditorCommand =
 			motionBlur?: number;
 			clickBounce?: number;
 			clickRipple?: number;
+			clickStyle?: string;
+			clickColor?: string;
+			backdropStyle?: string;
+			backdropColor?: string;
+			backdropOpacity?: number;
+			backdropSize?: number;
 	  };
 
 const WEBCAM_LAYOUTS = ["picture-in-picture", "vertical-stack", "dual-frame", "no-webcam"] as const;
@@ -558,6 +575,13 @@ function applyOne(
 				["cursorMotionBlur", command.motionBlur, 0, 1],
 				["cursorClickBounce", command.clickBounce, 0, MAX_CURSOR_CLICK_BOUNCE],
 				["cursorClickRipple", command.clickRipple, 0, 1],
+				["cursorBackdropOpacity", command.backdropOpacity, 0, 1],
+				[
+					"cursorBackdropSize",
+					command.backdropSize,
+					MIN_CURSOR_BACKDROP_SIZE,
+					MAX_CURSOR_BACKDROP_SIZE,
+				],
 			];
 			for (const [key, value, min, max] of numeric) {
 				if (value === undefined) continue;
@@ -565,6 +589,35 @@ function applyOne(
 					return fail("invalid-value", `${key} must be a number.`);
 				}
 				(next as Record<string, unknown>)[key] = clamp(value, min, max);
+			}
+			if (command.clickStyle !== undefined) {
+				if (!CLICK_EFFECT_STYLES.includes(command.clickStyle as ClickEffectStyle)) {
+					return fail(
+						"invalid-value",
+						`clickStyle must be one of: ${CLICK_EFFECT_STYLES.join(", ")}.`,
+					);
+				}
+				next.cursorClickStyle = command.clickStyle as ClickEffectStyle;
+			}
+			if (command.backdropStyle !== undefined) {
+				if (!CURSOR_BACKDROP_STYLES.includes(command.backdropStyle as CursorBackdropStyle)) {
+					return fail(
+						"invalid-value",
+						`backdropStyle must be one of: ${CURSOR_BACKDROP_STYLES.join(", ")}.`,
+					);
+				}
+				next.cursorBackdropStyle = command.backdropStyle as CursorBackdropStyle;
+			}
+			const colors: Array<[keyof EditorState, string | undefined]> = [
+				["cursorClickColor", command.clickColor],
+				["cursorBackdropColor", command.backdropColor],
+			];
+			for (const [key, value] of colors) {
+				if (value === undefined) continue;
+				if (!parseHexColor(value)) {
+					return fail("invalid-value", `${key} must be a hex colour such as #34b27b.`);
+				}
+				(next as Record<string, unknown>)[key] = value;
 			}
 			return next;
 		}
@@ -590,6 +643,12 @@ const PATCHABLE_KEYS: Array<keyof EditorState> = [
 	"cursorMotionBlur",
 	"cursorClickBounce",
 	"cursorClickRipple",
+	"cursorClickStyle",
+	"cursorClickColor",
+	"cursorBackdropStyle",
+	"cursorBackdropColor",
+	"cursorBackdropOpacity",
+	"cursorBackdropSize",
 	"webcamLayoutPreset",
 	"webcamMaskShape",
 	"webcamSizePreset",

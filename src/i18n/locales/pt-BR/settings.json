@@ -208,7 +208,21 @@
 		"clickBounce": "Rebote ao clicar",
 		"clickRipple": "Onda ao clicar",
 		"clipToBounds": "Recortar à tela",
-		"clipToBoundsDescription": "Mantém o cursor dentro do quadro do vídeo. Desative para permitir que o cursor ultrapasse as bordas — útil ao aplicar zoom ou ao deslocar."
+		"clipToBoundsDescription": "Mantém o cursor dentro do quadro do vídeo. Desative para permitir que o cursor ultrapasse as bordas — útil ao aplicar zoom ou ao deslocar.",
+		"effectColor": "Cor do efeito",
+		"clickStyle": {
+			"ring": "Anel",
+			"pulse": "Disco",
+			"echo": "Eco"
+		},
+		"backdrop": {
+			"title": "Destaque do cursor",
+			"none": "Não",
+			"circle": "Disco",
+			"glow": "Brilho",
+			"opacity": "Opacidade",
+			"size": "Tamanho"
+		}
 	},
 	"language": {
 		"title": "Idioma"

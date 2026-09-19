@@ -224,7 +224,21 @@
 		"clickBounce": "Click Bounce",
 		"clickRipple": "Click Ripple",
 		"clipToBounds": "Clip to Canvas",
-		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned.",
+		"effectColor": "Effect colour",
+		"clickStyle": {
+			"ring": "Ring",
+			"pulse": "Pulse",
+			"echo": "Echo"
+		},
+		"backdrop": {
+			"title": "Cursor Highlight",
+			"none": "Off",
+			"circle": "Disc",
+			"glow": "Glow",
+			"opacity": "Opacity",
+			"size": "Size"
+		}
 	},
 	"language": {
 		"title": "Language"

@@ -36,7 +36,11 @@ import {
 	transcribeMono16kToSegments,
 	trimLeadingSilenceMono16k,
 } from "@/lib/captioning";
-import { clickTimestampsFrom, hasEditableCursorOverlay } from "@/lib/cursor/clickTimestamps";
+import {
+	clickTimestampsFrom,
+	hasCursorMarks,
+	hasEditableCursorOverlay,
+} from "@/lib/cursor/clickTimestamps";
 import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
 	calculateEffectiveSourceDimensions,
@@ -290,6 +294,12 @@ export default function VideoEditor() {
 		cursorMotionBlur,
 		cursorClickBounce,
 		cursorClickRipple,
+		cursorClickStyle,
+		cursorClickColor,
+		cursorBackdropStyle,
+		cursorBackdropColor,
+		cursorBackdropOpacity,
+		cursorBackdropSize,
 		cursorClipToBounds,
 		cursorTheme,
 	} = editorState;
@@ -377,6 +387,10 @@ export default function VideoEditor() {
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
 		useState<CursorCaptureMode | null>(null);
+	/** Undefined on takes recorded before this was tracked. */
+	const [recordingSystemCursorInVideo, setRecordingSystemCursorInVideo] = useState<
+		boolean | undefined
+	>(undefined);
 
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
 
@@ -392,9 +406,15 @@ export default function VideoEditor() {
 		recordingCursorCaptureMode,
 		nativePlatform,
 		cursorRecordingData,
+		recordingSystemCursorInVideo,
 	);
+	// The click effect and the highlight need a position, not a cursor of our own,
+	// so they outlive the overlay being off.
+	const canDrawCursorMarks = hasCursorMarks(cursorRecordingData, cursorTelemetry);
 	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
-	const showCursorSettings = hasEditableCursorRecording;
+	// The panel is worth opening whenever there is anything in it: a take whose own
+	// pointer is in the picture still gets the marks, and they are settings too.
+	const showCursorSettings = hasEditableCursorRecording || canDrawCursorMarks;
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const tTimeline = useScopedT("timeline");
@@ -431,6 +451,9 @@ export default function VideoEditor() {
 			screenVideoPath,
 			...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
 			...(recordingCursorCaptureMode ? { cursorCaptureMode: recordingCursorCaptureMode } : {}),
+			...(recordingSystemCursorInVideo !== undefined
+				? { systemCursorInVideo: recordingSystemCursorInVideo }
+				: {}),
 		};
 	}, [
 		videoPath,
@@ -438,6 +461,7 @@ export default function VideoEditor() {
 		webcamVideoPath,
 		webcamVideoSourcePath,
 		recordingCursorCaptureMode,
+		recordingSystemCursorInVideo,
 	]);
 
 	const applyLoadedProject = useCallback(
@@ -454,6 +478,7 @@ export default function VideoEditor() {
 			const sourcePath = projectMedia.screenVideoPath;
 			const webcamSourcePath = projectMedia.webcamVideoPath ?? null;
 			const projectCursorCaptureMode = projectMedia.cursorCaptureMode ?? null;
+			const projectSystemCursorInVideo = projectMedia.systemCursorInVideo;
 			const normalizedEditor = resolveProjectEditor(project, openAtClipId);
 			const inferredDurationMs = Math.max(
 				0,
@@ -478,6 +503,7 @@ export default function VideoEditor() {
 			setWebcamVideoSourcePath(webcamSourcePath);
 			setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 			setRecordingCursorCaptureMode(projectCursorCaptureMode);
+			setRecordingSystemCursorInVideo(projectSystemCursorInVideo);
 			setCurrentProjectPath(path ?? null);
 
 			// A loaded project keeps its zooms exactly as saved, so never auto-suggest
@@ -516,6 +542,12 @@ export default function VideoEditor() {
 				cursorMotionBlur: normalizedEditor.cursorMotionBlur,
 				cursorClickBounce: normalizedEditor.cursorClickBounce,
 				cursorClickRipple: normalizedEditor.cursorClickRipple,
+				cursorClickStyle: normalizedEditor.cursorClickStyle,
+				cursorClickColor: normalizedEditor.cursorClickColor,
+				cursorBackdropStyle: normalizedEditor.cursorBackdropStyle,
+				cursorBackdropColor: normalizedEditor.cursorBackdropColor,
+				cursorBackdropOpacity: normalizedEditor.cursorBackdropOpacity,
+				cursorBackdropSize: normalizedEditor.cursorBackdropSize,
 				cursorClipToBounds: normalizedEditor.cursorClipToBounds,
 				cursorTheme: normalizedEditor.cursorTheme,
 			});
@@ -601,6 +633,7 @@ export default function VideoEditor() {
 			setWebcamVideoSourcePath(webcamVideoPath);
 			setWebcamVideoPath(webcamVideoPath ? toFileUrl(webcamVideoPath) : null);
 			setRecordingCursorCaptureMode(session.cursorCaptureMode ?? null);
+			setRecordingSystemCursorInVideo(session.systemCursorInVideo);
 			setCurrentTime(0);
 			setDuration(0);
 			// A take that has just been recorded gets zoom suggestions like any other.
@@ -673,6 +706,7 @@ export default function VideoEditor() {
 					setWebcamVideoSourcePath(webcamSourcePath);
 					setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 					setRecordingCursorCaptureMode(session.cursorCaptureMode ?? null);
+					setRecordingSystemCursorInVideo(session.systemCursorInVideo);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(
 						createProjectSnapshot(
@@ -694,6 +728,7 @@ export default function VideoEditor() {
 					setVideoSourcePath(result.path);
 					setVideoPath(toFileUrl(result.path));
 					setRecordingCursorCaptureMode(null);
+					setRecordingSystemCursorInVideo(undefined);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(
 						createProjectSnapshot({ screenVideoPath: result.path }, editorStateRef.current),
@@ -2239,6 +2274,7 @@ export default function VideoEditor() {
 			setWebcamVideoSourcePath(webcamSource ?? null);
 			setWebcamVideoPath(webcamSource ? toFileUrl(webcamSource) : null);
 			setRecordingCursorCaptureMode(result.media.cursorCaptureMode ?? null);
+			setRecordingSystemCursorInVideo(result.media.systemCursorInVideo);
 			// Its zooms are whatever it already has, even none: never auto-suggest over them.
 			autoProcessedSourceRef.current = screenVideoPath;
 
@@ -2340,7 +2376,8 @@ export default function VideoEditor() {
 							speedRegions,
 							annotationRegions,
 							cropRegion,
-							cursorRecordingData: hasEditableCursorRecording ? cursorRecordingData : null,
+							cursorRecordingData,
+							drawCursor: hasEditableCursorRecording,
 							cursorTelemetry,
 							cursorClickTimestamps,
 						},
@@ -2356,6 +2393,7 @@ export default function VideoEditor() {
 				clip.media.cursorCaptureMode,
 				nativePlatform,
 				recordingData,
+				clip.media.systemCursorInVideo,
 			);
 
 			sequence.push({
@@ -2372,7 +2410,8 @@ export default function VideoEditor() {
 						speedRegions: clip.editor.speedRegions,
 						annotationRegions: clip.editor.annotationRegions,
 						cropRegion: clip.editor.cropRegion,
-						cursorRecordingData: overlay ? recordingData : null,
+						cursorRecordingData: recordingData,
+						drawCursor: overlay,
 						cursorTelemetry: telemetry,
 						cursorClickTimestamps: clickTimestampsFrom(recordingData, telemetry),
 					},
@@ -2562,10 +2601,20 @@ export default function VideoEditor() {
 						cropRegion,
 						cursorRecordingData,
 						cursorScale: exportCursorScale,
+						cursorMarksEnabled: canDrawCursorMarks,
+						// The marks keep the size the cursor would have had, so turning the
+						// cursor off does not shrink them to nothing.
+						cursorMarkScale: cursorSize,
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
 						cursorClickRipple,
+						cursorClickStyle,
+						cursorClickColor,
+						cursorBackdropStyle,
+						cursorBackdropColor,
+						cursorBackdropOpacity,
+						cursorBackdropSize,
 						cursorClipToBounds,
 						cursorTheme,
 						annotationRegions,
@@ -2670,10 +2719,20 @@ export default function VideoEditor() {
 						cropRegion,
 						cursorRecordingData,
 						cursorScale: exportCursorScale,
+						cursorMarksEnabled: canDrawCursorMarks,
+						// The marks keep the size the cursor would have had, so turning the
+						// cursor off does not shrink them to nothing.
+						cursorMarkScale: cursorSize,
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
 						cursorClickRipple,
+						cursorClickStyle,
+						cursorClickColor,
+						cursorBackdropStyle,
+						cursorBackdropColor,
+						cursorBackdropOpacity,
+						cursorBackdropSize,
 						cursorClipToBounds,
 						cursorTheme,
 						annotationRegions,
@@ -2811,11 +2870,18 @@ export default function VideoEditor() {
 			cursorMotionBlur,
 			cursorClickBounce,
 			cursorClickRipple,
+			cursorClickStyle,
+			cursorClickColor,
+			cursorBackdropStyle,
+			cursorBackdropColor,
+			cursorBackdropOpacity,
+			cursorBackdropSize,
 			cursorClipToBounds,
 			cursorTheme,
 			t,
 			exportCards,
 			showCursor,
+			canDrawCursorMarks,
 			buildExportSequence,
 		],
 	);
@@ -3447,6 +3513,13 @@ export default function VideoEditor() {
 													cursorMotionBlur={cursorMotionBlur}
 													cursorClickBounce={cursorClickBounce}
 													cursorClickRipple={cursorClickRipple}
+													cursorClickStyle={cursorClickStyle}
+													cursorClickColor={cursorClickColor}
+													cursorBackdropStyle={cursorBackdropStyle}
+													cursorBackdropColor={cursorBackdropColor}
+													cursorBackdropOpacity={cursorBackdropOpacity}
+													cursorBackdropSize={cursorBackdropSize}
+													cursorMarksEnabled={canDrawCursorMarks}
 													cursorClipToBounds={cursorClipToBounds}
 													cursorTheme={cursorTheme}
 													isPreviewingZoom={isPreviewingZoom}
@@ -3492,6 +3565,12 @@ export default function VideoEditor() {
 													cursorMotionBlur,
 													cursorClickBounce,
 													cursorClickRipple,
+													cursorClickStyle,
+													cursorClickColor,
+													cursorBackdropStyle,
+													cursorBackdropColor,
+													cursorBackdropOpacity,
+													cursorBackdropSize,
 													cursorClipToBounds,
 													cursorTheme,
 												}}
@@ -3694,6 +3773,20 @@ export default function VideoEditor() {
 										onCursorClickBounceCommit={commitState}
 										cursorClickRipple={cursorClickRipple}
 										onCursorClickRippleChange={(v) => updateState({ cursorClickRipple: v })}
+										cursorClickStyle={cursorClickStyle}
+										onCursorClickStyleChange={(v) => pushState({ cursorClickStyle: v })}
+										cursorClickColor={cursorClickColor}
+										onCursorClickColorChange={(v) => pushState({ cursorClickColor: v })}
+										cursorBackdropStyle={cursorBackdropStyle}
+										onCursorBackdropStyleChange={(v) => pushState({ cursorBackdropStyle: v })}
+										cursorBackdropColor={cursorBackdropColor}
+										onCursorBackdropColorChange={(v) => pushState({ cursorBackdropColor: v })}
+										cursorBackdropOpacity={cursorBackdropOpacity}
+										cursorBackdropSize={cursorBackdropSize}
+										onCursorBackdropOpacityChange={(v) => updateState({ cursorBackdropOpacity: v })}
+										onCursorBackdropOpacityCommit={commitState}
+										onCursorBackdropSizeChange={(v) => updateState({ cursorBackdropSize: v })}
+										onCursorBackdropSizeCommit={commitState}
 										onCursorClickRippleCommit={commitState}
 										cursorClipToBounds={cursorClipToBounds}
 										onCursorClipToBoundsChange={(v) => pushState({ cursorClipToBounds: v })}
@@ -3704,6 +3797,7 @@ export default function VideoEditor() {
 											hasNativeCursorRecordingData(cursorRecordingData)
 										}
 										showCursorSettings={showCursorSettings}
+										canEditCursorLook={hasEditableCursorRecording}
 									/>
 								</div>
 							</div>

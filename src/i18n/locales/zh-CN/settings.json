@@ -213,7 +213,21 @@
 		"clickBounce": "点击弹跳",
 		"clickRipple": "点击波纹",
 		"clipToBounds": "裁剪到画布",
-		"clipToBoundsDescription": "把光标限制在画面内。关闭后光标可以超出边缘，在缩放或平移时很有用。"
+		"clipToBoundsDescription": "把光标限制在画面内。关闭后光标可以超出边缘，在缩放或平移时很有用。",
+		"effectColor": "效果颜色",
+		"clickStyle": {
+			"ring": "圆环",
+			"pulse": "填充",
+			"echo": "回声"
+		},
+		"backdrop": {
+			"title": "光标高亮",
+			"none": "关闭",
+			"circle": "圆点",
+			"glow": "光晕",
+			"opacity": "不透明度",
+			"size": "大小"
+		}
 	},
 	"language": {
 		"title": "语言"

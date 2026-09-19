@@ -224,7 +224,21 @@
 		"clickBounce": "클릭 바운스",
 		"clickRipple": "클릭 리플",
 		"clipToBounds": "캔버스에 맞춰 자르기",
-		"clipToBoundsDescription": "커서를 영상 프레임 안에 유지합니다. 끄면 커서가 가장자리 밖으로 나갈 수 있어 확대하거나 이동할 때 유용합니다."
+		"clipToBoundsDescription": "커서를 영상 프레임 안에 유지합니다. 끄면 커서가 가장자리 밖으로 나갈 수 있어 확대하거나 이동할 때 유용합니다.",
+		"effectColor": "효과 색상",
+		"clickStyle": {
+			"ring": "링",
+			"pulse": "채움",
+			"echo": "에코"
+		},
+		"backdrop": {
+			"title": "커서 강조",
+			"none": "없음",
+			"circle": "원",
+			"glow": "글로우",
+			"opacity": "불투명도",
+			"size": "크기"
+		}
 	},
 	"language": {
 		"title": "언어"

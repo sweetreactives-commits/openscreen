@@ -1,4 +1,6 @@
 import type { WebcamLayoutPreset } from "@/lib/compositeLayout";
+import type { ClickEffectStyle } from "@/lib/cursor/clickRipple";
+import type { CursorBackdropStyle } from "@/lib/cursor/cursorBackdrop";
 
 export type ZoomDepth = 1 | 2 | 3 | 4 | 5 | 6;
 export type ZoomFocusMode = "manual" | "auto";
@@ -209,6 +211,14 @@ export interface CursorVisualSettings {
 	motionBlur: number;
 	clickBounce: number;
 	clickRipple: number;
+	/** Which of the three click marks is drawn, and in what colour. */
+	clickStyle: ClickEffectStyle;
+	clickColor: string;
+	/** The mark under the cursor for as long as it is on screen. */
+	backdropStyle: CursorBackdropStyle;
+	backdropColor: string;
+	backdropOpacity: number;
+	backdropSize: number;
 	clipToBounds: boolean;
 }
 

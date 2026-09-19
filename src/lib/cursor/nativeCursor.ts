@@ -272,6 +272,21 @@ export function hasNativeCursorRecordingData(
 	);
 }
 
+/**
+ * Whether the recording's own cursor is already in the picture.
+ *
+ * `sampled` data is positions polled while the platform helper was unavailable,
+ * which only happens on capture paths that never strip the system cursor. The
+ * telemetry is still worth reading — zoom suggestions live on it — but anything
+ * that would draw a cursor of our own has to stand down, or the take ends up
+ * with two.
+ */
+export function cursorIsAlreadyInThePicture(
+	recordingData: CursorRecordingData | null | undefined,
+): boolean {
+	return recordingData?.provider === "sampled" && recordingData.samples.length > 0;
+}
+
 export function createNativeCursorMotionBlurState(): NativeCursorMotionBlurState {
 	return {
 		x: 0,

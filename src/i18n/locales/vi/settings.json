@@ -213,7 +213,21 @@
 		"clickBounce": "Nảy khi nhấp",
 		"clickRipple": "Gợn sóng khi nhấp",
 		"clipToBounds": "Cắt theo khung",
-		"clipToBoundsDescription": "Giữ con trỏ bên trong khung hình. Tắt để con trỏ có thể vượt ra ngoài mép — hữu ích khi thu phóng hoặc lia."
+		"clipToBoundsDescription": "Giữ con trỏ bên trong khung hình. Tắt để con trỏ có thể vượt ra ngoài mép — hữu ích khi thu phóng hoặc lia.",
+		"effectColor": "Màu hiệu ứng",
+		"clickStyle": {
+			"ring": "Vòng",
+			"pulse": "Đĩa",
+			"echo": "Vọng"
+		},
+		"backdrop": {
+			"title": "Làm nổi con trỏ",
+			"none": "Tắt",
+			"circle": "Đĩa",
+			"glow": "Ánh sáng",
+			"opacity": "Độ mờ",
+			"size": "Kích thước"
+		}
 	},
 	"language": {
 		"title": "Ngôn ngữ"

@@ -1,5 +1,16 @@
 import { normalizeTextAnimation } from "@/lib/annotationTextAnimation";
 import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
+import {
+	type ClickEffectStyle,
+	normalizeClickEffectStyle,
+	parseHexColor,
+} from "@/lib/cursor/clickRipple";
+import {
+	type CursorBackdropStyle,
+	MAX_CURSOR_BACKDROP_SIZE,
+	MIN_CURSOR_BACKDROP_SIZE,
+	normalizeCursorBackdropStyle,
+} from "@/lib/cursor/cursorBackdrop";
 import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
@@ -70,6 +81,11 @@ import {
 } from "./types";
 
 const VALID_BLUR_SHAPES = new Set(["rectangle", "oval", "freehand"] as const);
+
+/** A saved colour is only trusted when it is a hex value the renderers can read. */
+function normalizeHexColor(value: unknown, fallback: string): string {
+	return typeof value === "string" && parseHexColor(value) ? value : fallback;
+}
 
 // Old projects persisted machine-specific file:// URLs for bundled wallpapers.
 // Match only the known install layouts (packaged resources/[assets/]wallpapers,
@@ -209,6 +225,12 @@ export interface ProjectEditorState {
 	cursorMotionBlur: number;
 	cursorClickBounce: number;
 	cursorClickRipple: number;
+	cursorClickStyle: ClickEffectStyle;
+	cursorClickColor: string;
+	cursorBackdropStyle: CursorBackdropStyle;
+	cursorBackdropColor: string;
+	cursorBackdropOpacity: number;
+	cursorBackdropSize: number;
 	cursorClipToBounds: boolean;
 }
 
@@ -801,6 +823,22 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		cursorClickRipple: isFiniteNumber(editor.cursorClickRipple)
 			? clamp(editor.cursorClickRipple, 0, 1)
 			: DEFAULT_CURSOR_SETTINGS.clickRipple,
+		cursorClickStyle: normalizeClickEffectStyle(editor.cursorClickStyle),
+		cursorClickColor: normalizeHexColor(
+			editor.cursorClickColor,
+			DEFAULT_CURSOR_SETTINGS.clickColor,
+		),
+		cursorBackdropStyle: normalizeCursorBackdropStyle(editor.cursorBackdropStyle),
+		cursorBackdropColor: normalizeHexColor(
+			editor.cursorBackdropColor,
+			DEFAULT_CURSOR_SETTINGS.backdropColor,
+		),
+		cursorBackdropOpacity: isFiniteNumber(editor.cursorBackdropOpacity)
+			? clamp(editor.cursorBackdropOpacity, 0, 1)
+			: DEFAULT_CURSOR_SETTINGS.backdropOpacity,
+		cursorBackdropSize: isFiniteNumber(editor.cursorBackdropSize)
+			? clamp(editor.cursorBackdropSize, MIN_CURSOR_BACKDROP_SIZE, MAX_CURSOR_BACKDROP_SIZE)
+			: DEFAULT_CURSOR_SETTINGS.backdropSize,
 		cursorClipToBounds:
 			typeof editor.cursorClipToBounds === "boolean"
 				? editor.cursorClipToBounds

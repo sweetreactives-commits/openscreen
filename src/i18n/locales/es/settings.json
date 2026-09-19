@@ -224,7 +224,21 @@
 		"clickBounce": "Rebote al clic",
 		"clickRipple": "Onda al clic",
 		"clipToBounds": "Recortar al lienzo",
-		"clipToBoundsDescription": "Mantiene el cursor dentro del fotograma. Desactívalo para dejar que el cursor sobresalga de los bordes: útil al hacer zoom o al desplazar."
+		"clipToBoundsDescription": "Mantiene el cursor dentro del fotograma. Desactívalo para dejar que el cursor sobresalga de los bordes: útil al hacer zoom o al desplazar.",
+		"effectColor": "Color del efecto",
+		"clickStyle": {
+			"ring": "Anillo",
+			"pulse": "Relleno",
+			"echo": "Eco"
+		},
+		"backdrop": {
+			"title": "Resalte del cursor",
+			"none": "No",
+			"circle": "Disco",
+			"glow": "Brillo",
+			"opacity": "Opacidad",
+			"size": "Tamaño"
+		}
 	},
 	"language": {
 		"title": "Idioma"

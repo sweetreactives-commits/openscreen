@@ -26,10 +26,20 @@ import {
 	type WebcamLayoutPreset,
 	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
-import { drawClickRippleOnGraphics, getClickRippleVisual } from "@/lib/cursor/clickRipple";
+import {
+	type ClickEffectStyle,
+	drawClickRippleOnGraphics,
+	getClickRippleVisual,
+} from "@/lib/cursor/clickRipple";
+import {
+	type CursorBackdropStyle,
+	drawCursorBackdropOnGraphics,
+	getCursorBackdropVisual,
+} from "@/lib/cursor/cursorBackdrop";
 import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
+	cursorIsAlreadyInThePicture,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
 	getNativeCursorClickRippleProgress,
@@ -156,6 +166,19 @@ export interface VideoPlaybackProps {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClickRipple?: number;
+	cursorClickStyle?: ClickEffectStyle;
+	cursorClickColor?: string;
+	cursorBackdropStyle?: CursorBackdropStyle;
+	cursorBackdropColor?: string;
+	cursorBackdropOpacity?: number;
+	cursorBackdropSize?: number;
+	/**
+	 * Whether the click effect and the highlight may be drawn.
+	 *
+	 * Separate from `showCursor`: a take whose own pointer is in the picture gets
+	 * marks but no cursor of ours, and the marks only ever needed a position.
+	 */
+	cursorMarksEnabled?: boolean;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
 	// Render the selected zoom at the playhead even while paused, so the editor can
@@ -295,6 +318,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
 			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 			cursorClickRipple = DEFAULT_CURSOR_SETTINGS.clickRipple,
+			cursorClickStyle = DEFAULT_CURSOR_SETTINGS.clickStyle,
+			cursorClickColor = DEFAULT_CURSOR_SETTINGS.clickColor,
+			cursorBackdropStyle = DEFAULT_CURSOR_SETTINGS.backdropStyle,
+			cursorBackdropColor = DEFAULT_CURSOR_SETTINGS.backdropColor,
+			cursorBackdropOpacity = DEFAULT_CURSOR_SETTINGS.backdropOpacity,
+			cursorBackdropSize = DEFAULT_CURSOR_SETTINGS.backdropSize,
+			cursorMarksEnabled = true,
 			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
 			isPreviewingZoom = false,
@@ -380,6 +410,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorMotionBlurRef = useRef(cursorMotionBlur);
 		const cursorClickBounceRef = useRef(cursorClickBounce);
 		const cursorClickRippleRef = useRef(cursorClickRipple);
+		const cursorClickStyleRef = useRef(cursorClickStyle);
+		const cursorClickColorRef = useRef(cursorClickColor);
+		const cursorBackdropStyleRef = useRef(cursorBackdropStyle);
+		const cursorBackdropColorRef = useRef(cursorBackdropColor);
+		const cursorBackdropOpacityRef = useRef(cursorBackdropOpacity);
+		const cursorBackdropSizeRef = useRef(cursorBackdropSize);
+		const cursorMarksEnabledRef = useRef(cursorMarksEnabled);
 		const cursorClipToBoundsRef = useRef(cursorClipToBounds);
 		const cursorThemeRef = useRef(cursorTheme);
 		const isPreviewingZoomRef = useRef(isPreviewingZoom);
@@ -394,6 +431,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const lastResolvedDurationRef = useRef<number | null>(null);
 		const isResolvingDurationRef = useRef(false);
 		const hasNativeCursorRecordingRef = useRef(false);
+		/** The take's own cursor is in the video, so we must not draw another. */
+		const cursorInPictureRef = useRef(false);
 		const cursorRecordingDataRef = useRef(cursorRecordingData);
 		const cropRegionRef = useRef(cropRegion);
 		const nativeCursorSpriteRef = useRef<Sprite | null>(null);
@@ -871,6 +910,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [hasNativeCursorRecording]);
 
 		useEffect(() => {
+			cursorInPictureRef.current = cursorIsAlreadyInThePicture(cursorRecordingData);
+		}, [cursorRecordingData]);
+
+		useEffect(() => {
 			cursorRecordingDataRef.current = cursorRecordingData;
 			resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 		}, [cursorRecordingData]);
@@ -897,7 +940,23 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			cursorClickRippleRef.current = cursorClickRipple;
-		}, [cursorClickRipple]);
+			cursorClickStyleRef.current = cursorClickStyle;
+			cursorClickColorRef.current = cursorClickColor;
+			cursorBackdropStyleRef.current = cursorBackdropStyle;
+			cursorBackdropColorRef.current = cursorBackdropColor;
+			cursorBackdropOpacityRef.current = cursorBackdropOpacity;
+			cursorBackdropSizeRef.current = cursorBackdropSize;
+			cursorMarksEnabledRef.current = cursorMarksEnabled;
+		}, [
+			cursorMarksEnabled,
+			cursorClickRipple,
+			cursorClickStyle,
+			cursorClickColor,
+			cursorBackdropStyle,
+			cursorBackdropColor,
+			cursorBackdropOpacity,
+			cursorBackdropSize,
+		]);
 
 		useEffect(() => {
 			cursorClipToBoundsRef.current = cursorClipToBounds;
@@ -934,8 +993,27 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			overlay.setMotionBlur(cursorMotionBlur);
 			overlay.setClickBounce(cursorClickBounce);
 			overlay.setClickRipple(cursorClickRipple);
+			overlay.setClickEffect(cursorClickStyle, cursorClickColor);
+			overlay.setBackdrop(
+				cursorBackdropStyle,
+				cursorBackdropColor,
+				cursorBackdropOpacity,
+				cursorBackdropSize,
+			);
 			overlay.reset();
-		}, [cursorSize, cursorSmoothing, cursorMotionBlur, cursorClickBounce, cursorClickRipple]);
+		}, [
+			cursorSize,
+			cursorSmoothing,
+			cursorMotionBlur,
+			cursorClickBounce,
+			cursorClickRipple,
+			cursorClickStyle,
+			cursorClickColor,
+			cursorBackdropStyle,
+			cursorBackdropColor,
+			cursorBackdropOpacity,
+			cursorBackdropSize,
+		]);
 
 		useEffect(() => {
 			onTimeUpdateRef.current = onTimeUpdate;
@@ -1109,6 +1187,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						motionBlur: cursorMotionBlurRef.current,
 						clickBounce: cursorClickBounceRef.current,
 						clickRipple: cursorClickRippleRef.current,
+						clickStyle: cursorClickStyleRef.current,
+						clickColor: cursorClickColorRef.current,
+						backdropStyle: cursorBackdropStyleRef.current,
+						backdropColor: cursorBackdropColorRef.current,
+						backdropOpacity: cursorBackdropOpacityRef.current,
+						backdropSize: cursorBackdropSizeRef.current,
 					});
 					cursorOverlayRef.current = cursorOverlay;
 				}
@@ -1642,8 +1726,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						cursorTelemetryRef.current,
 						timeMs,
 						baseMaskRef.current,
-						showCursorRef.current && !hasNativeCursorRecordingRef.current,
+						(showCursorRef.current || cursorMarksEnabledRef.current) &&
+							!hasNativeCursorRecordingRef.current,
 						!isPlayingRef.current || isSeekingRef.current,
+						showCursorRef.current && !cursorInPictureRef.current,
 					);
 				}
 
@@ -1665,7 +1751,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 				};
 				if (nativeCursorImage) {
-					if (hasNativeCursorRecordingRef.current && showCursorRef.current) {
+					if (
+						hasNativeCursorRecordingRef.current &&
+						(showCursorRef.current || cursorMarksEnabledRef.current)
+					) {
 						const timeMs = currentTimeRef.current; // already in ms
 						const frame = resolveInterpolatedNativeCursorFrame(
 							cursorRecordingDataRef.current,
@@ -1678,9 +1767,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								cursorRecordingDataRef.current,
 								cursorSmoothingRef.current,
 							)?.sampleAt(timeMs);
-							const displaySample = smoothedPos
-								? { ...frame.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
-								: frame.sample;
+							// Smoothing is a low-pass filter, so it lags — harmless when it moves the
+							// cursor and its marks together, and obvious when the cursor on screen is
+							// the one baked into the video and only the marks are ours. Then the raw
+							// position is the only one that lines up with what the viewer sees.
+							const drawsOwnCursor = showCursorRef.current;
+							const displaySample =
+								smoothedPos && drawsOwnCursor
+									? { ...frame.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
+									: frame.sample;
 							const cameraContainer = cameraContainerRef.current;
 							const videoContainer = videoContainerRef.current;
 							const cropRegionValue = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };
@@ -1738,7 +1833,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									nativeCursorImage.src = renderAsset.imageDataUrl;
 									nativeCursorImageIdRef.current = renderAsset.id;
 								}
-								nativeCursorImage.style.display = "block";
+								nativeCursorImage.style.display = showCursorRef.current ? "block" : "none";
 								// Clip to the camera-aware video boundary. Works here because nativeCursorClipRef
 								// sits outside preserve-3d. When cursorClipToBounds is off, let the cursor overflow.
 								if (nativeCursorClipRef.current) {
@@ -1781,22 +1876,39 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									nativeCursorSprite.height = renderAsset.height * scale;
 								}
 								const rippleGraphics = nativeClickRippleGraphicsRef.current;
-								if (rippleGraphics) {
+								if (rippleGraphics && cursorMarksEnabledRef.current) {
+									// Local-space cursor height without the bounce scale, so neither mark
+									// pulses with the cursor; the camera transform is inherited.
+									const markHeight =
+										renderAsset.height * Math.max(0, cursorSizeRef.current) * sizeNorm;
+									const backdropVisual = getCursorBackdropVisual(
+										cursorBackdropStyleRef.current,
+										cursorBackdropOpacityRef.current,
+										cursorBackdropSizeRef.current,
+									);
+									if (backdropVisual) {
+										drawCursorBackdropOnGraphics(
+											rippleGraphics,
+											projectedLocalPoint.x,
+											projectedLocalPoint.y,
+											markHeight,
+											backdropVisual,
+											cursorBackdropColorRef.current,
+										);
+									}
 									const rippleVisual = getClickRippleVisual(
 										getNativeCursorClickRippleProgress(cursorRecordingDataRef.current, timeMs),
 										cursorClickRippleRef.current,
+										cursorClickStyleRef.current,
 									);
 									if (rippleVisual) {
-										// Local-space cursor height without the bounce scale, so the ring
-										// doesn't pulse with the cursor; the camera transform is inherited.
-										const cursorLocalHeight =
-											renderAsset.height * Math.max(0, cursorSizeRef.current) * sizeNorm;
 										drawClickRippleOnGraphics(
 											rippleGraphics,
 											projectedLocalPoint.x,
 											projectedLocalPoint.y,
-											cursorLocalHeight,
+											markHeight,
 											rippleVisual,
+											cursorClickColorRef.current,
 										);
 									}
 								}

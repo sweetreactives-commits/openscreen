@@ -224,7 +224,21 @@
 		"clickBounce": "クリックバウンス",
 		"clickRipple": "クリックリップル",
 		"clipToBounds": "キャンバスにクリップ",
-		"clipToBoundsDescription": "カーソルを映像の枠内に収めます。オフにすると枠の外まではみ出せます。ズームやパンのときに便利です。"
+		"clipToBoundsDescription": "カーソルを映像の枠内に収めます。オフにすると枠の外まではみ出せます。ズームやパンのときに便利です。",
+		"effectColor": "エフェクトの色",
+		"clickStyle": {
+			"ring": "リング",
+			"pulse": "塗り",
+			"echo": "エコー"
+		},
+		"backdrop": {
+			"title": "カーソル強調",
+			"none": "なし",
+			"circle": "円",
+			"glow": "グロー",
+			"opacity": "不透明度",
+			"size": "サイズ"
+		}
 	},
 	"language": {
 		"title": "言語"

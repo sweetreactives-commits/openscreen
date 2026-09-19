@@ -22,6 +22,8 @@ import {
 	DEFAULT_WEBCAM_MIRRORED,
 	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 } from "@/components/video-editor/types";
+import type { ClickEffectStyle } from "@/lib/cursor/clickRipple";
+import type { CursorBackdropStyle } from "@/lib/cursor/cursorBackdrop";
 import { SINGLE_CLIP_ID } from "@/lib/sequence";
 import {
 	DEFAULT_SILENCE_MIN_PAUSE_MS,
@@ -94,6 +96,12 @@ export interface EditorState {
 	cursorMotionBlur: number;
 	cursorClickBounce: number;
 	cursorClickRipple: number;
+	cursorClickStyle: ClickEffectStyle;
+	cursorClickColor: string;
+	cursorBackdropStyle: CursorBackdropStyle;
+	cursorBackdropColor: string;
+	cursorBackdropOpacity: number;
+	cursorBackdropSize: number;
 	cursorClipToBounds: boolean;
 	cursorTheme: string;
 }
@@ -135,6 +143,12 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	cursorMotionBlur: DEFAULT_CURSOR_SETTINGS.motionBlur,
 	cursorClickBounce: DEFAULT_CURSOR_SETTINGS.clickBounce,
 	cursorClickRipple: DEFAULT_CURSOR_SETTINGS.clickRipple,
+	cursorClickStyle: DEFAULT_CURSOR_SETTINGS.clickStyle,
+	cursorClickColor: DEFAULT_CURSOR_SETTINGS.clickColor,
+	cursorBackdropStyle: DEFAULT_CURSOR_SETTINGS.backdropStyle,
+	cursorBackdropColor: DEFAULT_CURSOR_SETTINGS.backdropColor,
+	cursorBackdropOpacity: DEFAULT_CURSOR_SETTINGS.backdropOpacity,
+	cursorBackdropSize: DEFAULT_CURSOR_SETTINGS.backdropSize,
 	cursorClipToBounds: DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	cursorTheme: DEFAULT_CURSOR_SETTINGS.theme,
 };

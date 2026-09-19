@@ -44,6 +44,13 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getAssetPath } from "@/lib/assetPath";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
+import { CLICK_EFFECT_STYLES, type ClickEffectStyle } from "@/lib/cursor/clickRipple";
+import {
+	CURSOR_BACKDROP_STYLES,
+	type CursorBackdropStyle,
+	MAX_CURSOR_BACKDROP_SIZE,
+	MIN_CURSOR_BACKDROP_SIZE,
+} from "@/lib/cursor/cursorBackdrop";
 import { CURSOR_THEMES, DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import {
@@ -64,6 +71,7 @@ import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import ColorPicker from "../ui/color-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
@@ -169,6 +177,100 @@ function CustomSpeedInput({
 				className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-[#d97706] text-center focus:outline-none focus:border-[#d97706]/40"
 			/>
 			<span className="text-[11px] font-semibold text-slate-500">×</span>
+		</div>
+	);
+}
+
+/**
+ * The colours worth offering for a cursor mark.
+ *
+ * A mark competes with whatever is under it, so the useful range is bright and
+ * saturated. White stays first because it is the default and reads on almost
+ * anything once the dark contrast pass is drawn under it.
+ */
+const CURSOR_EFFECT_PALETTE = [
+	"#FFFFFF",
+	"#34B27B",
+	"#FFD700",
+	"#FF6B00",
+	"#FF3B30",
+	"#E91E63",
+	"#9B59B6",
+	"#0A84FF",
+	"#00BCD4",
+	"#000000",
+];
+
+/** One option in a cursor-mark row: the style pickers are all this shape. */
+function CursorMarkButton({
+	label,
+	active,
+	onClick,
+}: {
+	label: string;
+	active: boolean;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-pressed={active}
+			className={cn(
+				"h-7 w-full rounded-lg border px-1 text-[10px] font-semibold capitalize transition-all duration-150 ease-out cursor-pointer",
+				active
+					? "border-[#34B27B]/60 bg-[#34B27B] text-white"
+					: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
+			)}
+		>
+			{label}
+		</button>
+	);
+}
+
+/** A swatch that opens the same picker the annotations use. */
+function CursorColorField({
+	label,
+	color,
+	palette,
+	translations,
+	onChange,
+}: {
+	label: string;
+	color: string;
+	palette: string[];
+	translations: Record<"colorWheel" | "colorPalette", string>;
+	onChange: (color: string) => void;
+}) {
+	return (
+		<div className="flex items-center justify-between gap-2">
+			<span className="text-[10px] font-medium text-slate-300">{label}</span>
+			<Popover>
+				<PopoverTrigger asChild>
+					<button
+						type="button"
+						aria-label={label}
+						className="flex h-6 items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-1.5 transition-colors hover:bg-white/10 cursor-pointer"
+					>
+						<span
+							className="h-3 w-3 rounded-full border border-white/25"
+							style={{ backgroundColor: color }}
+						/>
+						<span className="font-mono text-[10px] text-slate-400">{color.toUpperCase()}</span>
+					</button>
+				</PopoverTrigger>
+				<PopoverContent
+					side="top"
+					className="w-[260px] rounded-xl border border-white/10 bg-[#1a1a1c] p-3 shadow-xl"
+				>
+					<ColorPicker
+						selectedColor={color}
+						colorPalette={palette}
+						translations={translations}
+						onUpdateColor={onChange}
+					/>
+				</PopoverContent>
+			</Popover>
 		</div>
 	);
 }
@@ -364,6 +466,20 @@ interface SettingsPanelProps {
 	onCursorClickBounceChange?: (bounce: number) => void;
 	onCursorClickBounceCommit?: () => void;
 	cursorClickRipple?: number;
+	cursorClickStyle?: ClickEffectStyle;
+	onCursorClickStyleChange?: (style: ClickEffectStyle) => void;
+	cursorClickColor?: string;
+	onCursorClickColorChange?: (color: string) => void;
+	cursorBackdropStyle?: CursorBackdropStyle;
+	onCursorBackdropStyleChange?: (style: CursorBackdropStyle) => void;
+	cursorBackdropColor?: string;
+	onCursorBackdropColorChange?: (color: string) => void;
+	cursorBackdropOpacity?: number;
+	cursorBackdropSize?: number;
+	onCursorBackdropOpacityChange?: (value: number) => void;
+	onCursorBackdropOpacityCommit?: () => void;
+	onCursorBackdropSizeChange?: (value: number) => void;
+	onCursorBackdropSizeCommit?: () => void;
 	onCursorClickRippleChange?: (ripple: number) => void;
 	onCursorClickRippleCommit?: () => void;
 	cursorClipToBounds?: boolean;
@@ -372,6 +488,11 @@ interface SettingsPanelProps {
 	onCursorThemeChange?: (theme: string) => void;
 	hasCursorData?: boolean;
 	showCursorSettings?: boolean;
+	/**
+	 * Whether this take's cursor is OpenScreen's to draw, and so worth dressing.
+	 * False leaves only the marks — they go around whatever cursor is in the video.
+	 */
+	canEditCursorLook?: boolean;
 }
 
 export default SettingsPanel;
@@ -512,6 +633,20 @@ export function SettingsPanel({
 	onCursorClickBounceChange,
 	onCursorClickBounceCommit,
 	cursorClickRipple = DEFAULT_CURSOR_SETTINGS.clickRipple,
+	cursorClickStyle = DEFAULT_CURSOR_SETTINGS.clickStyle,
+	onCursorClickStyleChange,
+	cursorClickColor = DEFAULT_CURSOR_SETTINGS.clickColor,
+	onCursorClickColorChange,
+	cursorBackdropStyle = DEFAULT_CURSOR_SETTINGS.backdropStyle,
+	onCursorBackdropStyleChange,
+	cursorBackdropColor = DEFAULT_CURSOR_SETTINGS.backdropColor,
+	onCursorBackdropColorChange,
+	cursorBackdropOpacity = DEFAULT_CURSOR_SETTINGS.backdropOpacity,
+	onCursorBackdropOpacityChange,
+	cursorBackdropSize = DEFAULT_CURSOR_SETTINGS.backdropSize,
+	onCursorBackdropSizeChange,
+	onCursorBackdropSizeCommit,
+	onCursorBackdropOpacityCommit,
 	onCursorClickRippleChange,
 	onCursorClickRippleCommit,
 	cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
@@ -520,6 +655,7 @@ export function SettingsPanel({
 	onCursorThemeChange,
 	hasCursorData = false,
 	showCursorSettings = true,
+	canEditCursorLook = true,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
@@ -1635,153 +1771,169 @@ export function SettingsPanel({
 
 										{activePanelMode === "cursor" && showCursorSettings && hasCursorData && (
 											<div className="p-2 rounded-lg editor-control-surface mt-2 space-y-3">
-												<div className="flex items-center justify-between">
-													<div className="text-[10px] font-medium text-slate-300">
-														{t("cursor.show")}
-													</div>
-													<Switch
-														checked={showCursor}
-														onCheckedChange={onShowCursorChange}
-														className="data-[state=checked]:bg-[#34B27B] scale-90"
-													/>
-												</div>
-												{showCursor && (
-													<>
-														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
-																<span>{t("cursor.clipToBounds")}</span>
-																<Tooltip
-																	content={t("cursor.clipToBoundsDescription")}
-																	className="max-w-[220px] leading-snug whitespace-normal"
-																>
-																	<button
-																		type="button"
-																		className="text-slate-400 transition-colors hover:text-slate-200"
-																		aria-label={t("cursor.clipToBoundsDescription")}
-																	>
-																		<Info size={11} />
-																	</button>
-																</Tooltip>
-															</div>
-															<Switch
-																checked={cursorClipToBounds}
-																onCheckedChange={onCursorClipToBoundsChange}
-																className="data-[state=checked]:bg-[#34B27B] scale-90"
-																aria-label={t("cursor.clipToBounds")}
-															/>
+												{canEditCursorLook && (
+													<div className="flex items-center justify-between">
+														<div className="text-[10px] font-medium text-slate-300">
+															{t("cursor.show")}
 														</div>
-														{cursorThemeOptions.length > 1 && (
-															<div className="space-y-1.5">
-																<div className="text-[10px] font-medium text-slate-300">
-																	{t("cursor.theme")}
-																</div>
-																<div className="flex flex-wrap gap-1.5">
-																	{cursorThemeOptions.map((option) => {
-																		const isSelected = cursorTheme === option.id;
-																		return (
+														<Switch
+															checked={showCursor}
+															onCheckedChange={onShowCursorChange}
+															className="data-[state=checked]:bg-[#34B27B] scale-90"
+														/>
+													</div>
+												)}
+												{(showCursor || !canEditCursorLook) && (
+													<>
+														{canEditCursorLook && (
+															<>
+																<div className="flex items-center justify-between">
+																	<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
+																		<span>{t("cursor.clipToBounds")}</span>
+																		<Tooltip
+																			content={t("cursor.clipToBoundsDescription")}
+																			className="max-w-[220px] leading-snug whitespace-normal"
+																		>
 																			<button
 																				type="button"
-																				key={option.id}
-																				title={option.name}
-																				aria-label={option.name}
-																				aria-pressed={isSelected}
-																				onClick={() => onCursorThemeChange?.(option.id)}
-																				className={cn(
-																					"flex items-center justify-center w-8 h-8 rounded-lg border overflow-hidden transition-all duration-150 shadow-sm bg-white/5",
-																					isSelected
-																						? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																						: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100",
-																				)}
+																				className="text-slate-400 transition-colors hover:text-slate-200"
+																				aria-label={t("cursor.clipToBoundsDescription")}
 																			>
-																				<img
-																					src={option.previewUrl}
-																					alt=""
-																					className="w-5 h-5 object-contain"
-																					draggable={false}
-																				/>
+																				<Info size={11} />
 																			</button>
-																		);
-																	})}
+																		</Tooltip>
+																	</div>
+																	<Switch
+																		checked={cursorClipToBounds}
+																		onCheckedChange={onCursorClipToBoundsChange}
+																		className="data-[state=checked]:bg-[#34B27B] scale-90"
+																		aria-label={t("cursor.clipToBounds")}
+																	/>
 																</div>
-															</div>
+																{cursorThemeOptions.length > 1 && (
+																	<div className="space-y-1.5">
+																		<div className="text-[10px] font-medium text-slate-300">
+																			{t("cursor.theme")}
+																		</div>
+																		<div className="flex flex-wrap gap-1.5">
+																			{cursorThemeOptions.map((option) => {
+																				const isSelected = cursorTheme === option.id;
+																				return (
+																					<button
+																						type="button"
+																						key={option.id}
+																						title={option.name}
+																						aria-label={option.name}
+																						aria-pressed={isSelected}
+																						onClick={() => onCursorThemeChange?.(option.id)}
+																						className={cn(
+																							"flex items-center justify-center w-8 h-8 rounded-lg border overflow-hidden transition-all duration-150 shadow-sm bg-white/5",
+																							isSelected
+																								? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
+																								: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100",
+																						)}
+																					>
+																						<img
+																							src={option.previewUrl}
+																							alt=""
+																							className="w-5 h-5 object-contain"
+																							draggable={false}
+																						/>
+																					</button>
+																				);
+																			})}
+																		</div>
+																	</div>
+																)}
+															</>
 														)}
-														<div className="grid grid-cols-2 gap-2">
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.size")}
+														<div className="flex flex-col gap-2">
+															{canEditCursorLook && (
+																<>
+																	<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																		<div className="flex items-center justify-between mb-1">
+																			<div className="text-[10px] font-medium text-slate-300">
+																				{t("cursor.size")}
+																			</div>
+																			<span className="text-[10px] text-slate-500 font-mono">
+																				{cursorSize.toFixed(1)}
+																			</span>
+																		</div>
+																		<Slider
+																			value={[cursorSize]}
+																			onValueChange={(values) => onCursorSizeChange?.(values[0])}
+																			onValueCommit={() => onCursorSizeCommit?.()}
+																			min={MIN_CURSOR_SIZE}
+																			max={MAX_CURSOR_SIZE}
+																			step={0.1}
+																			className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																		/>
 																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{cursorSize.toFixed(1)}
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorSize]}
-																	onValueChange={(values) => onCursorSizeChange?.(values[0])}
-																	onValueCommit={() => onCursorSizeCommit?.()}
-																	min={MIN_CURSOR_SIZE}
-																	max={MAX_CURSOR_SIZE}
-																	step={0.1}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.smoothing")}
+																	<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																		<div className="flex items-center justify-between mb-1">
+																			<div className="text-[10px] font-medium text-slate-300">
+																				{t("cursor.smoothing")}
+																			</div>
+																			<span className="text-[10px] text-slate-500 font-mono">
+																				{Math.round(cursorSmoothing * 100)}%
+																			</span>
+																		</div>
+																		<Slider
+																			value={[cursorSmoothing]}
+																			onValueChange={(values) =>
+																				onCursorSmoothingChange?.(values[0])
+																			}
+																			onValueCommit={() => onCursorSmoothingCommit?.()}
+																			min={0}
+																			max={1}
+																			step={0.01}
+																			className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																		/>
 																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{Math.round(cursorSmoothing * 100)}%
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorSmoothing]}
-																	onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
-																	onValueCommit={() => onCursorSmoothingCommit?.()}
-																	min={0}
-																	max={1}
-																	step={0.01}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.motionBlur")}
+																	<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																		<div className="flex items-center justify-between mb-1">
+																			<div className="text-[10px] font-medium text-slate-300">
+																				{t("cursor.motionBlur")}
+																			</div>
+																			<span className="text-[10px] text-slate-500 font-mono">
+																				{Math.round(cursorMotionBlur * 100)}%
+																			</span>
+																		</div>
+																		<Slider
+																			value={[cursorMotionBlur]}
+																			onValueChange={(values) =>
+																				onCursorMotionBlurChange?.(values[0])
+																			}
+																			onValueCommit={() => onCursorMotionBlurCommit?.()}
+																			min={0}
+																			max={1}
+																			step={0.01}
+																			className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																		/>
 																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{Math.round(cursorMotionBlur * 100)}%
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorMotionBlur]}
-																	onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
-																	onValueCommit={() => onCursorMotionBlurCommit?.()}
-																	min={0}
-																	max={1}
-																	step={0.01}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.clickBounce")}
+																	<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																		<div className="flex items-center justify-between mb-1">
+																			<div className="text-[10px] font-medium text-slate-300">
+																				{t("cursor.clickBounce")}
+																			</div>
+																			<span className="text-[10px] text-slate-500 font-mono">
+																				{cursorClickBounce.toFixed(1)}
+																			</span>
+																		</div>
+																		<Slider
+																			value={[cursorClickBounce]}
+																			onValueChange={(values) =>
+																				onCursorClickBounceChange?.(values[0])
+																			}
+																			onValueCommit={() => onCursorClickBounceCommit?.()}
+																			min={0}
+																			max={MAX_CURSOR_CLICK_BOUNCE}
+																			step={0.1}
+																			className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																		/>
 																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{cursorClickBounce.toFixed(1)}
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorClickBounce]}
-																	onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
-																	onValueCommit={() => onCursorClickBounceCommit?.()}
-																	min={0}
-																	max={MAX_CURSOR_CLICK_BOUNCE}
-																	step={0.1}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
+																</>
+															)}
 															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
 																<div className="flex items-center justify-between mb-1">
 																	<div className="text-[10px] font-medium text-slate-300">
@@ -1800,6 +1952,101 @@ export function SettingsPanel({
 																	step={0.01}
 																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 																/>
+																{cursorClickRipple > 0 && (
+																	<div className="mt-2 space-y-1.5">
+																		<div className="grid grid-cols-3 gap-1.5">
+																			{CLICK_EFFECT_STYLES.map((style) => (
+																				<CursorMarkButton
+																					key={style}
+																					label={t(`cursor.clickStyle.${style}`)}
+																					active={cursorClickStyle === style}
+																					onClick={() => onCursorClickStyleChange?.(style)}
+																				/>
+																			))}
+																		</div>
+																		<CursorColorField
+																			label={t("cursor.effectColor")}
+																			color={cursorClickColor}
+																			palette={CURSOR_EFFECT_PALETTE}
+																			translations={{
+																				colorWheel: t("annotation.colorWheel"),
+																				colorPalette: t("annotation.colorPalette"),
+																			}}
+																			onChange={(color) => onCursorClickColorChange?.(color)}
+																		/>
+																	</div>
+																)}
+															</div>
+															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																<div className="text-[10px] font-medium text-slate-300 mb-1">
+																	{t("cursor.backdrop.title")}
+																</div>
+																<div className="grid grid-cols-3 gap-1.5">
+																	{CURSOR_BACKDROP_STYLES.map((style) => (
+																		<CursorMarkButton
+																			key={style}
+																			label={t(`cursor.backdrop.${style}`)}
+																			active={cursorBackdropStyle === style}
+																			onClick={() => onCursorBackdropStyleChange?.(style)}
+																		/>
+																	))}
+																</div>
+																{cursorBackdropStyle !== "none" && (
+																	<div className="mt-2 space-y-1.5">
+																		<CursorColorField
+																			label={t("cursor.effectColor")}
+																			color={cursorBackdropColor}
+																			palette={CURSOR_EFFECT_PALETTE}
+																			translations={{
+																				colorWheel: t("annotation.colorWheel"),
+																				colorPalette: t("annotation.colorPalette"),
+																			}}
+																			onChange={(color) => onCursorBackdropColorChange?.(color)}
+																		/>
+																		<div>
+																			<div className="flex items-center justify-between mb-1">
+																				<div className="text-[10px] font-medium text-slate-300">
+																					{t("cursor.backdrop.size")}
+																				</div>
+																				<span className="text-[10px] text-slate-500 font-mono">
+																					{Math.round(cursorBackdropSize * 100)}%
+																				</span>
+																			</div>
+																			<Slider
+																				value={[cursorBackdropSize]}
+																				onValueChange={(values) =>
+																					onCursorBackdropSizeChange?.(values[0])
+																				}
+																				onValueCommit={() => onCursorBackdropSizeCommit?.()}
+																				min={MIN_CURSOR_BACKDROP_SIZE}
+																				max={MAX_CURSOR_BACKDROP_SIZE}
+																				step={0.05}
+																				className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																			/>
+																		</div>
+																		<div>
+																			<div className="flex items-center justify-between mb-1">
+																				<div className="text-[10px] font-medium text-slate-300">
+																					{t("cursor.backdrop.opacity")}
+																				</div>
+																				<span className="text-[10px] text-slate-500 font-mono">
+																					{Math.round(cursorBackdropOpacity * 100)}%
+																				</span>
+																			</div>
+																			<Slider
+																				value={[cursorBackdropOpacity]}
+																				onValueChange={(values) =>
+																					onCursorBackdropOpacityChange?.(values[0])
+																				}
+																				onValueCommit={() => onCursorBackdropOpacityCommit?.()}
+																				min={0}
+																				max={1}
+																				step={0.01}
+																				className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																			/>
+																		</div>
+																	</div>
+																)}
 															</div>
 														</div>
 													</>

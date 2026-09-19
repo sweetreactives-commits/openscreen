@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NativeCursorAsset } from "@/native/contracts";
 import {
+	cursorIsAlreadyInThePicture,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
 	hasNativeCursorRecordingData,
@@ -215,5 +216,37 @@ describe("custom cursor themes", () => {
 		);
 
 		expect(rendered.id).toBe("pretty:text");
+	});
+});
+
+/**
+ * Sampled data is the fallback the recorder writes when the platform cursor
+ * helper will not start — a path that never strips the system cursor, so
+ * anything that would draw one of our own has to know to stand down.
+ */
+describe("cursor already in the picture", () => {
+	const sampled = {
+		version: 2,
+		provider: "sampled" as const,
+		assets: [],
+		samples: [{ timeMs: 0, cx: 0.5, cy: 0.5 }],
+	};
+
+	it("is true for sampled positions", () => {
+		expect(cursorIsAlreadyInThePicture(sampled)).toBe(true);
+	});
+
+	it("is false for a native recording, which had its cursor stripped", () => {
+		expect(cursorIsAlreadyInThePicture({ ...sampled, provider: "native" })).toBe(false);
+		expect(cursorIsAlreadyInThePicture({ ...sampled, provider: "none" })).toBe(false);
+	});
+
+	it("is false without samples or data", () => {
+		expect(cursorIsAlreadyInThePicture({ ...sampled, samples: [] })).toBe(false);
+		expect(cursorIsAlreadyInThePicture(null)).toBe(false);
+	});
+
+	it("does not pass for the gate the cursor overlay sits behind", () => {
+		expect(hasNativeCursorRecordingData(sampled)).toBe(false);
 	});
 });

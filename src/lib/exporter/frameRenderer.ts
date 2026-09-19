@@ -50,7 +50,22 @@ import {
 	type Size,
 	type StyledRenderRect,
 } from "@/lib/compositeLayout";
-import { drawClickRippleOnCanvas, getClickRippleVisual } from "@/lib/cursor/clickRipple";
+import {
+	type ClickEffectStyle,
+	DEFAULT_CLICK_EFFECT_COLOR,
+	DEFAULT_CLICK_EFFECT_STYLE,
+	drawClickRippleOnCanvas,
+	getClickRippleVisual,
+} from "@/lib/cursor/clickRipple";
+import {
+	type CursorBackdropStyle,
+	DEFAULT_CURSOR_BACKDROP_COLOR,
+	DEFAULT_CURSOR_BACKDROP_OPACITY,
+	DEFAULT_CURSOR_BACKDROP_SIZE,
+	DEFAULT_CURSOR_BACKDROP_STYLE,
+	drawCursorBackdropOnCanvas,
+	getCursorBackdropVisual,
+} from "@/lib/cursor/cursorBackdrop";
 import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
@@ -105,6 +120,19 @@ export interface FrameRenderConfig {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClickRipple?: number;
+	cursorClickStyle?: ClickEffectStyle;
+	cursorClickColor?: string;
+	cursorBackdropStyle?: CursorBackdropStyle;
+	cursorBackdropColor?: string;
+	cursorBackdropOpacity?: number;
+	cursorBackdropSize?: number;
+	/**
+	 * Whether the click effect and the highlight are drawn. Independent of
+	 * `cursorScale`, which goes to zero when the cursor itself is not ours to draw.
+	 */
+	cursorMarksEnabled?: boolean;
+	/** Size unit for the marks, for when the cursor is not drawn at all. */
+	cursorMarkScale?: number;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
 	videoWidth: number;
@@ -163,6 +191,10 @@ export type FrameClipContext = Pick<
 	| "cursorRecordingData"
 	| "cursorTelemetry"
 	| "cursorClickTimestamps"
+	// Per clip: a take whose own pointer is in the picture draws no cursor of ours,
+	// while the take beside it in the same sequence may well draw one.
+	| "cursorScale"
+	| "cursorMarksEnabled"
 	| "videoWidth"
 	| "videoHeight"
 	| "webcamSize"
@@ -741,7 +773,12 @@ export class FrameRenderer {
 			return;
 		}
 
-		if ((this.config.cursorScale ?? 1) <= 0) {
+		const spriteScale = Math.max(0, this.config.cursorScale ?? 1);
+		const marksEnabled = this.config.cursorMarksEnabled !== false;
+		const markScale = Math.max(0, this.config.cursorMarkScale ?? spriteScale);
+		// A take whose own pointer is in the picture draws no cursor of ours, and used
+		// to leave here — taking the click effect and the highlight with it.
+		if (spriteScale <= 0 && !(marksEnabled && markScale > 0)) {
 			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
 			return;
 		}
@@ -756,13 +793,18 @@ export class FrameRenderer {
 		}
 		// Position comes from the precomputed smoothed path (deterministic, matches preview);
 		// the frame still supplies the cursor image, type, and click timing.
+		//
+		// Except when the cursor on screen is not ours: smoothing lags, and marks that
+		// lag behind a pointer we did not draw trail visibly behind it. Same rule as
+		// the preview, or the export would disagree with what the editor showed.
 		const smoothedPos = getSmoothedCursorPath(
 			this.config.cursorRecordingData,
 			this.config.cursorSmoothing ?? 0,
 		)?.sampleAt(timeMs);
-		const displaySample = smoothedPos
-			? { ...activeNativeCursor.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
-			: activeNativeCursor.sample;
+		const displaySample =
+			smoothedPos && spriteScale > 0
+				? { ...activeNativeCursor.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
+				: activeNativeCursor.sample;
 
 		const projectedPoint = projectNativeCursorToLocal({
 			cropRegion: this.config.cropRegion,
@@ -788,7 +830,7 @@ export class FrameRenderer {
 			return;
 		}
 		const scale =
-			Math.max(0, this.config.cursorScale ?? 1) *
+			spriteScale *
 			getNativeCursorClickBounceScale(
 				this.config.cursorClickBounce ?? 0,
 				getNativeCursorClickBounceProgress(this.config.cursorRecordingData, timeMs),
@@ -808,11 +850,19 @@ export class FrameRenderer {
 			state: this.nativeCursorMotionBlurState,
 			timeMs,
 		});
+		const markCanvasHeight =
+			renderAsset.height * markScale * this.animationState.appliedScale * sizeNorm;
 		const rippleVisual = getClickRippleVisual(
 			getNativeCursorClickRippleProgress(this.config.cursorRecordingData, timeMs),
 			this.config.cursorClickRipple ?? 0,
+			this.config.cursorClickStyle ?? DEFAULT_CLICK_EFFECT_STYLE,
 		);
-		if (rippleVisual) {
+		const backdropVisual = getCursorBackdropVisual(
+			this.config.cursorBackdropStyle ?? DEFAULT_CURSOR_BACKDROP_STYLE,
+			this.config.cursorBackdropOpacity ?? DEFAULT_CURSOR_BACKDROP_OPACITY,
+			this.config.cursorBackdropSize ?? DEFAULT_CURSOR_BACKDROP_SIZE,
+		);
+		if (marksEnabled && (rippleVisual || backdropVisual)) {
 			// Matches the preview, where the ripple lives inside the masked video
 			// container: always clip the ring to the camera-aware video boundary.
 			const rippleClip = this.cameraAwareMaskRect();
@@ -828,16 +878,29 @@ export class FrameRenderer {
 				);
 				this.foregroundCtx.clip();
 			}
-			// Canvas-space cursor height without the bounce scale, so the ring doesn't pulse.
-			const cursorCanvasHeight =
-				renderAsset.height * Math.max(0, this.config.cursorScale ?? 1) * appliedScale * sizeNorm;
-			drawClickRippleOnCanvas(
-				this.foregroundCtx,
-				canvasX,
-				canvasY,
-				cursorCanvasHeight,
-				rippleVisual,
-			);
+			// Canvas-space cursor height without the bounce scale, so neither mark pulses.
+			const cursorCanvasHeight = markCanvasHeight;
+			// Same order as the preview: backdrop under the click mark, cursor over both.
+			if (backdropVisual) {
+				drawCursorBackdropOnCanvas(
+					this.foregroundCtx,
+					canvasX,
+					canvasY,
+					cursorCanvasHeight,
+					backdropVisual,
+					this.config.cursorBackdropColor ?? DEFAULT_CURSOR_BACKDROP_COLOR,
+				);
+			}
+			if (rippleVisual) {
+				drawClickRippleOnCanvas(
+					this.foregroundCtx,
+					canvasX,
+					canvasY,
+					cursorCanvasHeight,
+					rippleVisual,
+					this.config.cursorClickColor ?? DEFAULT_CLICK_EFFECT_COLOR,
+				);
+			}
 			this.foregroundCtx.restore();
 		}
 		// Clip only when explicitly enabled; by default the cursor may overflow the canvas
@@ -858,13 +921,15 @@ export class FrameRenderer {
 		if (blurPx > 0) {
 			this.foregroundCtx.filter = `blur(${blurPx.toFixed(2)}px)`;
 		}
-		this.foregroundCtx.drawImage(
-			image,
-			canvasX - renderAsset.hotspotX * scale * appliedScale * sizeNorm,
-			canvasY - renderAsset.hotspotY * scale * appliedScale * sizeNorm,
-			renderAsset.width * scale * appliedScale * sizeNorm,
-			renderAsset.height * scale * appliedScale * sizeNorm,
-		);
+		if (spriteScale > 0) {
+			this.foregroundCtx.drawImage(
+				image,
+				canvasX - renderAsset.hotspotX * scale * appliedScale * sizeNorm,
+				canvasY - renderAsset.hotspotY * scale * appliedScale * sizeNorm,
+				renderAsset.width * scale * appliedScale * sizeNorm,
+				renderAsset.height * scale * appliedScale * sizeNorm,
+			);
+		}
 		this.foregroundCtx.filter = previousFilter;
 		this.foregroundCtx.restore();
 	}

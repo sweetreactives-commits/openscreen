@@ -224,7 +224,21 @@
 		"clickBounce": "Rimbalzo clic",
 		"clickRipple": "Onda al clic",
 		"clipToBounds": "Ritaglia al canvas",
-		"clipToBoundsDescription": "Mantiene il cursore dentro il fotogramma. Disattivalo per lasciare che il cursore esca dai bordi: utile con zoom o panoramica."
+		"clipToBoundsDescription": "Mantiene il cursore dentro il fotogramma. Disattivalo per lasciare che il cursore esca dai bordi: utile con zoom o panoramica.",
+		"effectColor": "Colore dell'effetto",
+		"clickStyle": {
+			"ring": "Anello",
+			"pulse": "Disco",
+			"echo": "Eco"
+		},
+		"backdrop": {
+			"title": "Evidenzia cursore",
+			"none": "No",
+			"circle": "Disco",
+			"glow": "Bagliore",
+			"opacity": "Opacità",
+			"size": "Dimensione"
+		}
 	},
 	"language": {
 		"title": "Lingua"

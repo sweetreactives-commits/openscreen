@@ -69,6 +69,12 @@ export type SequenceLook = Pick<
 	| "cursorMotionBlur"
 	| "cursorClickBounce"
 	| "cursorClickRipple"
+	| "cursorClickStyle"
+	| "cursorClickColor"
+	| "cursorBackdropStyle"
+	| "cursorBackdropColor"
+	| "cursorBackdropOpacity"
+	| "cursorBackdropSize"
 	| "cursorClipToBounds"
 	| "cursorTheme"
 >;
@@ -657,7 +663,8 @@ export function SequencePreview({
 							cursorRecordingData={recording.cursorRecordingData}
 							cursorTelemetry={recording.cursorTelemetry}
 							cursorClickTimestamps={recording.cursorClickTimestamps}
-							showCursor={Boolean(look.showCursor && recording.cursorRecordingData)}
+							showCursor={Boolean(look.showCursor && recording.drawCursor)}
+							cursorMarksEnabled={Boolean(recording.cursorRecordingData?.samples.length)}
 							currentTime={sourceSeconds}
 							isPlaying={isPlaying}
 							onTimeUpdate={handleSourceTime}

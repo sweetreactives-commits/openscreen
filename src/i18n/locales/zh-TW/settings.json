@@ -214,7 +214,21 @@
 		"clickBounce": "點擊彈跳",
 		"clickRipple": "點擊波紋",
 		"clipToBounds": "裁切至畫布",
-		"clipToBoundsDescription": "把游標限制在畫面內。關閉後游標可以超出邊緣，在縮放或平移時很有用。"
+		"clipToBoundsDescription": "把游標限制在畫面內。關閉後游標可以超出邊緣，在縮放或平移時很有用。",
+		"effectColor": "效果顏色",
+		"clickStyle": {
+			"ring": "圓環",
+			"pulse": "填滿",
+			"echo": "回聲"
+		},
+		"backdrop": {
+			"title": "游標高亮",
+			"none": "關閉",
+			"circle": "圓點",
+			"glow": "光暈",
+			"opacity": "不透明度",
+			"size": "大小"
+		}
 	},
 	"language": {
 		"title": "語言"

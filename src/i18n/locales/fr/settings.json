@@ -224,7 +224,21 @@
 		"clickBounce": "Rebond au clic",
 		"clickRipple": "Onde au clic",
 		"clipToBounds": "Rogner au canevas",
-		"clipToBoundsDescription": "Garde le curseur à l’intérieur de l’image. Désactivez cette option pour laisser le curseur dépasser des bords — utile en zoom ou en panoramique."
+		"clipToBoundsDescription": "Garde le curseur à l’intérieur de l’image. Désactivez cette option pour laisser le curseur dépasser des bords — utile en zoom ou en panoramique.",
+		"effectColor": "Couleur de l'effet",
+		"clickStyle": {
+			"ring": "Anneau",
+			"pulse": "Disque",
+			"echo": "Écho"
+		},
+		"backdrop": {
+			"title": "Surbrillance du curseur",
+			"none": "Aucun",
+			"circle": "Disque",
+			"glow": "Halo",
+			"opacity": "Opacité",
+			"size": "Taille"
+		}
 	},
 	"language": {
 		"title": "Langue"
